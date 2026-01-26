@@ -6,7 +6,11 @@ Automatically render OpenCode TUI in VS Code sidebar with full terminal support.
 
 - **Auto-launch OpenCode**: Opens OpenCode automatically when the sidebar is activated
 - **Full TUI Support**: Complete terminal emulation with xterm.js and WebGL rendering
-- **Single Command**: Simple, focused experience for OpenCode interactions
+- **File References with Line Numbers**: Send file references with `@filename#L10-L20` syntax
+- **Keyboard Shortcuts**: Quick access with Cmd+Alt+L and Cmd+Alt+A
+- **Drag & Drop Support**: Hold Shift and drag files/folders to send as references
+- **Context Menu Integration**: Right-click files in Explorer or text in Editor to send to OpenCode
+- **Smart Git Commit Generation**: Automatically generates commit messages for staged or changed files
 - **Configurable**: Customize command, font, and terminal settings
 
 ## Installation
@@ -53,9 +57,36 @@ npx @vscode/vsce package
 
 ## Commands
 
+### Basic Commands
+
 - **OpenCode TUI: Start OpenCode** - Manually start OpenCode
 - **OpenCode TUI: Restart OpenCode** - Restart the OpenCode process
 - **OpenCode TUI: Clear Terminal** - Clear the terminal display
+
+### File Reference Commands
+
+- **Send File Reference** (`Cmd+Alt+L` / `Ctrl+Alt+L`) - Send current file with line numbers
+  - No selection: `@filename`
+  - Single line: `@filename#L10`
+  - Multiple lines: `@filename#L10-L20`
+- **Send All Open Files** (`Cmd+Alt+A` / `Ctrl+Alt+A`) - Send all open file references
+- **Send to OpenCode** - Send selected text or file from context menu
+
+### Context Menu Options
+
+- **Explorer**: Right-click any file or folder → "Send to OpenCode"
+- **Editor**: Right-click selected text → "Send to OpenCode Terminal"
+- **Editor**: Right-click anywhere → "Send File Reference (@file)"
+
+### Git Integration
+
+- **Generate Commit Message** - Click ✨ sparkle icon in Source Control toolbar
+  - Automatically detects staged vs unstaged files
+  - Uses `opencode run` to generate appropriate commit messages
+
+### Drag & Drop
+
+- Hold **Shift** and drag files/folders to the terminal to send as `@file` references
 
 ## Configuration
 
@@ -124,5 +155,6 @@ MIT
 ## Acknowledgments
 
 - Based on [vscode-sidebar-terminal](https://github.com/s-hiraoku/vscode-sidebar-terminal) by s-hiraoku
+- Development assisted by [Sisyphus](https://github.com/code-yeongyu/oh-my-opencode) from oh-my-opencode
 - Uses [xterm.js](https://github.com/xtermjs/xterm.js) for terminal emulation
 - Uses [node-pty](https://github.com/microsoft/node-pty) for PTY support
