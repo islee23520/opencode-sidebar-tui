@@ -11,6 +11,7 @@ const extensionConfig = {
   },
   externals: {
     vscode: "commonjs vscode",
+    "node-pty": "commonjs node-pty",
   },
   resolve: {
     extensions: [".ts", ".js"],

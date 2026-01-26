@@ -1,0 +1,29 @@
+# Development files
+.vscode/**
+.vscode-test/**
+.github/**
+src/**
+test/**
+out/**
+
+# Build configuration
+tsconfig.json
+webpack.config.js
+.gitignore
+.editorconfig
+.prettierrc
+.eslintrc*
+
+# Scripts
+dev-install.sh
+
+# Documentation
+*.md
+!README.md
+
+# Git
+.git/**
+.DS_Store
+
+# Dependencies are automatically included by vsce
+# node_modules/** is already handled by vsce (includes 'dependencies', excludes 'devDependencies')
