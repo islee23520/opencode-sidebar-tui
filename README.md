@@ -39,7 +39,7 @@ Or visit the [OpenVSX page](https://open-vsx.org/extension/ilseoblee/opencode-si
 1. Clone the repository:
 
 ```bash
-git clone ttps://github.com/islee23520/opencode-sidebar-tui.git
+git clone https://github.com/islee23520/opencode-sidebar-tui.git
 cd opencode-sidebar-tui
 ```
 
