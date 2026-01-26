@@ -154,10 +154,11 @@ echo "  1) Install in current VSCode (code --install-extension)"
 echo "  2) Launch Extension Development Host (F5 debug mode)"
 echo "  3) Both: Install + Launch Dev Host"
 echo "  4) Uninstall existing extension first"
-echo "  5) Skip installation (already installed)"
+echo "  5) Publish to VS Code Marketplace"
+echo "  6) Skip installation (already installed)"
 echo ""
 
-read -p "$(echo -e ${CYAN}"Select option [1-5]: "${NC})" choice
+read -p "$(echo -e ${CYAN}"Select option [1-6]: "${NC})" choice
 
 case $choice in
     1)
@@ -207,6 +208,72 @@ case $choice in
         exit 0
         ;;
     5)
+        print_header "Step 4: Publish to VS Code Marketplace"
+        echo ""
+        print_warning "Publishing requires a Personal Access Token (PAT)"
+        echo ""
+        echo "If you haven't set up publishing yet, see PUBLISHING.md for:"
+        echo "  1. Creating publisher account"
+        echo "  2. Generating PAT token"
+        echo "  3. Authentication steps"
+        echo ""
+        
+        if ! confirm "Do you have a PAT token ready?"; then
+            print_info "Please follow PUBLISHING.md to set up your PAT token first."
+            print_info "Then run this script again and select option 5."
+            exit 0
+        fi
+        
+        print_step "Checking vsce login status..."
+        if npx @vscode/vsce ls-publishers 2>&1 | grep -q "ilseoblee"; then
+            print_success "Already logged in as ilseoblee"
+        else
+            print_warning "Not logged in. Please authenticate..."
+            echo ""
+            print_step "Running: npx @vscode/vsce login ilseoblee"
+            echo ""
+            npx @vscode/vsce login ilseoblee
+            echo ""
+        fi
+        
+        echo ""
+        print_step "Choose publish type:"
+        echo "  1) Publish current version (0.1.0)"
+        echo "  2) Publish patch version (0.1.0 -> 0.1.1)"
+        echo "  3) Publish minor version (0.1.0 -> 0.2.0)"
+        echo "  4) Publish major version (0.1.0 -> 1.0.0)"
+        echo ""
+        read -p "$(echo -e ${CYAN}"Select publish type [1-4]: "${NC})" pub_choice
+        
+        case $pub_choice in
+            1)
+                print_step "Publishing version 0.1.0..."
+                npx @vscode/vsce publish
+                ;;
+            2)
+                print_step "Publishing patch version..."
+                npx @vscode/vsce publish patch
+                ;;
+            3)
+                print_step "Publishing minor version..."
+                npx @vscode/vsce publish minor
+                ;;
+            4)
+                print_step "Publishing major version..."
+                npx @vscode/vsce publish major
+                ;;
+            *)
+                print_error "Invalid option. Aborting publish."
+                exit 1
+                ;;
+        esac
+        
+        echo ""
+        print_success "Extension published successfully!"
+        print_info "Visit: https://marketplace.visualstudio.com/items?itemName=ilseoblee.opencode-sidebar-tui"
+        exit 0
+        ;;
+    6)
         print_info "Skipping installation"
         ;;
     *)
