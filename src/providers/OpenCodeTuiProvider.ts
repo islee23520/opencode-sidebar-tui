@@ -50,6 +50,12 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  public focus(): void {
+    if (this._view && this._view.webview) {
+      this._view.webview.postMessage({ command: "focusTerminal" });
+    }
+  }
+
   startOpenCode(): void {
     if (this.isStarted) {
       return;

@@ -143,6 +143,11 @@ window.addEventListener("message", (event) => {
         terminal.write("\r\n\x1b[31mOpenCode exited\x1b[0m\r\n");
       }
       break;
+    case "focusTerminal":
+      if (terminal) {
+        terminal.focus();
+      }
+      break;
   }
 });
 

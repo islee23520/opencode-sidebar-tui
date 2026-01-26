@@ -84,6 +84,10 @@ export class ExtensionLifecycle {
           const config = vscode.workspace.getConfiguration("opencodeTui");
           if (config.get<boolean>("autoFocusOnSend", true)) {
             vscode.commands.executeCommand("opencodeTui.focus");
+            // Also focus the terminal inside the webview
+            setTimeout(() => {
+              this.tuiProvider?.focus();
+            }, 100);
           }
 
           vscode.window.showInformationMessage("Sent to OpenCode");
@@ -104,6 +108,10 @@ export class ExtensionLifecycle {
           const config = vscode.workspace.getConfiguration("opencodeTui");
           if (config.get<boolean>("autoFocusOnSend", true)) {
             vscode.commands.executeCommand("opencodeTui.focus");
+            // Also focus the terminal inside the webview
+            setTimeout(() => {
+              this.tuiProvider?.focus();
+            }, 100);
           }
 
           vscode.window.showInformationMessage(`Sent ${fileRef}`);
@@ -129,6 +137,10 @@ export class ExtensionLifecycle {
           const config = vscode.workspace.getConfiguration("opencodeTui");
           if (config.get<boolean>("autoFocusOnSend", true)) {
             vscode.commands.executeCommand("opencodeTui.focus");
+            // Also focus the terminal inside the webview
+            setTimeout(() => {
+              this.tuiProvider?.focus();
+            }, 100);
           }
 
           vscode.window.showInformationMessage("Sent all open files");
@@ -148,6 +160,10 @@ export class ExtensionLifecycle {
           const config = vscode.workspace.getConfiguration("opencodeTui");
           if (config.get<boolean>("autoFocusOnSend", true)) {
             vscode.commands.executeCommand("opencodeTui.focus");
+            // Also focus the terminal inside the webview
+            setTimeout(() => {
+              this.tuiProvider?.focus();
+            }, 100);
           }
 
           vscode.window.showInformationMessage(`Sent ${fileRef}`);
