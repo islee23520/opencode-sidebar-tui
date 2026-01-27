@@ -87,14 +87,6 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this.isStarted = true;
   }
 
-  restartOpenCode(): void {
-    if (this.isStarted) {
-      this.terminalManager.killTerminal(this.terminalId);
-      this.isStarted = false;
-    }
-    setTimeout(() => this.startOpenCode(), 100);
-  }
-
   private handleMessage(message: any): void {
     switch (message.type) {
       case "terminalInput":
@@ -130,36 +122,103 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     column?: number,
   ): Promise<void> {
     try {
+      const normalizedPath = path.replace(/\\/g, "/");
+
       let uri: vscode.Uri;
+
       if (vscode.Uri.parse(path).scheme === "file") {
         uri = vscode.Uri.file(path);
-      } else if (path.startsWith("/")) {
-        uri = vscode.Uri.file(path);
+      } else if (normalizedPath.startsWith("/")) {
+        uri = vscode.Uri.file(normalizedPath);
       } else {
-        // Relative path
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (workspaceFolders && workspaceFolders.length > 0) {
-          uri = vscode.Uri.joinPath(workspaceFolders[0].uri, path);
+          uri = vscode.Uri.joinPath(workspaceFolders[0].uri, normalizedPath);
         } else {
-          uri = vscode.Uri.file(path);
+          uri = vscode.Uri.file(normalizedPath);
         }
       }
 
-      const selection = line
-        ? new vscode.Range(
-            Math.max(0, line - 1),
-            Math.max(0, (column || 1) - 1),
-            Math.max(0, line - 1),
-            Math.max(0, (column || 1) - 1),
-          )
-        : undefined;
+      try {
+        const selection = line
+          ? new vscode.Range(
+              Math.max(0, line - 1),
+              Math.max(0, (column || 1) - 1),
+              Math.max(0, line - 1),
+              Math.max(0, (column || 1) - 1),
+            )
+          : undefined;
 
-      await vscode.window.showTextDocument(uri, {
-        selection,
-        preview: true,
-      });
+        await vscode.window.showTextDocument(uri, {
+          selection,
+          preview: true,
+        });
+      } catch (openError) {
+        const matchedUri = await this.fuzzyMatchFile(normalizedPath);
+        if (matchedUri) {
+          const selection = line
+            ? new vscode.Range(
+                Math.max(0, line - 1),
+                Math.max(0, (column || 1) - 1),
+                Math.max(0, line - 1),
+                Math.max(0, (column || 1) - 1),
+              )
+            : undefined;
+
+          await vscode.window.showTextDocument(matchedUri, {
+            selection,
+            preview: true,
+          });
+        } else {
+          vscode.window.showErrorMessage(`Failed to open file: ${path}`);
+        }
+      }
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to open file: ${path}`);
+    }
+  }
+
+  private async fuzzyMatchFile(path: string): Promise<vscode.Uri | null> {
+    try {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        return null;
+      }
+
+      const pathParts = path.split("/").filter((part) => part.length > 0);
+      const filename = pathParts[pathParts.length - 1];
+
+      const pattern = `**/${filename}*`;
+      const files = await vscode.workspace.findFiles(pattern, null, 100);
+
+      files.sort((a, b) => {
+        const aPath = a.fsPath.toLowerCase();
+        const bPath = b.fsPath.toLowerCase();
+        const lowerPath = path.toLowerCase();
+
+        if (aPath.endsWith(lowerPath)) return -1;
+        if (bPath.endsWith(lowerPath)) return 1;
+
+        const aDirParts = a.fsPath.split("/");
+        const bDirParts = b.fsPath.split("/");
+
+        for (let i = 0; i < pathParts.length - 1; i++) {
+          const expectedPart = pathParts[i].toLowerCase();
+          if (aDirParts[i] && aDirParts[i].toLowerCase() === expectedPart) {
+            return -1;
+          }
+          if (bDirParts[i] && bDirParts[i].toLowerCase() === expectedPart) {
+            return 1;
+          }
+        }
+
+        return 0;
+      });
+
+      return files[0] || null;
+    } catch (error) {
+      console.error("Fuzzy match failed:", error);
+      return null;
     }
   }
 

@@ -52,14 +52,6 @@ export class ExtensionLifecycle {
       },
     );
 
-    // Restart OpenCode command
-    const restartCommand = vscode.commands.registerCommand(
-      "opencodeTui.restart",
-      () => {
-        this.tuiProvider?.restartOpenCode();
-      },
-    );
-
     // Send selected text to terminal
     const sendToTerminalCommand = vscode.commands.registerCommand(
       "opencodeTui.sendToTerminal",
@@ -165,7 +157,6 @@ export class ExtensionLifecycle {
 
     context.subscriptions.push(
       startCommand,
-      restartCommand,
       sendToTerminalCommand,
       sendAtMentionCommand,
       sendAllOpenFilesCommand,

@@ -59,12 +59,8 @@ function initTerminal(): void {
       const lineText = line.translateToString(true);
       const links: any[] = [];
 
-      // Regex patterns for file paths
-      // 1. Linux/Mac absolute paths: /Users/...
-      // 2. Windows absolute paths: C:\...
-      // 3. Relative paths: ./src/file.ts, ../file.ts, src/file.ts
       const pathRegex =
-        /(?:^|[\s"'])((\/|[A-Z]:\\|\.?\.?\/|[^\s"':\/]+\/)[^\s"']+(?::\d+(?::\d+)?)?)/g;
+        /(?:^|[\s"'])((file:\/\/|\/|[A-Z]:\\|\.?\.?\/|[^\s"':\/]+\/)[^\s"']+(?::\d+(?::\d+)?)?)/g;
 
       let match;
       while ((match = pathRegex.exec(lineText)) !== null) {
@@ -80,6 +76,18 @@ function initTerminal(): void {
         let path = pathWithPos;
         let lineNumber: number | undefined;
         let columnNumber: number | undefined;
+
+        if (path.startsWith("file://")) {
+          try {
+            const url = new URL(path);
+            path = decodeURIComponent(url.pathname);
+            if (url.hostname && !url.pathname.startsWith("/")) {
+              path = `${url.hostname}:${path}`;
+            }
+          } catch (e) {
+            console.error("Failed to parse file:// URL:", path, e);
+          }
+        }
 
         if (posMatch) {
           path = posMatch[1];

@@ -57,11 +57,6 @@
         "category": "OpenCode TUI"
       },
       {
-        "command": "opencodeTui.restart",
-        "title": "Restart OpenCode",
-        "category": "OpenCode TUI"
-      },
-      {
         "command": "opencodeTui.sendToTerminal",
         "title": "Send to OpenCode Terminal",
         "category": "OpenCode TUI"
