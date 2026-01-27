@@ -5,3 +5,12 @@ out/
 .vscode-test/
 .DS_Store
 *.log
+
+
+# opencode
+.opencode/
+.sisyphus/
+
+# claude
+.claude/
+.omc/
