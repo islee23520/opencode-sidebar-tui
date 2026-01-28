@@ -2,7 +2,7 @@
   "name": "opencode-sidebar-tui",
   "displayName": "OpenCode Sidebar TUI",
   "description": "Automatically render OpenCode TUI in VS Code sidebar with full terminal support",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "ilseoblee",
   "icon": "icon.png",
   "engines": {
@@ -21,7 +21,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ilseoblee/opencode-sidebar-tui"
+    "url": " https://github.com/islee23520/opencode-sidebar-tui"
   },
   "license": "MIT",
   "main": "./dist/extension.js",
