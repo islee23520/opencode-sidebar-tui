@@ -31,6 +31,13 @@ function initTerminal(): void {
     scrollback: 10000,
   });
 
+  terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
+    if (event.ctrlKey && (event.key === "c" || event.key === "z")) {
+      return false;
+    }
+    return true;
+  });
+
   fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(
