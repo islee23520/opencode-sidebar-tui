@@ -20,7 +20,7 @@ const extensionConfig = {
     rules: [
       {
         test: /\.ts$/,
-        exclude: /node_modules/,
+        exclude: [/node_modules/, /\.test\.ts$/, /src\/test\//],
         use: [
           {
             loader: "ts-loader",
@@ -54,7 +54,7 @@ const webviewConfig = {
     rules: [
       {
         test: /\.ts$/,
-        exclude: /node_modules/,
+        exclude: [/node_modules/, /\.test\.ts$/, /src\/test\//],
         use: [
           {
             loader: "ts-loader",

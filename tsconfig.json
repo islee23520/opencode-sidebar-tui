@@ -13,5 +13,13 @@
     "resolveJsonModule": true,
     "moduleResolution": "node"
   },
-  "exclude": ["node_modules", ".vscode-test", "out", "dist"]
+  "exclude": [
+    "node_modules",
+    ".vscode-test",
+    "out",
+    "dist",
+    "**/*.test.ts",
+    "src/test",
+    "vitest.config.ts"
+  ]
 }
