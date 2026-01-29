@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { OpenCodeTuiProvider } from "../providers/OpenCodeTuiProvider";
 import { TerminalManager } from "../terminals/TerminalManager";
+import { TerminalDiscoveryService } from "../services/TerminalDiscoveryService";
+import { OutputCaptureManager } from "../services/OutputCaptureManager";
 
 /**
  * Manages extension activation, service initialization, and cleanup.
@@ -8,6 +10,8 @@ import { TerminalManager } from "../terminals/TerminalManager";
 export class ExtensionLifecycle {
   private terminalManager: TerminalManager | undefined;
   private tuiProvider: OpenCodeTuiProvider | undefined;
+  private discoveryService: TerminalDiscoveryService | undefined;
+  private captureManager: OutputCaptureManager | undefined;
 
   async activate(context: vscode.ExtensionContext): Promise<void> {
     console.log("Initializing OpenCode Sidebar TUI...");
@@ -16,8 +20,24 @@ export class ExtensionLifecycle {
       // Initialize terminal manager
       this.terminalManager = new TerminalManager();
 
+      // Initialize services
+      this.discoveryService = new TerminalDiscoveryService();
+      this.captureManager = new OutputCaptureManager();
+
+      // Handle terminal closure for cleanup
+      context.subscriptions.push(
+        vscode.window.onDidCloseTerminal((terminal) => {
+          this.captureManager?.cleanup(terminal);
+        }),
+      );
+
       // Initialize TUI provider
-      this.tuiProvider = new OpenCodeTuiProvider(context, this.terminalManager);
+      this.tuiProvider = new OpenCodeTuiProvider(
+        context,
+        this.terminalManager,
+        this.discoveryService,
+        this.captureManager,
+      );
 
       // Register webview provider
       const provider = vscode.window.registerWebviewViewProvider(
@@ -203,6 +223,13 @@ export class ExtensionLifecycle {
       this.terminalManager.dispose();
       this.terminalManager = undefined;
     }
+
+    if (this.discoveryService) {
+      this.discoveryService.dispose();
+      this.discoveryService = undefined;
+    }
+
+    this.captureManager = undefined;
 
     console.log("OpenCode Sidebar TUI deactivated");
   }
