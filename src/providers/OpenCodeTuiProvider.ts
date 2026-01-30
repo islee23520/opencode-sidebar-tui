@@ -42,9 +42,13 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       } else {
         // Wait until sidebar becomes visible
         const visibilityListener = webviewView.onDidChangeVisibility(() => {
-          if (webviewView.visible && !this.isStarted) {
-            this.startOpenCode();
-            visibilityListener.dispose(); // Only trigger once
+          if (webviewView.visible) {
+            // Notify webview that it's now visible so it can refit the terminal
+            this._view?.webview.postMessage({ type: "webviewVisible" });
+            if (!this.isStarted) {
+              this.startOpenCode();
+              visibilityListener.dispose(); // Only trigger once
+            }
           }
         });
 

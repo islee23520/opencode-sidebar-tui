@@ -459,6 +459,20 @@ function initTerminal(): void {
 
   terminal.open(container);
 
+  // Fit terminal when container becomes visible using IntersectionObserver
+  const visibilityObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && fitAddon && terminal) {
+          fitAddon.fit();
+          terminal.refresh(0, terminal.rows - 1);
+        }
+      });
+    },
+    { threshold: 0.1 },
+  );
+  visibilityObserver.observe(container);
+
   // Use requestAnimationFrame for initial fit (waits for browser paint)
   requestAnimationFrame(() => {
     if (fitAddon && terminal) {
@@ -470,8 +484,17 @@ function initTerminal(): void {
   setTimeout(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
+      terminal.refresh(0, terminal.rows - 1);
     }
   }, 100);
+
+  // Additional fit after a longer delay to handle slow rendering
+  setTimeout(() => {
+    if (fitAddon && terminal) {
+      fitAddon.fit();
+      terminal.refresh(0, terminal.rows - 1);
+    }
+  }, 500);
 
   terminal.onData((data) => {
     if (completionProvider) {
@@ -716,6 +739,15 @@ window.addEventListener("message", (event) => {
       if (terminal) {
         terminal.focus();
       }
+      break;
+    case "webviewVisible":
+      // Refit and refresh terminal when webview becomes visible
+      setTimeout(() => {
+        if (fitAddon && terminal) {
+          fitAddon.fit();
+          terminal.refresh(0, terminal.rows - 1);
+        }
+      }, 100);
       break;
   }
 });
