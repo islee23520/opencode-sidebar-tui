@@ -299,20 +299,6 @@ function initTerminal(): void {
       return false;
     }
 
-    // Prevent Ctrl+C and Ctrl+Z from terminating OpenCode
-    // These should be handled by the application, not sent as signals
-    if (
-      event.ctrlKey &&
-      (event.key === "c" ||
-        event.key === "C" ||
-        event.key === "z" ||
-        event.key === "Z")
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
-      return false;
-    }
-
     return true;
   });
 
