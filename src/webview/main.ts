@@ -300,21 +300,52 @@ function initTerminal(): void {
       return false;
     }
 
-    // On Windows, intercept Ctrl+C and send it to OpenCode as input
-    // instead of letting it kill the terminal
+    // On Windows, intercept Ctrl+C and Ctrl+Z to prevent terminal termination
+    // Send them as input to OpenCode instead
     if (
       currentPlatform === "win32" &&
       event.ctrlKey &&
-      (event.key === "c" || event.key === "C")
+      !event.shiftKey &&
+      (event.key === "c" ||
+        event.key === "C" ||
+        event.key === "z" ||
+        event.key === "Z")
     ) {
       event.preventDefault();
       event.stopPropagation();
-      // Send Ctrl+C as terminal input so OpenCode can handle it (clear input)
+      // Send Ctrl+C (\x03) or Ctrl+Z (\x1A) as terminal input
+      const charCode = event.key.toLowerCase() === "c" ? "\x03" : "\x1A";
       vscode.postMessage({
         type: "terminalInput",
-        data: "\x03",
+        data: charCode,
       });
       return false;
+    }
+
+    // On Windows, handle Ctrl+Shift+C for copy and Ctrl+Shift+V for paste
+    if (currentPlatform === "win32" && event.ctrlKey && event.shiftKey) {
+      if (event.key === "c" || event.key === "C") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (terminal) {
+          const selection = terminal.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection);
+          }
+        }
+        return false;
+      } else if (event.key === "v" || event.key === "V") {
+        // Paste from clipboard
+        event.preventDefault();
+        event.stopPropagation();
+        navigator.clipboard.readText().then((text) => {
+          vscode.postMessage({
+            type: "terminalInput",
+            data: text,
+          });
+        });
+        return false;
+      }
     }
 
     return true;
