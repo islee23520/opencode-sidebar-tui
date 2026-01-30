@@ -276,6 +276,7 @@ class TerminalCompletionProvider {
 let terminal: Terminal | null = null;
 let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
+let currentPlatform: string = "";
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -296,6 +297,23 @@ function initTerminal(): void {
 
   terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
     if (completionProvider && !completionProvider.handleKey(event)) {
+      return false;
+    }
+
+    // On Windows, intercept Ctrl+C and send it to OpenCode as input
+    // instead of letting it kill the terminal
+    if (
+      currentPlatform === "win32" &&
+      event.ctrlKey &&
+      (event.key === "c" || event.key === "C")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      // Send Ctrl+C as terminal input so OpenCode can handle it (clear input)
+      vscode.postMessage({
+        type: "terminalInput",
+        data: "\x03",
+      });
       return false;
     }
 
@@ -780,6 +798,9 @@ window.addEventListener("message", (event) => {
           terminal.refresh(0, terminal.rows - 1);
         }
       }, 100);
+      break;
+    case "platformInfo":
+      currentPlatform = message.platform;
       break;
   }
 });

@@ -117,6 +117,11 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         if (!this.isStarted) {
           this.startOpenCode();
         }
+        // Send platform info to webview for Windows-specific handling
+        this._view?.webview.postMessage({
+          type: "platformInfo",
+          platform: process.platform,
+        });
         break;
       case "filesDropped":
         this.handleFilesDropped(message.files, message.shiftKey);

@@ -24,4 +24,5 @@ export type HostMessage =
   | { type: "terminalExited" }
   | { type: "focusTerminal" }
   | { type: "terminalList"; terminals: { name: string; cwd: string }[] }
-  | { type: "webviewVisible" };
+  | { type: "webviewVisible" }
+  | { type: "platformInfo"; platform: string };
