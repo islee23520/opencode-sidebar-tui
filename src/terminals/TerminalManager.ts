@@ -35,6 +35,18 @@ export class TerminalManager {
       rows: 24,
       cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir(),
       env: { ...process.env, TERM: "xterm-256color" } as Record<string, string>,
+      handleFlowControl: false,
+    });
+
+    ptyProcess.onData((data) => {
+      onDataEmitter.fire({ id, data });
+      this._onData.fire({ id, data });
+    });
+
+    ptyProcess.onExit(() => {
+      onExitEmitter.fire(id);
+      this._onExit.fire(id);
+      this.terminals.delete(id);
     });
 
     const onDataEmitter = new vscode.EventEmitter<{
