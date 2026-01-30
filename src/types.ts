@@ -14,7 +14,7 @@ export type WebviewMessage =
     };
 
 export type HostMessage =
-  | { type: "terminalOutput"; data: string }
+  | { type: "terminalOutput"; data: string; encoding?: "base64" }
   | { type: "terminalExited" }
   | { type: "focusTerminal" }
   | { type: "terminalList"; terminals: { name: string; cwd: string }[] };

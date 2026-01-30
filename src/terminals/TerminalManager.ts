@@ -29,6 +29,12 @@ export class TerminalManager {
     const { shell, args: shellArgs } = this.getShellConfig();
     const ptyArgs = command ? [...shellArgs, command] : [];
 
+    const onDataEmitter = new vscode.EventEmitter<{
+      id: string;
+      data: string;
+    }>();
+    const onExitEmitter = new vscode.EventEmitter<string>();
+
     const ptyProcess = pty.spawn(shell, ptyArgs, {
       name: "xterm-256color",
       cols: 80,
@@ -49,29 +55,12 @@ export class TerminalManager {
       this.terminals.delete(id);
     });
 
-    const onDataEmitter = new vscode.EventEmitter<{
-      id: string;
-      data: string;
-    }>();
-    const onExitEmitter = new vscode.EventEmitter<string>();
-
     const terminal: Terminal = {
       id,
       process: ptyProcess,
       onData: onDataEmitter,
       onExit: onExitEmitter,
     };
-
-    ptyProcess.onData((data) => {
-      onDataEmitter.fire({ id, data });
-      this._onData.fire({ id, data });
-    });
-
-    ptyProcess.onExit(() => {
-      onExitEmitter.fire(id);
-      this._onExit.fire(id);
-      this.terminals.delete(id);
-    });
 
     this.terminals.set(id, terminal);
     return terminal;
