@@ -138,9 +138,22 @@ export class ExtensionLifecycle {
     const sendAllOpenFilesCommand = vscode.commands.registerCommand(
       "opencodeTui.sendAllOpenFiles",
       () => {
-        const openFiles = vscode.window.visibleTextEditors
-          .map((editor) => this.formatFileRef(editor.document.uri))
-          .join(" ");
+        const fileRefs: string[] = [];
+
+        // Get all opened tabs across all editor groups (not just visible ones)
+        for (const group of vscode.window.tabGroups.all) {
+          for (const tab of group.tabs) {
+            if (tab.input instanceof vscode.TabInputText) {
+              const uri = tab.input.uri;
+              // Skip untitled/unsaved documents
+              if (!uri.scheme.startsWith("untitled")) {
+                fileRefs.push(this.formatFileRef(uri));
+              }
+            }
+          }
+        }
+
+        const openFiles = fileRefs.join(" ");
 
         if (openFiles) {
           this.terminalManager?.writeToTerminal(
