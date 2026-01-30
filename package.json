@@ -148,6 +148,16 @@
         "command": "-workbench.action.quickOpenNavigateNextInFilePicker",
         "key": "ctrl+p",
         "when": "inFilesPicker && inQuickOpen"
+      },
+      {
+        "command": "-workbench.action.terminal.sendSequence",
+        "key": "ctrl+c",
+        "when": "focusedView == 'opencodeTui' && terminalFocus"
+      },
+      {
+        "command": "-workbench.action.terminal.sendSequence",
+        "key": "ctrl+z",
+        "when": "focusedView == 'opencodeTui' && terminalFocus"
       }
     ],
     "configuration": {

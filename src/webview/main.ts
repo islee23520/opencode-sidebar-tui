@@ -300,10 +300,9 @@ function initTerminal(): void {
       return false;
     }
 
-    // On Windows, intercept Ctrl+C to clear terminal input
+    // Intercept Ctrl+C to clear terminal input
     // instead of letting it kill the terminal process
     if (
-      currentPlatform === "win32" &&
       event.ctrlKey &&
       !event.shiftKey &&
       (event.key === "c" || event.key === "C")
@@ -317,8 +316,8 @@ function initTerminal(): void {
       return false;
     }
 
-    // On Windows, handle Ctrl+Shift+C for copy and Ctrl+Shift+V for paste
-    if (currentPlatform === "win32" && event.ctrlKey && event.shiftKey) {
+    // Handle Ctrl+Shift+C for copy and Ctrl+Shift+V for paste
+    if (event.ctrlKey && event.shiftKey) {
       if (event.key === "c" || event.key === "C") {
         event.preventDefault();
         event.stopPropagation();
@@ -578,6 +577,19 @@ function initTerminal(): void {
   }, 500);
 
   terminal.onData((data) => {
+    // Filter out Ctrl+C (\x03) and Ctrl+Z (\x1A) to prevent
+    // them from terminating the OpenCode process on all platforms
+    const filteredData = data.replace(/[\x03\x1A]/g, "");
+    if (filteredData !== data) {
+      if (filteredData) {
+        vscode.postMessage({
+          type: "terminalInput",
+          data: filteredData,
+        });
+      }
+      return;
+    }
+
     if (completionProvider) {
       completionProvider.handleData(data);
     }
