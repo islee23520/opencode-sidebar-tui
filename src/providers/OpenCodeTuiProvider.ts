@@ -238,6 +238,14 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     endLine?: number,
     column?: number,
   ): Promise<void> {
+    // Security: Validate path to prevent path traversal attacks
+    if (path.includes("..") || path.includes("\0") || path.includes("~")) {
+      vscode.window.showErrorMessage(
+        "Invalid file path: Path traversal detected",
+      );
+      return;
+    }
+
     try {
       const normalizedPath = path.replace(/\\/g, "/");
 
@@ -257,14 +265,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       }
 
       try {
-        const selection = line
-          ? new vscode.Range(
-              Math.max(0, line - 1),
-              Math.max(0, (column || 1) - 1),
-              Math.max(0, (endLine || line) - 1),
-              endLine ? 9999 : Math.max(0, (column || 1) - 1),
-            )
-          : undefined;
+        const selection = this.createSelection(line, endLine, column);
 
         await vscode.window.showTextDocument(uri, {
           selection,
@@ -273,14 +274,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       } catch (openError) {
         const matchedUri = await this.fuzzyMatchFile(normalizedPath);
         if (matchedUri) {
-          const selection = line
-            ? new vscode.Range(
-                Math.max(0, line - 1),
-                Math.max(0, (column || 1) - 1),
-                Math.max(0, (endLine || line) - 1),
-                endLine ? 9999 : Math.max(0, (column || 1) - 1),
-              )
-            : undefined;
+          const selection = this.createSelection(line, endLine, column);
 
           await vscode.window.showTextDocument(matchedUri, {
             selection,
@@ -293,6 +287,22 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to open file: ${path}`);
     }
+  }
+
+  private createSelection(
+    line?: number,
+    endLine?: number,
+    column?: number,
+  ): vscode.Range | undefined {
+    if (!line) return undefined;
+
+    const MAX_COLUMN = 9999;
+    return new vscode.Range(
+      Math.max(0, line - 1),
+      Math.max(0, (column || 1) - 1),
+      Math.max(0, (endLine || line) - 1),
+      endLine ? MAX_COLUMN : Math.max(0, (column || 1) - 1),
+    );
   }
 
   private async fuzzyMatchFile(path: string): Promise<vscode.Uri | null> {

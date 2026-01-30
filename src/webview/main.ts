@@ -62,6 +62,7 @@ class TerminalCompletionProvider {
   private _selectedIndex: number = 0;
   private _filter: string = "";
   private _startColumn: number = 0;
+  private _pendingCheck: ReturnType<typeof setTimeout> | null = null;
 
   constructor(terminal: Terminal) {
     this._terminal = terminal;
@@ -84,7 +85,21 @@ class TerminalCompletionProvider {
   }
 
   public handleData(data: string) {
-    setTimeout(() => this._checkTrigger(), 0);
+    if (this._pendingCheck) {
+      clearTimeout(this._pendingCheck);
+    }
+    this._pendingCheck = setTimeout(() => {
+      this._pendingCheck = null;
+      this._checkTrigger();
+    }, 0);
+  }
+
+  public dispose() {
+    if (this._pendingCheck) {
+      clearTimeout(this._pendingCheck);
+      this._pendingCheck = null;
+    }
+    this._element.remove();
   }
 
   public updateTerminals(terminals: { name: string; cwd: string }[]) {
@@ -327,6 +342,14 @@ function initTerminal(): void {
       }
 
       const lineText = line.translateToString(true);
+
+      // Security: Limit line length to prevent ReDoS attacks
+      const MAX_LINE_LENGTH = 10000;
+      if (lineText.length > MAX_LINE_LENGTH) {
+        callback(undefined);
+        return;
+      }
+
       const links: any[] = [];
 
       // Match OpenCode @file format: @path/to/file or @path/to/file#L10 or @path/to/file#L10-L20

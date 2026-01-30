@@ -3,27 +3,58 @@ import * as os from "os";
 import * as path from "path";
 import * as fs from "fs";
 
+export interface CaptureResult {
+  success: boolean;
+  error?: string;
+  filePath?: string;
+}
+
 export class OutputCaptureManager {
   private captures: Map<vscode.Terminal, string> = new Map();
 
   /**
    * Starts capturing output from the terminal to a temporary file.
    * @param terminal The VS Code terminal to capture from.
+   * @returns CaptureResult indicating success or failure.
    */
-  public startCapture(terminal: vscode.Terminal): void {
+  public startCapture(terminal: vscode.Terminal): CaptureResult {
     if (os.platform() === "win32") {
-      throw new Error("Output capture is not supported on Windows.");
+      return {
+        success: false,
+        error: "Output capture is not supported on Windows.",
+      };
+    }
+
+    // Check if script command is available
+    try {
+      // Use 'which' on Unix systems to check for script command
+      const { execSync } = require("child_process");
+      execSync("which script", { stdio: "ignore" });
+    } catch {
+      return {
+        success: false,
+        error:
+          "The 'script' command is not available. Please install util-linux or bsdutils package.",
+      };
     }
 
     const tempDir = os.tmpdir();
     const filename = `opencode-capture-${process.pid}-${Date.now()}.log`;
     const filePath = path.join(tempDir, filename);
 
-    // Send command to terminal to start recording
-    // script -q <file> starts a new shell and logs to <file>
-    terminal.sendText(`script -q "${filePath}"`);
+    try {
+      // Send command to terminal to start recording
+      // script -q <file> starts a new shell and logs to <file>
+      terminal.sendText(`script -q "${filePath}"`);
+      this.captures.set(terminal, filePath);
 
-    this.captures.set(terminal, filePath);
+      return { success: true, filePath };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to start capture: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
   }
 
   /**
