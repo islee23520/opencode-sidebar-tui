@@ -91,6 +91,12 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this.isStarted = true;
   }
 
+  restart(): void {
+    this.terminalManager.killTerminal(this.terminalId);
+    this.isStarted = false;
+    this.startOpenCode();
+  }
+
   private handleMessage(message: any): void {
     switch (message.type) {
       case "terminalInput":

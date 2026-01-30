@@ -175,12 +175,22 @@ export class ExtensionLifecycle {
       },
     );
 
+    // Restart OpenCode command
+    const restartCommand = vscode.commands.registerCommand(
+      "opencodeTui.restart",
+      () => {
+        this.tuiProvider?.restart();
+        vscode.window.showInformationMessage("OpenCode restarted");
+      },
+    );
+
     context.subscriptions.push(
       startCommand,
       sendToTerminalCommand,
       sendAtMentionCommand,
       sendAllOpenFilesCommand,
       sendFileToTerminalCommand,
+      restartCommand,
     );
   }
 
