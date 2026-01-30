@@ -76,13 +76,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     this.terminalManager.onData((event) => {
       if (event.id === this.terminalId) {
-        // Encode terminal data as base64 to preserve ANSI escape sequences
-        // through JSON serialization in the webview message channel
-        const base64Data = Buffer.from(event.data).toString("base64");
         this._view?.webview.postMessage({
           type: "terminalOutput",
-          data: base64Data,
-          encoding: "base64",
+          data: event.data,
         });
       }
     });

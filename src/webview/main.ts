@@ -722,12 +722,7 @@ window.addEventListener("message", (event) => {
       break;
     case "terminalOutput":
       if (terminal) {
-        // Decode base64 if the data was encoded to preserve ANSI escape sequences
-        let data = message.data;
-        if (message.encoding === "base64") {
-          data = atob(data);
-        }
-        terminal.write(data);
+        terminal.write(message.data);
       }
       break;
     case "terminalExited":
