@@ -99,7 +99,7 @@ export class ExtensionLifecycle {
       },
     );
 
-    // Send current file reference (@filename)
+    // Send current file reference (@filename) or terminal CWD
     const sendAtMentionCommand = vscode.commands.registerCommand(
       "opencodeTui.sendAtMention",
       () => {
@@ -119,7 +119,18 @@ export class ExtensionLifecycle {
           }
 
           vscode.window.showInformationMessage(`Sent ${fileRef}`);
+        } else {
+          // If no editor is active but terminal is focused, send terminal CWD
+          this.sendTerminalCwd();
         }
+      },
+    );
+
+    // Send terminal's current working directory
+    const sendTerminalCwdCommand = vscode.commands.registerCommand(
+      "opencodeTui.sendTerminalCwd",
+      () => {
+        this.sendTerminalCwd();
       },
     );
 
@@ -191,6 +202,7 @@ export class ExtensionLifecycle {
       sendAllOpenFilesCommand,
       sendFileToTerminalCommand,
       restartCommand,
+      sendTerminalCwdCommand,
     );
   }
 
@@ -219,6 +231,44 @@ export class ExtensionLifecycle {
     }
 
     return reference;
+  }
+
+  private async sendTerminalCwd(): Promise<void> {
+    const activeTerminal = vscode.window.activeTerminal;
+    if (!activeTerminal) {
+      vscode.window.showWarningMessage("No active terminal");
+      return;
+    }
+
+    const cwd = activeTerminal.shellIntegration?.cwd?.fsPath;
+    if (!cwd) {
+      vscode.window.showWarningMessage(
+        "Could not determine terminal working directory. Make sure shell integration is enabled.",
+      );
+      return;
+    }
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    let reference: string;
+
+    if (workspaceFolders && workspaceFolders.length > 0) {
+      const relativePath = vscode.workspace.asRelativePath(cwd, false);
+      reference = `@${relativePath}`;
+    } else {
+      reference = `@${cwd}`;
+    }
+
+    this.terminalManager?.writeToTerminal("opencode-main", reference + " ");
+
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    if (config.get<boolean>("autoFocusOnSend", true)) {
+      vscode.commands.executeCommand("opencodeTui.focus");
+      setTimeout(() => {
+        this.tuiProvider?.focus();
+      }, 100);
+    }
+
+    vscode.window.showInformationMessage(`Sent ${reference}`);
   }
 
   async deactivate(): Promise<void> {

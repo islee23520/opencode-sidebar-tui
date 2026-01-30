@@ -329,24 +329,34 @@ function initTerminal(): void {
       const lineText = line.translateToString(true);
       const links: any[] = [];
 
+      // Match OpenCode @file format: @path/to/file or @path/to/file#L10 or @path/to/file#L10-L20
+      // Also match standard file paths: file://, /absolute, ./relative, ../relative, path:line:col
       const pathRegex =
-        /(?:^|[\s"'])((file:\/\/|\/|[A-Z]:\\|\.?\.?\/|[^\s"':\/]+\/)[^\s"']+(?::\d+(?::\d+)?)?)/g;
+        /(?:^[\s"'])(@?((?:file:\/\/|\/|[A-Za-z]:\\|\.?\.?\/)[^\s"'#]+|[^\s"':\/]+(?:\/[^\s"':\/]+)+)(?:#L(\d+)(?:-L?(\d+))?)?)(?=[\s"']|$)/gi;
 
       let match;
+      let lastIndex = -1;
       while ((match = pathRegex.exec(lineText)) !== null) {
-        const fullMatch = match[0];
-        const pathWithPos = match[1];
-        const index = match.index + (fullMatch.length - pathWithPos.length);
+        // Prevent infinite loop on zero-width matches
+        if (match.index === lastIndex) {
+          pathRegex.lastIndex++;
+          continue;
+        }
+        lastIndex = match.index;
 
-        // Parse path, line, column
-        // Pattern: path:line:col or path:line
-        const posRegex = /^(.*?):(\d+)(?::(\d+))?$/;
-        const posMatch = pathWithPos.match(posRegex);
+        const fullMatch = match[1];
+        const hasAtPrefix = fullMatch.startsWith("@");
+        let path = match[2];
+        const lineNumStr = match[3];
+        const endLineStr = match[4];
 
-        let path = pathWithPos;
+        if (!path) continue;
+
         let lineNumber: number | undefined;
         let columnNumber: number | undefined;
+        let endLineNumber: number | undefined;
 
+        // Handle file:// URLs
         if (path.startsWith("file://")) {
           try {
             const url = new URL(path);
@@ -356,28 +366,46 @@ function initTerminal(): void {
             }
           } catch (e) {
             console.error("Failed to parse file:// URL:", path, e);
+            continue;
           }
         }
 
-        if (posMatch) {
-          path = posMatch[1];
-          lineNumber = parseInt(posMatch[2], 10);
-          if (posMatch[3]) {
-            columnNumber = parseInt(posMatch[3], 10);
+        // Parse line numbers from @file#L10 or @file#L10-L20 format
+        if (lineNumStr) {
+          lineNumber = parseInt(lineNumStr, 10);
+        }
+        if (endLineStr) {
+          endLineNumber = parseInt(endLineStr, 10);
+        }
+
+        // Also try to parse :line:col format for standard paths
+        if (!hasAtPrefix && !lineNumStr) {
+          const posRegex = /^(.*?):(\d+)(?::(\d+))?$/;
+          const posMatch = path.match(posRegex);
+          if (posMatch) {
+            path = posMatch[1];
+            lineNumber = parseInt(posMatch[2], 10);
+            if (posMatch[3]) {
+              columnNumber = parseInt(posMatch[3], 10);
+            }
           }
         }
+
+        // Calculate the actual start index of the clickable portion
+        const index = match.index + (match[0].length - fullMatch.length);
 
         links.push({
-          text: pathWithPos,
+          text: fullMatch,
           range: {
             start: { x: index + 1, y: bufferLineNumber },
-            end: { x: index + pathWithPos.length, y: bufferLineNumber },
+            end: { x: index + fullMatch.length, y: bufferLineNumber },
           },
           activate: () => {
             vscode.postMessage({
               type: "openFile",
               path: path,
               line: lineNumber,
+              endLine: endLineNumber,
               column: columnNumber,
             });
           },

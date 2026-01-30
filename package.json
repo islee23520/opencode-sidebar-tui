@@ -81,6 +81,11 @@
         "title": "Restart OpenCode",
         "category": "OpenCode TUI",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "opencodeTui.sendTerminalCwd",
+        "title": "Send Terminal CWD to OpenCode",
+        "category": "OpenCode TUI"
       }
     ],
     "menus": {
@@ -113,6 +118,12 @@
           "command": "opencodeTui.sendAtMention",
           "group": "navigation"
         }
+      ],
+      "terminal/context": [
+        {
+          "command": "opencodeTui.sendTerminalCwd",
+          "group": "9_cutcopypaste@5"
+        }
       ]
     },
     "keybindings": [
@@ -120,13 +131,13 @@
         "command": "opencodeTui.sendAtMention",
         "key": "ctrl+alt+l",
         "mac": "cmd+alt+l",
-        "when": "editorTextFocus"
+        "when": "editorTextFocus || terminalFocus"
       },
       {
         "command": "opencodeTui.sendAllOpenFiles",
         "key": "ctrl+alt+a",
         "mac": "cmd+alt+a",
-        "when": "editorTextFocus"
+        "when": "editorTextFocus || terminalFocus"
       },
       {
         "command": "-workbench.action.quickOpen",

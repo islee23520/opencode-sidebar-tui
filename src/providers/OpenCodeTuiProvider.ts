@@ -125,7 +125,12 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         vscode.env.openExternal(vscode.Uri.parse(message.url));
         break;
       case "openFile":
-        this.handleOpenFile(message.path, message.line, message.column);
+        this.handleOpenFile(
+          message.path,
+          message.line,
+          message.endLine,
+          message.column,
+        );
         break;
       case "listTerminals":
         this.handleListTerminals();
@@ -230,6 +235,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   private async handleOpenFile(
     path: string,
     line?: number,
+    endLine?: number,
     column?: number,
   ): Promise<void> {
     try {
@@ -255,8 +261,8 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           ? new vscode.Range(
               Math.max(0, line - 1),
               Math.max(0, (column || 1) - 1),
-              Math.max(0, line - 1),
-              Math.max(0, (column || 1) - 1),
+              Math.max(0, (endLine || line) - 1),
+              endLine ? 9999 : Math.max(0, (column || 1) - 1),
             )
           : undefined;
 
@@ -271,8 +277,8 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
             ? new vscode.Range(
                 Math.max(0, line - 1),
                 Math.max(0, (column || 1) - 1),
-                Math.max(0, line - 1),
-                Math.max(0, (column || 1) - 1),
+                Math.max(0, (endLine || line) - 1),
+                endLine ? 9999 : Math.max(0, (column || 1) - 1),
               )
             : undefined;
 
