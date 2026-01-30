@@ -300,25 +300,20 @@ function initTerminal(): void {
       return false;
     }
 
-    // On Windows, intercept Ctrl+C and Ctrl+Z to prevent terminal termination
-    // Send them as input to OpenCode instead
+    // On Windows, intercept Ctrl+C to clear terminal input
+    // instead of letting it kill the terminal process
     if (
       currentPlatform === "win32" &&
       event.ctrlKey &&
       !event.shiftKey &&
-      (event.key === "c" ||
-        event.key === "C" ||
-        event.key === "z" ||
-        event.key === "Z")
+      (event.key === "c" || event.key === "C")
     ) {
       event.preventDefault();
       event.stopPropagation();
-      // Send Ctrl+C (\x03) or Ctrl+Z (\x1A) as terminal input
-      const charCode = event.key.toLowerCase() === "c" ? "\x03" : "\x1A";
-      vscode.postMessage({
-        type: "terminalInput",
-        data: charCode,
-      });
+      // Clear the current line in terminal
+      if (terminal) {
+        terminal.clear();
+      }
       return false;
     }
 
