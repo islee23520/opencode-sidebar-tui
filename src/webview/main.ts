@@ -282,6 +282,29 @@ function initTerminal(): void {
   const container = document.getElementById("terminal-container");
   if (!container) return;
 
+  // Global keydown handler to catch Ctrl+C and Ctrl+Z before xterm.js
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.ctrlKey && !event.shiftKey) {
+        if (event.key === "c" || event.key === "C") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (terminal) {
+            terminal.clear();
+          }
+          return;
+        }
+        if (event.key === "z" || event.key === "Z") {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+      }
+    },
+    true,
+  );
+
   terminal = new Terminal({
     cursorBlink: true,
     fontSize: 14,
