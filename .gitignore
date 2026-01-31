@@ -14,3 +14,6 @@ out/
 # claude
 .claude/
 .omc/
+
+# ai
+AGENTS.md
