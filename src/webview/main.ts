@@ -282,29 +282,6 @@ function initTerminal(): void {
   const container = document.getElementById("terminal-container");
   if (!container) return;
 
-  // Global keydown handler to catch Ctrl+C and Ctrl+Z before xterm.js
-  document.addEventListener(
-    "keydown",
-    (event) => {
-      if (event.ctrlKey && !event.shiftKey) {
-        if (event.key === "c" || event.key === "C") {
-          event.preventDefault();
-          event.stopPropagation();
-          if (terminal) {
-            terminal.clear();
-          }
-          return;
-        }
-        if (event.key === "z" || event.key === "Z") {
-          event.preventDefault();
-          event.stopPropagation();
-          return;
-        }
-      }
-    },
-    true,
-  );
-
   terminal = new Terminal({
     cursorBlink: true,
     fontSize: 14,
@@ -323,46 +300,16 @@ function initTerminal(): void {
       return false;
     }
 
-    // Intercept Ctrl+C to clear terminal input
-    // instead of letting it kill the terminal process
     if (
       event.ctrlKey &&
-      !event.shiftKey &&
-      (event.key === "c" || event.key === "C")
+      (event.key === "c" ||
+        event.key === "C" ||
+        event.key === "z" ||
+        event.key === "Z")
     ) {
       event.preventDefault();
       event.stopPropagation();
-      // Clear the current line in terminal
-      if (terminal) {
-        terminal.clear();
-      }
       return false;
-    }
-
-    // Handle Ctrl+Shift+C for copy and Ctrl+Shift+V for paste
-    if (event.ctrlKey && event.shiftKey) {
-      if (event.key === "c" || event.key === "C") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (terminal) {
-          const selection = terminal.getSelection();
-          if (selection) {
-            navigator.clipboard.writeText(selection);
-          }
-        }
-        return false;
-      } else if (event.key === "v" || event.key === "V") {
-        // Paste from clipboard
-        event.preventDefault();
-        event.stopPropagation();
-        navigator.clipboard.readText().then((text) => {
-          vscode.postMessage({
-            type: "terminalInput",
-            data: text,
-          });
-        });
-        return false;
-      }
     }
 
     return true;
