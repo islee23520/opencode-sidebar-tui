@@ -1,7 +1,7 @@
 # OpenCode Sidebar TUI
 
-[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/ilseoblee.opencode-sidebar-tui?logo=visual-studio-code&label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=ilseoblee.opencode-sidebar-tui)
-[![Open VSX](https://img.shields.io/open-vsx/v/ilseoblee/opencode-sidebar-tui?logo=open-vsx&label=Open%20VSX)](https://open-vsx.org/extension/ilseoblee/opencode-sidebar-tui)
+[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/islee23520.opencode-sidebar-tui?logo=visual-studio-code&label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=islee23520.opencode-sidebar-tui)
+[![Open VSX](https://img.shields.io/open-vsx/v/islee23520/opencode-sidebar-tui?logo=open-vsx&label=Open%20VSX)](https://open-vsx.org/extension/islee23520/opencode-sidebar-tui)
 
 Automatically render OpenCode TUI in VS Code sidebar with full terminal support.
 
@@ -32,7 +32,7 @@ For VSCodium, Gitpod, Eclipse Theia, and other VS Code-compatible IDEs:
 2. Search for "OpenCode Sidebar TUI"
 3. Click **Install**
 
-Or visit the [OpenVSX page](https://open-vsx.org/extension/ilseoblee/opencode-sidebar-tui).
+Or visit the [OpenVSX page](https://open-vsx.org/extension/islee23520/opencode-sidebar-tui).
 
 ### From Source
 
