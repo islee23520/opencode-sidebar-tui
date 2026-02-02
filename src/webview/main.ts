@@ -278,6 +278,7 @@ let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
 let justHandledCtrlC = false;
+let justHandledCtrlV = false;
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -316,6 +317,11 @@ function initTerminal(): void {
       !event.shiftKey &&
       !event.altKey &&
       (event.key === "z" || event.key === "Z");
+    const isCtrlA =
+      (event.ctrlKey || event.metaKey) &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (event.key === "a" || event.key === "A");
 
     if (isCtrlC) {
       if (currentPlatform === "win32" && terminal) {
@@ -339,13 +345,18 @@ function initTerminal(): void {
     }
 
     if (isCtrlV && currentPlatform === "win32") {
+      justHandledCtrlV = true;
+      setTimeout(() => {
+        justHandledCtrlV = false;
+      }, 100);
       navigator.clipboard
         .readText()
         .then((text) => {
           if (text && terminal) {
+            const textWithoutTrailingNewline = text.replace(/\r?\n$/, "");
             vscode.postMessage({
               type: "terminalInput",
-              data: text,
+              data: textWithoutTrailingNewline,
             });
           }
         })
@@ -358,6 +369,13 @@ function initTerminal(): void {
     }
 
     if (isCtrlZ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return false;
+    }
+
+    if (isCtrlA && terminal) {
+      terminal.selectAll();
       event.preventDefault();
       event.stopPropagation();
       return false;
@@ -598,9 +616,10 @@ function initTerminal(): void {
   }, 500);
 
   terminal.onData((data) => {
-    if (justHandledCtrlC) {
+    if (justHandledCtrlC || justHandledCtrlV) {
       justHandledCtrlC = false;
-      const filteredData = data.replace(/[\x03\x1A]/g, "");
+      justHandledCtrlV = false;
+      const filteredData = data.replace(/[\x03\x16\x1A]/g, "");
       if (filteredData) {
         if (completionProvider) {
           completionProvider.handleData(filteredData);
