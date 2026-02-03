@@ -279,6 +279,7 @@ let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
 let justHandledCtrlC = false;
 let justHandledCtrlV = false;
+let ignoreNextPaste = false;
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -346,23 +347,14 @@ function initTerminal(): void {
 
     if (isCtrlV && currentPlatform === "win32") {
       justHandledCtrlV = true;
+      ignoreNextPaste = true;
       setTimeout(() => {
         justHandledCtrlV = false;
+        ignoreNextPaste = false;
       }, 100);
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          if (text && terminal) {
-            const textWithoutTrailingNewline = text.replace(/\r?\n$/, "");
-            vscode.postMessage({
-              type: "terminalInput",
-              data: textWithoutTrailingNewline,
-            });
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to read from clipboard:", err);
-        });
+      vscode.postMessage({
+        type: "triggerPaste",
+      });
       event.preventDefault();
       event.stopPropagation();
       return false;
@@ -577,6 +569,14 @@ function initTerminal(): void {
   }
 
   terminal.open(container);
+
+  terminal.element?.addEventListener("paste", (e: ClipboardEvent) => {
+    if (ignoreNextPaste) {
+      e.preventDefault();
+      e.stopPropagation();
+      ignoreNextPaste = false;
+    }
+  });
 
   // Fit terminal when container becomes visible using IntersectionObserver
   const visibilityObserver = new IntersectionObserver(

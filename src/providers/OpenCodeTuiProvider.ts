@@ -147,6 +147,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           message.command,
         );
         break;
+      case "triggerPaste":
+        this.terminalManager.triggerPaste(this.terminalId);
+        break;
     }
   }
 
