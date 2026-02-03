@@ -352,9 +352,19 @@ function initTerminal(): void {
         justHandledCtrlV = false;
         ignoreNextPaste = false;
       }, 100);
-      vscode.postMessage({
-        type: "triggerPaste",
-      });
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          if (text && terminal) {
+            vscode.postMessage({
+              type: "terminalInput",
+              data: text,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to read from clipboard:", err);
+        });
       event.preventDefault();
       event.stopPropagation();
       return false;
@@ -570,13 +580,17 @@ function initTerminal(): void {
 
   terminal.open(container);
 
-  terminal.element?.addEventListener("paste", (e: ClipboardEvent) => {
-    if (ignoreNextPaste) {
-      e.preventDefault();
-      e.stopPropagation();
-      ignoreNextPaste = false;
-    }
-  });
+  document.addEventListener(
+    "paste",
+    (e: ClipboardEvent) => {
+      if (ignoreNextPaste) {
+        e.preventDefault();
+        e.stopPropagation();
+        ignoreNextPaste = false;
+      }
+    },
+    true,
+  );
 
   // Fit terminal when container becomes visible using IntersectionObserver
   const visibilityObserver = new IntersectionObserver(
