@@ -278,8 +278,6 @@ let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
 let justHandledCtrlC = false;
-let justHandledCtrlV = false;
-let ignoreNextPaste = false;
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -308,21 +306,11 @@ function initTerminal(): void {
       !event.shiftKey &&
       !event.altKey &&
       (event.key === "c" || event.key === "C");
-    const isCtrlV =
-      event.ctrlKey &&
-      !event.shiftKey &&
-      !event.altKey &&
-      (event.key === "v" || event.key === "V");
     const isCtrlZ =
       event.ctrlKey &&
       !event.shiftKey &&
       !event.altKey &&
       (event.key === "z" || event.key === "Z");
-    const isCtrlA =
-      (event.ctrlKey || event.metaKey) &&
-      !event.shiftKey &&
-      !event.altKey &&
-      (event.key === "a" || event.key === "A");
 
     if (isCtrlC) {
       if (currentPlatform === "win32" && terminal) {
@@ -345,39 +333,7 @@ function initTerminal(): void {
       return false;
     }
 
-    if (isCtrlV && currentPlatform === "win32") {
-      justHandledCtrlV = true;
-      ignoreNextPaste = true;
-      setTimeout(() => {
-        justHandledCtrlV = false;
-        ignoreNextPaste = false;
-      }, 100);
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          if (text && terminal) {
-            vscode.postMessage({
-              type: "terminalInput",
-              data: text,
-            });
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to read from clipboard:", err);
-        });
-      event.preventDefault();
-      event.stopPropagation();
-      return false;
-    }
-
     if (isCtrlZ) {
-      event.preventDefault();
-      event.stopPropagation();
-      return false;
-    }
-
-    if (isCtrlA && terminal) {
-      terminal.selectAll();
       event.preventDefault();
       event.stopPropagation();
       return false;
@@ -580,17 +536,9 @@ function initTerminal(): void {
 
   terminal.open(container);
 
-  document.addEventListener(
-    "paste",
-    (e: ClipboardEvent) => {
-      if (ignoreNextPaste) {
-        e.preventDefault();
-        e.stopPropagation();
-        ignoreNextPaste = false;
-      }
-    },
-    true,
-  );
+  const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
+  container.addEventListener("focusin", refreshTerminal);
+  container.addEventListener("click", refreshTerminal);
 
   // Fit terminal when container becomes visible using IntersectionObserver
   const visibilityObserver = new IntersectionObserver(
@@ -630,10 +578,9 @@ function initTerminal(): void {
   }, 500);
 
   terminal.onData((data) => {
-    if (justHandledCtrlC || justHandledCtrlV) {
+    if (justHandledCtrlC) {
       justHandledCtrlC = false;
-      justHandledCtrlV = false;
-      const filteredData = data.replace(/[\x03\x16\x1A]/g, "");
+      const filteredData = data.replace(/[\x03\x1A]/g, "");
       if (filteredData) {
         if (completionProvider) {
           completionProvider.handleData(filteredData);

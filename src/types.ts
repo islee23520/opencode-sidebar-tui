@@ -17,8 +17,7 @@ export type WebviewMessage =
       action: "focus" | "sendCommand" | "capture";
       terminalName: string;
       command?: string;
-    }
-  | { type: "triggerPaste" };
+    };
 
 export type HostMessage =
   | { type: "terminalOutput"; data: string }

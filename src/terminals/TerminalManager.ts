@@ -80,13 +80,6 @@ export class TerminalManager {
     }
   }
 
-  triggerPaste(id: string): void {
-    const terminal = this.terminals.get(id);
-    if (terminal) {
-      terminal.process.write("\x16");
-    }
-  }
-
   resizeTerminal(id: string, cols: number, rows: number): void {
     const terminal = this.terminals.get(id);
     if (terminal) {
