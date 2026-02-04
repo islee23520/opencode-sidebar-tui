@@ -296,7 +296,7 @@ echo "4. Test terminal interaction and commands"
 echo "5. Verify restart and clear buttons work"
 echo ""
 echo -e "${CYAN}Debug logs:${NC}"
-echo "  In Dev Host: Ctrl+Shift+I → Console tab
+echo "  In Dev Host: Ctrl+Shift+I → Console tab"
 echo ""
 
 if confirm "Open Extension Development Host now?"; then
