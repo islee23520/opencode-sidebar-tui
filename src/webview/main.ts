@@ -320,6 +320,10 @@ function initTerminal(): void {
             console.error("Failed to copy to clipboard:", err);
           });
           justHandledCtrlC = true;
+          // Reset flag after a short delay to prevent the subsequent onData event
+          // (triggered by xterm.js when Ctrl+C is pressed) from being filtered.
+          // The 100ms duration is chosen to be longer than typical event propagation
+          // but short enough to not interfere with normal user input.
           setTimeout(() => {
             justHandledCtrlC = false;
           }, 100);
