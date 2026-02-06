@@ -3,6 +3,7 @@ import { OpenCodeTuiProvider } from "../providers/OpenCodeTuiProvider";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { TerminalDiscoveryService } from "../services/TerminalDiscoveryService";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
+import { ContextSharingService } from "../services/ContextSharingService";
 
 /**
  * Manages extension activation, service initialization, and cleanup.
@@ -12,6 +13,7 @@ export class ExtensionLifecycle {
   private tuiProvider: OpenCodeTuiProvider | undefined;
   private discoveryService: TerminalDiscoveryService | undefined;
   private captureManager: OutputCaptureManager | undefined;
+  private contextSharingService: ContextSharingService | undefined;
 
   async activate(context: vscode.ExtensionContext): Promise<void> {
     console.log("Initializing OpenCode Sidebar TUI...");
@@ -23,6 +25,7 @@ export class ExtensionLifecycle {
       // Initialize services
       this.discoveryService = new TerminalDiscoveryService();
       this.captureManager = new OutputCaptureManager();
+      this.contextSharingService = new ContextSharingService();
 
       // Handle terminal closure for cleanup
       context.subscriptions.push(
@@ -104,8 +107,9 @@ export class ExtensionLifecycle {
       "opencodeTui.sendAtMention",
       () => {
         const editor = vscode.window.activeTextEditor;
-        if (editor) {
-          const fileRef = this.formatFileRefWithLineNumbers(editor);
+        if (editor && this.contextSharingService) {
+          const fileRef =
+            this.contextSharingService.formatFileRefWithLineNumbers(editor);
           this.terminalManager?.writeToTerminal("opencode-main", fileRef + " ");
 
           // Auto-focus sidebar if enabled
@@ -146,8 +150,11 @@ export class ExtensionLifecycle {
             if (tab.input instanceof vscode.TabInputText) {
               const uri = tab.input.uri;
               // Skip untitled/unsaved documents
-              if (!uri.scheme.startsWith("untitled")) {
-                fileRefs.push(this.formatFileRef(uri));
+              if (
+                !uri.scheme.startsWith("untitled") &&
+                this.contextSharingService
+              ) {
+                fileRefs.push(this.contextSharingService.formatFileRef(uri));
               }
             }
           }
@@ -180,8 +187,8 @@ export class ExtensionLifecycle {
     const sendFileToTerminalCommand = vscode.commands.registerCommand(
       "opencodeTui.sendFileToTerminal",
       (uri: vscode.Uri) => {
-        if (uri) {
-          const fileRef = this.formatFileRef(uri);
+        if (uri && this.contextSharingService) {
+          const fileRef = this.contextSharingService.formatFileRef(uri);
           this.terminalManager?.writeToTerminal("opencode-main", fileRef + " ");
 
           // Auto-focus sidebar if enabled
@@ -217,33 +224,6 @@ export class ExtensionLifecycle {
       restartCommand,
       sendTerminalCwdCommand,
     );
-  }
-
-  private formatFileRef(uri: vscode.Uri): string {
-    const relativePath = vscode.workspace.asRelativePath(uri, false);
-    return `@${relativePath}`;
-  }
-
-  private formatFileRefWithLineNumbers(editor: vscode.TextEditor): string {
-    const relativePath = vscode.workspace.asRelativePath(
-      editor.document.uri,
-      false,
-    );
-    let reference = `@${relativePath}`;
-
-    const selection = editor.selection;
-    if (!selection.isEmpty) {
-      const startLine = selection.start.line + 1;
-      const endLine = selection.end.line + 1;
-
-      if (startLine === endLine) {
-        reference += `#L${startLine}`;
-      } else {
-        reference += `#L${startLine}-L${endLine}`;
-      }
-    }
-
-    return reference;
   }
 
   private async sendTerminalCwd(): Promise<void> {
@@ -303,6 +283,7 @@ export class ExtensionLifecycle {
     }
 
     this.captureManager = undefined;
+    this.contextSharingService = undefined;
 
     console.log("OpenCode Sidebar TUI deactivated");
   }
