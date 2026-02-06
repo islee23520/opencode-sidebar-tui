@@ -278,6 +278,7 @@ let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
 let justHandledCtrlC = false;
+let justHandledCtrlV = false;
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -351,15 +352,18 @@ function initTerminal(): void {
       (event.key === "v" || event.key === "V");
 
     if (isCtrlV) {
-      // Handle paste directly in keydown to avoid duplication issues
       event.preventDefault();
       event.stopPropagation();
       if (currentPlatform === "win32") {
+        justHandledCtrlV = true;
         navigator.clipboard.readText().then((text) => {
           if (text && terminal) {
             terminal.paste(text);
           }
         });
+        setTimeout(() => {
+          justHandledCtrlV = false;
+        }, 100);
       }
       return false;
     }
@@ -615,6 +619,11 @@ function initTerminal(): void {
           data: filteredData,
         });
       }
+      return;
+    }
+
+    // Filter out duplicate paste data when we handled Ctrl+V
+    if (justHandledCtrlV) {
       return;
     }
 
