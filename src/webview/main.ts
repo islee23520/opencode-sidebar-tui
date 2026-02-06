@@ -353,20 +353,6 @@ function initTerminal(): void {
     if (isCtrlV) {
       event.preventDefault();
       event.stopPropagation();
-      // Read from clipboard and paste into terminal
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          if (text && terminal) {
-            vscode.postMessage({
-              type: "terminalInput",
-              data: text,
-            });
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to read from clipboard:", err);
-        });
       return false;
     }
 
