@@ -359,6 +359,7 @@ function initTerminal(): void {
           .then((text) => {
             if (text && terminal) {
               terminal.paste(text);
+              return false;
             }
           })
           .catch((err) => {
