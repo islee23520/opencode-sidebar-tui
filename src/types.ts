@@ -17,7 +17,8 @@ export type WebviewMessage =
       action: "focus" | "sendCommand" | "capture";
       terminalName: string;
       command?: string;
-    };
+    }
+  | { type: "getClipboard" };
 
 export type HostMessage =
   | { type: "terminalOutput"; data: string }
@@ -25,4 +26,5 @@ export type HostMessage =
   | { type: "focusTerminal" }
   | { type: "terminalList"; terminals: { name: string; cwd: string }[] }
   | { type: "webviewVisible" }
-  | { type: "platformInfo"; platform: string };
+  | { type: "platformInfo"; platform: string }
+  | { type: "clipboardContent"; text: string };

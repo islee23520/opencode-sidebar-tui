@@ -354,17 +354,11 @@ function initTerminal(): void {
     if (isCtrlV) {
       event.preventDefault();
       event.stopPropagation();
-      if (currentPlatform === "win32") {
-        justHandledCtrlV = true;
-        navigator.clipboard.readText().then((text) => {
-          if (text && terminal) {
-            terminal.paste(text);
-          }
-        });
-        setTimeout(() => {
-          justHandledCtrlV = false;
-        }, 100);
-      }
+      justHandledCtrlV = true;
+      vscode.postMessage({ type: "getClipboard" });
+      setTimeout(() => {
+        justHandledCtrlV = false;
+      }, 100);
       return false;
     }
 
@@ -894,6 +888,11 @@ window.addEventListener("message", (event) => {
       break;
     case "platformInfo":
       currentPlatform = message.platform;
+      break;
+    case "clipboardContent":
+      if (message.text && terminal) {
+        terminal.paste(message.text);
+      }
       break;
   }
 });

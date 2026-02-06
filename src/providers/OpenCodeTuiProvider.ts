@@ -298,6 +298,21 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           message.command,
         );
         break;
+      case "getClipboard":
+        this.handleGetClipboard();
+        break;
+    }
+  }
+
+  private async handleGetClipboard(): Promise<void> {
+    try {
+      const text = await vscode.env.clipboard.readText();
+      this._view?.webview.postMessage({
+        type: "clipboardContent",
+        text: text,
+      });
+    } catch (error) {
+      console.error("[OpenCodeTuiProvider] Failed to read clipboard:", error);
     }
   }
 
