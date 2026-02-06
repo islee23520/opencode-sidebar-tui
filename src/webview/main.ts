@@ -343,6 +343,33 @@ function initTerminal(): void {
       return false;
     }
 
+    // Handle Ctrl+V for paste
+    const isCtrlV =
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (event.key === "v" || event.key === "V");
+
+    if (isCtrlV) {
+      event.preventDefault();
+      event.stopPropagation();
+      // Read from clipboard and paste into terminal
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          if (text && terminal) {
+            vscode.postMessage({
+              type: "terminalInput",
+              data: text,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to read from clipboard:", err);
+        });
+      return false;
+    }
+
     return true;
   });
 
@@ -842,12 +869,25 @@ window.addEventListener("message", (event) => {
       break;
     case "webviewVisible":
       // Refit and refresh terminal when webview becomes visible
+      // Use multiple timeouts to ensure proper rendering
       setTimeout(() => {
         if (fitAddon && terminal) {
           fitAddon.fit();
           terminal.refresh(0, terminal.rows - 1);
         }
-      }, 100);
+      }, 50);
+      setTimeout(() => {
+        if (fitAddon && terminal) {
+          fitAddon.fit();
+          terminal.refresh(0, terminal.rows - 1);
+        }
+      }, 150);
+      setTimeout(() => {
+        if (fitAddon && terminal) {
+          fitAddon.fit();
+          terminal.refresh(0, terminal.rows - 1);
+        }
+      }, 300);
       break;
     case "platformInfo":
       currentPlatform = message.platform;
