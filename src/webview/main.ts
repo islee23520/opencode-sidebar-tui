@@ -351,10 +351,16 @@ function initTerminal(): void {
       (event.key === "v" || event.key === "V");
 
     if (isCtrlV) {
-      // On Windows, we handle paste via the 'paste' event listener on the container
-      // to avoid duplication. Just prevent xterm.js from processing this key.
+      // Handle paste directly in keydown to avoid duplication issues
       event.preventDefault();
       event.stopPropagation();
+      if (currentPlatform === "win32") {
+        navigator.clipboard.readText().then((text) => {
+          if (text && terminal) {
+            terminal.paste(text);
+          }
+        });
+      }
       return false;
     }
 
@@ -554,26 +560,6 @@ function initTerminal(): void {
   }
 
   terminal.open(container);
-
-  // Handle paste events on Windows to prevent duplication
-  // Use capture phase to intercept before xterm.js
-  document.addEventListener(
-    "paste",
-    (event) => {
-      if (
-        currentPlatform === "win32" &&
-        container.contains(event.target as Node)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        const text = event.clipboardData?.getData("text/plain");
-        if (text && terminal) {
-          terminal.paste(text);
-        }
-      }
-    },
-    true,
-  );
 
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
   container.addEventListener("focusin", refreshTerminal);
