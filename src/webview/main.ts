@@ -353,6 +353,18 @@ function initTerminal(): void {
     if (isCtrlV) {
       event.preventDefault();
       event.stopPropagation();
+      if (currentPlatform === "win32") {
+        navigator.clipboard
+          .readText()
+          .then((text) => {
+            if (text && terminal) {
+              terminal.paste(text);
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to read clipboard:", err);
+          });
+      }
       return false;
     }
 
