@@ -555,17 +555,25 @@ function initTerminal(): void {
 
   terminal.open(container);
 
-  // Prevent native paste events to avoid duplication with our custom Ctrl+V handler
-  container.addEventListener("paste", (event) => {
-    if (currentPlatform === "win32") {
-      event.preventDefault();
-      event.stopPropagation();
-      const text = event.clipboardData?.getData("text");
-      if (text && terminal) {
-        terminal.paste(text);
+  // Handle paste events on Windows to prevent duplication
+  // Use capture phase to intercept before xterm.js
+  document.addEventListener(
+    "paste",
+    (event) => {
+      if (
+        currentPlatform === "win32" &&
+        container.contains(event.target as Node)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        const text = event.clipboardData?.getData("text/plain");
+        if (text && terminal) {
+          terminal.paste(text);
+        }
       }
-    }
-  });
+    },
+    true,
+  );
 
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
   container.addEventListener("focusin", refreshTerminal);
