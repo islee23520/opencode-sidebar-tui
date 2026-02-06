@@ -229,6 +229,23 @@
           },
           "default": [],
           "description": "Custom arguments to pass to the shell. Leave empty for automatic detection. Example: [\"/c\"] for cmd.exe or [\"-Command\"] for PowerShell."
+        },
+        "opencodeTui.autoShareContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically share editor context (open files, selections) with OpenCode"
+        },
+        "opencodeTui.httpTimeout": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 1000,
+          "maximum": 30000,
+          "description": "HTTP API request timeout in milliseconds for communication with OpenCode"
+        },
+        "opencodeTui.enableHttpApi": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable HTTP API for bidirectional communication between VS Code and OpenCode"
         }
       }
     }
