@@ -80,30 +80,36 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    let port: number;
-    try {
-      port = this.portManager.assignPortToTerminal(this.terminalId);
-      console.log(
-        `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.terminalId}`,
-      );
-    } catch (error) {
-      console.error("[OpenCodeTuiProvider] Failed to assign port:", error);
-      vscode.window.showErrorMessage(
-        "Failed to assign port for OpenCode HTTP API",
-      );
-      return;
-    }
-
     const config = vscode.workspace.getConfiguration("opencodeTui");
+    const enableHttpApi = config.get<boolean>("enableHttpApi", true);
+    const httpTimeout = config.get<number>("httpTimeout", 5000);
     const command = config.get<string>("command", "opencode -c");
+
+    let port: number | undefined;
+
+    if (enableHttpApi) {
+      try {
+        port = this.portManager.assignPortToTerminal(this.terminalId);
+        console.log(
+          `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.terminalId}`,
+        );
+      } catch (error) {
+        console.error("[OpenCodeTuiProvider] Failed to assign port:", error);
+        vscode.window.showWarningMessage(
+          "Failed to assign port for OpenCode HTTP API. Running without HTTP features.",
+        );
+      }
+    }
 
     const terminal = this.terminalManager.createTerminal(
       this.terminalId,
       command,
-      {
-        _EXTENSION_OPENCODE_PORT: port.toString(),
-        OPENCODE_CALLER: "vscode",
-      },
+      port
+        ? {
+            _EXTENSION_OPENCODE_PORT: port.toString(),
+            OPENCODE_CALLER: "vscode",
+          }
+        : {},
       port,
     );
 
@@ -131,8 +137,15 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     this.isStarted = true;
 
-    this.apiClient = new OpenCodeApiClient(port, 10, 200);
-    await this.pollForHttpReadiness();
+    if (enableHttpApi && port) {
+      this.apiClient = new OpenCodeApiClient(port, 10, 200, httpTimeout);
+      await this.pollForHttpReadiness();
+    } else {
+      console.log(
+        "[OpenCodeTuiProvider] HTTP API disabled or unavailable, using message passing fallback",
+      );
+      this.httpAvailable = false;
+    }
   }
 
   private async pollForHttpReadiness(): Promise<void> {
@@ -184,7 +197,15 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     }
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
+    const enableHttpApi = config.get<boolean>("enableHttpApi", true);
     const autoShareContext = config.get<boolean>("autoShareContext", true);
+
+    if (!enableHttpApi) {
+      console.log(
+        "[OpenCodeTuiProvider] HTTP API disabled, skipping auto-context",
+      );
+      return;
+    }
 
     if (!autoShareContext) {
       console.log(

@@ -24,17 +24,25 @@ export class OpenCodeApiClient {
   private readonly baseUrl: string;
   private readonly maxRetries: number;
   private readonly baseDelay: number;
+  private readonly timeoutMs: number;
 
   /**
    * Creates a new OpenCode API client
    * @param port - The port number the OpenCode CLI HTTP server is listening on
    * @param maxRetries - Maximum number of retry attempts (default: 10)
    * @param baseDelay - Base delay in milliseconds for exponential backoff (default: 200)
+   * @param timeoutMs - Request timeout in milliseconds (default: 5000)
    */
-  constructor(port: number, maxRetries: number = 10, baseDelay: number = 200) {
+  constructor(
+    port: number,
+    maxRetries: number = 10,
+    baseDelay: number = 200,
+    timeoutMs: number = 5000,
+  ) {
     this.baseUrl = `http://localhost:${port}`;
     this.maxRetries = maxRetries;
     this.baseDelay = baseDelay;
+    this.timeoutMs = timeoutMs;
   }
 
   /**
@@ -110,10 +118,26 @@ export class OpenCodeApiClient {
     retries: number,
   ): Promise<Response> {
     try {
-      const response = await fetch(url, options);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
       return response;
     } catch (error) {
-      if (retries <= 0) {
+      if (error instanceof Error && error.name === "AbortError") {
+        if (retries <= 0) {
+          const apiError = new Error(
+            `Request timed out after ${this.timeoutMs}ms (exhausted all ${this.maxRetries} retries)`,
+          ) as ApiError;
+          apiError.code = "TIMEOUT_EXHAUSTED";
+          throw apiError;
+        }
+      } else if (retries <= 0) {
         const apiError = new Error(
           `Request failed after ${this.maxRetries} retries: ${error instanceof Error ? error.message : String(error)}`,
         ) as ApiError;
@@ -121,7 +145,6 @@ export class OpenCodeApiClient {
         throw apiError;
       }
 
-      // Calculate delay with exponential backoff
       const attemptNumber = this.maxRetries - retries + 1;
       const delay = this.baseDelay * Math.pow(2, attemptNumber - 1);
 
