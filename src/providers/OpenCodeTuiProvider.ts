@@ -2,19 +2,26 @@ import * as vscode from "vscode";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { TerminalDiscoveryService } from "../services/TerminalDiscoveryService";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
+import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
+import { PortManager } from "../services/PortManager";
 
 export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencodeTui";
   private _view?: vscode.WebviewView;
   private terminalId = "opencode-main";
   private isStarted = false;
+  private apiClient?: OpenCodeApiClient;
+  private readonly portManager: PortManager;
+  private httpAvailable = false;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly terminalManager: TerminalManager,
     private readonly discoveryService: TerminalDiscoveryService,
     private readonly captureManager: OutputCaptureManager,
-  ) {}
+  ) {
+    this.portManager = new PortManager();
+  }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -64,15 +71,37 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  startOpenCode(): void {
+  async startOpenCode(): Promise<void> {
     if (this.isStarted) {
+      return;
+    }
+
+    let port: number;
+    try {
+      port = this.portManager.assignPortToTerminal(this.terminalId);
+      console.log(
+        `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.terminalId}`,
+      );
+    } catch (error) {
+      console.error("[OpenCodeTuiProvider] Failed to assign port:", error);
+      vscode.window.showErrorMessage(
+        "Failed to assign port for OpenCode HTTP API",
+      );
       return;
     }
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
     const command = config.get<string>("command", "opencode -c");
 
-    this.terminalManager.createTerminal(this.terminalId, command);
+    const terminal = this.terminalManager.createTerminal(
+      this.terminalId,
+      command,
+      {
+        _EXTENSION_OPENCODE_PORT: port.toString(),
+        OPENCODE_CALLER: "vscode",
+      },
+      port,
+    );
 
     this.terminalManager.onData((event) => {
       if (event.id === this.terminalId) {
@@ -86,6 +115,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this.terminalManager.onExit((id) => {
       if (id === this.terminalId) {
         this.isStarted = false;
+        this.httpAvailable = false;
+        this.apiClient = undefined;
+        this.portManager.releaseTerminalPorts(this.terminalId);
         this._view?.webview.postMessage({
           type: "terminalExited",
         });
@@ -93,6 +125,46 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     });
 
     this.isStarted = true;
+
+    this.apiClient = new OpenCodeApiClient(port, 10, 200);
+    await this.pollForHttpReadiness();
+  }
+
+  private async pollForHttpReadiness(): Promise<void> {
+    if (!this.apiClient) {
+      return;
+    }
+
+    const maxRetries = 10;
+    const delayMs = 200;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const isHealthy = await this.apiClient.healthCheck();
+        if (isHealthy) {
+          this.httpAvailable = true;
+          console.log("[OpenCodeTuiProvider] HTTP API is ready");
+          return;
+        }
+      } catch {
+        console.log(
+          `[OpenCodeTuiProvider] Health check attempt ${attempt}/${maxRetries} failed`,
+        );
+      }
+
+      if (attempt < maxRetries) {
+        await this.sleep(delayMs);
+      }
+    }
+
+    console.log(
+      "[OpenCodeTuiProvider] HTTP API not available after retries, using message passing fallback",
+    );
+    this.httpAvailable = false;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   restart(): void {

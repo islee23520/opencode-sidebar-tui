@@ -68,6 +68,88 @@ describe("TerminalManager", () => {
 
       expect(exitHandler).not.toHaveBeenCalled();
     });
+
+    it("should pass custom environment variables to process", () => {
+      const customEnv = {
+        _EXTENSION_OPENCODE_PORT: "8080",
+        OPENCODE_CALLER: "vscode",
+      };
+
+      manager.createTerminal("test-id", undefined, customEnv);
+
+      expect(nodePty.spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Array),
+        expect.objectContaining({
+          env: expect.objectContaining({
+            _EXTENSION_OPENCODE_PORT: "8080",
+            OPENCODE_CALLER: "vscode",
+            TERM: "xterm-256color",
+          }),
+        }),
+      );
+    });
+
+    it("should preserve existing env vars when adding custom ones", () => {
+      const customEnv = {
+        _EXTENSION_OPENCODE_PORT: "9090",
+      };
+
+      manager.createTerminal("test-id", undefined, customEnv);
+
+      const spawnCall = vi.mocked(nodePty.spawn).mock.calls[0];
+      const envArg = spawnCall[2].env;
+
+      expect(envArg).toHaveProperty("TERM", "xterm-256color");
+      expect(envArg).toHaveProperty("_EXTENSION_OPENCODE_PORT", "9090");
+    });
+
+    it("should track port in terminal interface", () => {
+      const customEnv = {
+        _EXTENSION_OPENCODE_PORT: "7070",
+      };
+
+      const terminal = manager.createTerminal(
+        "test-id",
+        undefined,
+        customEnv,
+        7070,
+      );
+
+      expect(terminal.port).toBe(7070);
+    });
+
+    it("should work without custom env (backward compatibility)", () => {
+      const terminal = manager.createTerminal("test-id", "opencode -c");
+
+      expect(terminal).toBeDefined();
+      expect(terminal.id).toBe("test-id");
+      expect(terminal.port).toBeUndefined();
+
+      expect(nodePty.spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Array),
+        expect.objectContaining({
+          env: expect.objectContaining({
+            TERM: "xterm-256color",
+          }),
+        }),
+      );
+    });
+
+    it("should allow custom env to override TERM", () => {
+      const customEnv = {
+        TERM: "vt100",
+        _EXTENSION_OPENCODE_PORT: "3000",
+      };
+
+      manager.createTerminal("test-id", undefined, customEnv);
+
+      const spawnCall = vi.mocked(nodePty.spawn).mock.calls[0];
+      const envArg = spawnCall[2].env;
+
+      expect(envArg).toHaveProperty("TERM", "vt100");
+    });
   });
 
   describe("getTerminal", () => {
