@@ -18,13 +18,14 @@ export type WebviewMessage =
       terminalName: string;
       command?: string;
     }
-  | { type: "getClipboard" };
+  | { type: "getClipboard" }
+  | { type: "triggerPaste" };
 
 export type HostMessage =
+  | { type: "clipboardContent"; text: string }
   | { type: "terminalOutput"; data: string }
   | { type: "terminalExited" }
   | { type: "focusTerminal" }
   | { type: "terminalList"; terminals: { name: string; cwd: string }[] }
   | { type: "webviewVisible" }
-  | { type: "platformInfo"; platform: string }
-  | { type: "clipboardContent"; text: string };
+  | { type: "platformInfo"; platform: string };

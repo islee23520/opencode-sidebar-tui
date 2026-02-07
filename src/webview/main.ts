@@ -278,7 +278,7 @@ let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
 let justHandledCtrlC = false;
-let justHandledCtrlV = false;
+let lastPasteTime = 0;
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -344,21 +344,15 @@ function initTerminal(): void {
       return false;
     }
 
-    // Handle Ctrl+V for paste
-    const isCtrlV =
-      event.ctrlKey &&
-      !event.shiftKey &&
-      !event.altKey &&
-      (event.key === "v" || event.key === "V");
-
-    if (isCtrlV) {
+    if (event.ctrlKey && (event.key === "v" || event.key === "V")) {
+      const now = Date.now();
+      if (now - lastPasteTime < 500) {
+        return false;
+      }
+      lastPasteTime = now;
       event.preventDefault();
       event.stopPropagation();
-      justHandledCtrlV = true;
-      vscode.postMessage({ type: "getClipboard" });
-      setTimeout(() => {
-        justHandledCtrlV = false;
-      }, 100);
+      vscode.postMessage({ type: "triggerPaste" });
       return false;
     }
 
@@ -613,11 +607,6 @@ function initTerminal(): void {
           data: filteredData,
         });
       }
-      return;
-    }
-
-    // Filter out duplicate paste data when we handled Ctrl+V
-    if (justHandledCtrlV) {
       return;
     }
 

@@ -75,6 +75,13 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  public pasteText(text: string): void {
+    this._view?.webview.postMessage({
+      type: "clipboardContent",
+      text: text,
+    });
+  }
+
   async startOpenCode(): Promise<void> {
     if (this.isStarted) {
       return;
@@ -301,6 +308,20 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       case "getClipboard":
         this.handleGetClipboard();
         break;
+      case "triggerPaste":
+        this.handlePaste();
+        break;
+    }
+  }
+
+  private async handlePaste(): Promise<void> {
+    try {
+      const text = await vscode.env.clipboard.readText();
+      if (text) {
+        this.pasteText(text);
+      }
+    } catch (error) {
+      console.error("[OpenCodeTuiProvider] Failed to paste:", error);
     }
   }
 

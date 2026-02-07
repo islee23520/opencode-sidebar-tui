@@ -215,6 +215,21 @@ export class ExtensionLifecycle {
       },
     );
 
+    const pasteCommand = vscode.commands.registerCommand(
+      "opencodeTui.paste",
+      async () => {
+        try {
+          const text = await vscode.env.clipboard.readText();
+          if (text && this.tuiProvider) {
+            this.tuiProvider.pasteText(text);
+          }
+        } catch (error) {
+          console.error("[OpenCodeTui] Failed to paste:", error);
+          vscode.window.showErrorMessage("Failed to paste from clipboard");
+        }
+      },
+    );
+
     context.subscriptions.push(
       startCommand,
       sendToTerminalCommand,
@@ -223,6 +238,7 @@ export class ExtensionLifecycle {
       sendFileToTerminalCommand,
       restartCommand,
       sendTerminalCwdCommand,
+      pasteCommand,
     );
   }
 
