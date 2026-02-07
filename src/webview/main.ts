@@ -278,6 +278,7 @@ let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
 let justHandledCtrlC = false;
+let lastPasteTime = 0;
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -340,6 +341,18 @@ function initTerminal(): void {
     if (isCtrlZ) {
       event.preventDefault();
       event.stopPropagation();
+      return false;
+    }
+
+    if (event.ctrlKey && (event.key === "v" || event.key === "V")) {
+      const now = Date.now();
+      if (now - lastPasteTime < 500) {
+        return false;
+      }
+      lastPasteTime = now;
+      event.preventDefault();
+      event.stopPropagation();
+      vscode.postMessage({ type: "triggerPaste" });
       return false;
     }
 
@@ -842,15 +855,33 @@ window.addEventListener("message", (event) => {
       break;
     case "webviewVisible":
       // Refit and refresh terminal when webview becomes visible
+      // Use multiple timeouts to ensure proper rendering
       setTimeout(() => {
         if (fitAddon && terminal) {
           fitAddon.fit();
           terminal.refresh(0, terminal.rows - 1);
         }
-      }, 100);
+      }, 50);
+      setTimeout(() => {
+        if (fitAddon && terminal) {
+          fitAddon.fit();
+          terminal.refresh(0, terminal.rows - 1);
+        }
+      }, 150);
+      setTimeout(() => {
+        if (fitAddon && terminal) {
+          fitAddon.fit();
+          terminal.refresh(0, terminal.rows - 1);
+        }
+      }, 300);
       break;
     case "platformInfo":
       currentPlatform = message.platform;
+      break;
+    case "clipboardContent":
+      if (message.text && terminal) {
+        terminal.paste(message.text);
+      }
       break;
   }
 });

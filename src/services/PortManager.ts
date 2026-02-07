@@ -1,0 +1,241 @@
+/**
+ * Port Management Service
+ *
+ * Manages ephemeral port allocation for OpenCode CLI HTTP API communication.
+ * Port range: 16384-65535 (ephemeral ports)
+ *
+ * Features:
+ * - Random port assignment within valid range
+ * - Port collision detection and prevention
+ * - Per-terminal port tracking
+ * - Automatic cleanup on terminal closure
+ */
+
+export class PortManager {
+  // Ephemeral port range (16384-65535)
+  private static readonly MIN_PORT = 16384;
+  private static readonly MAX_PORT = 65535;
+
+  // Track used ports
+  private usedPorts: Set<number> = new Set();
+
+  // Track port-to-terminal mapping
+  private terminalPortMap: Map<string, number> = new Map();
+
+  // Track port-to-terminal reverse mapping for cleanup
+  private portTerminalMap: Map<number, string> = new Map();
+
+  /**
+   * Get an available random port in the ephemeral range
+   * @returns A random available port number
+   * @throws Error if no ports are available
+   */
+  public getAvailablePort(): number {
+    const availablePorts = this.getAvailablePortCount();
+
+    if (availablePorts === 0) {
+      throw new Error(
+        `No available ports in range ${PortManager.MIN_PORT}-${PortManager.MAX_PORT}`,
+      );
+    }
+
+    // Try random selection first (up to 100 attempts to avoid infinite loop)
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const port = this.generateRandomPort();
+      if (!this.usedPorts.has(port)) {
+        return port;
+      }
+    }
+
+    // Fallback: sequential scan for available port
+    for (
+      let port = PortManager.MIN_PORT;
+      port <= PortManager.MAX_PORT;
+      port++
+    ) {
+      if (!this.usedPorts.has(port)) {
+        return port;
+      }
+    }
+
+    throw new Error(
+      `No available ports in range ${PortManager.MIN_PORT}-${PortManager.MAX_PORT}`,
+    );
+  }
+
+  /**
+   * Reserve a specific port
+   * @param port - The port number to reserve
+   * @throws Error if port is out of range or already in use
+   */
+  public reservePort(port: number): void {
+    this.validatePort(port);
+
+    if (this.usedPorts.has(port)) {
+      throw new Error(`Port ${port} is already in use`);
+    }
+
+    this.usedPorts.add(port);
+  }
+
+  /**
+   * Release a port back to the pool
+   * @param port - The port number to release
+   */
+  public releasePort(port: number): void {
+    if (!this.usedPorts.has(port)) {
+      return;
+    }
+
+    // Remove from used ports
+    this.usedPorts.delete(port);
+
+    // Remove terminal mapping if exists
+    const terminalId = this.portTerminalMap.get(port);
+    if (terminalId) {
+      this.terminalPortMap.delete(terminalId);
+      this.portTerminalMap.delete(port);
+    }
+  }
+
+  /**
+   * Get or assign a port for a specific terminal
+   * @param terminalId - The terminal identifier
+   * @returns The assigned port number, or undefined if no port assigned
+   */
+  public getPortForTerminal(terminalId: string): number | undefined {
+    return this.terminalPortMap.get(terminalId);
+  }
+
+  /**
+   * Assign a port to a terminal
+   * @param terminalId - The terminal identifier
+   * @param port - The port to assign (if not provided, gets available port)
+   * @returns The assigned port number
+   * @throws Error if port assignment fails
+   */
+  public assignPortToTerminal(terminalId: string, port?: number): number {
+    // Check if terminal already has a port
+    const existingPort = this.terminalPortMap.get(terminalId);
+    if (existingPort !== undefined) {
+      return existingPort;
+    }
+
+    // Get or validate port
+    const assignedPort = port ?? this.getAvailablePort();
+
+    if (port !== undefined) {
+      // Validate the provided port
+      this.validatePort(port);
+      if (this.usedPorts.has(port)) {
+        throw new Error(`Port ${port} is already in use by another terminal`);
+      }
+    }
+
+    // Reserve and assign
+    this.usedPorts.add(assignedPort);
+    this.terminalPortMap.set(terminalId, assignedPort);
+    this.portTerminalMap.set(assignedPort, terminalId);
+
+    return assignedPort;
+  }
+
+  /**
+   * Release all ports associated with a terminal
+   * @param terminalId - The terminal identifier
+   */
+  public releaseTerminalPorts(terminalId: string): void {
+    const port = this.terminalPortMap.get(terminalId);
+
+    if (port !== undefined) {
+      this.releasePort(port);
+    }
+  }
+
+  /**
+   * Check if a port is available
+   * @param port - The port number to check
+   * @returns true if port is available
+   */
+  public isPortAvailable(port: number): boolean {
+    if (!this.isValidPort(port)) {
+      return false;
+    }
+    return !this.usedPorts.has(port);
+  }
+
+  /**
+   * Get the count of available ports
+   * @returns Number of available ports
+   */
+  public getAvailablePortCount(): number {
+    const totalPorts = PortManager.MAX_PORT - PortManager.MIN_PORT + 1;
+    return totalPorts - this.usedPorts.size;
+  }
+
+  /**
+   * Get all currently used ports
+   * @returns Array of used port numbers
+   */
+  public getUsedPorts(): number[] {
+    return Array.from(this.usedPorts);
+  }
+
+  /**
+   * Get all terminal-port mappings
+   * @returns Map of terminal IDs to port numbers
+   */
+  public getTerminalPortMappings(): Map<string, number> {
+    return new Map(this.terminalPortMap);
+  }
+
+  /**
+   * Clear all port assignments (useful for testing)
+   */
+  public clear(): void {
+    this.usedPorts.clear();
+    this.terminalPortMap.clear();
+    this.portTerminalMap.clear();
+  }
+
+  /**
+   * Generate a random port in the valid range
+   * @returns Random port number
+   */
+  private generateRandomPort(): number {
+    return (
+      Math.floor(
+        Math.random() * (PortManager.MAX_PORT - PortManager.MIN_PORT + 1),
+      ) + PortManager.MIN_PORT
+    );
+  }
+
+  /**
+   * Validate port is in valid range
+   * @param port - Port to validate
+   * @throws Error if port is invalid
+   */
+  private validatePort(port: number): void {
+    if (!this.isValidPort(port)) {
+      throw new Error(
+        `Port ${port} is outside valid range ${PortManager.MIN_PORT}-${PortManager.MAX_PORT}`,
+      );
+    }
+  }
+
+  /**
+   * Check if port is in valid range
+   * @param port - Port to check
+   * @returns true if port is in valid range
+   */
+  private isValidPort(port: number): boolean {
+    return (
+      Number.isInteger(port) &&
+      port >= PortManager.MIN_PORT &&
+      port <= PortManager.MAX_PORT
+    );
+  }
+}
+
+// Export singleton instance
+export const portManager = new PortManager();

@@ -8,6 +8,7 @@ export interface Terminal {
   process: pty.IPty;
   onData: vscode.EventEmitter<{ id: string; data: string }>;
   onExit: vscode.EventEmitter<string>;
+  port?: number;
 }
 
 export class TerminalManager {
@@ -21,7 +22,12 @@ export class TerminalManager {
   readonly onData = this._onData.event;
   readonly onExit = this._onExit.event;
 
-  createTerminal(id: string, command?: string): Terminal {
+  createTerminal(
+    id: string,
+    command?: string,
+    env?: Record<string, string>,
+    port?: number,
+  ): Terminal {
     if (this.terminals.has(id)) {
       this.killTerminal(id);
     }
@@ -35,12 +41,19 @@ export class TerminalManager {
     }>();
     const onExitEmitter = new vscode.EventEmitter<string>();
 
+    // Merge environment variables: custom env > process.env > defaults
+    const mergedEnv: Record<string, string> = {
+      ...process.env,
+      TERM: "xterm-256color",
+      ...env,
+    } as Record<string, string>;
+
     const ptyProcess = pty.spawn(shell, ptyArgs, {
       name: "xterm-256color",
       cols: 80,
       rows: 24,
       cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir(),
-      env: { ...process.env, TERM: "xterm-256color" } as Record<string, string>,
+      env: mergedEnv,
       handleFlowControl: false,
     });
 
@@ -60,6 +73,7 @@ export class TerminalManager {
       process: ptyProcess,
       onData: onDataEmitter,
       onExit: onExitEmitter,
+      port,
     };
 
     this.terminals.set(id, terminal);

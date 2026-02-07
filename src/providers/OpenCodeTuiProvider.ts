@@ -2,19 +2,30 @@ import * as vscode from "vscode";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { TerminalDiscoveryService } from "../services/TerminalDiscoveryService";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
+import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
+import { PortManager } from "../services/PortManager";
+import { ContextSharingService } from "../services/ContextSharingService";
 
 export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencodeTui";
   private _view?: vscode.WebviewView;
   private terminalId = "opencode-main";
   private isStarted = false;
+  private apiClient?: OpenCodeApiClient;
+  private readonly portManager: PortManager;
+  private readonly contextSharingService: ContextSharingService;
+  private httpAvailable = false;
+  private autoContextSent = false;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly terminalManager: TerminalManager,
     private readonly discoveryService: TerminalDiscoveryService,
     private readonly captureManager: OutputCaptureManager,
-  ) {}
+  ) {
+    this.portManager = new PortManager();
+    this.contextSharingService = new ContextSharingService();
+  }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -64,15 +75,50 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  startOpenCode(): void {
+  public pasteText(text: string): void {
+    this._view?.webview.postMessage({
+      type: "clipboardContent",
+      text: text,
+    });
+  }
+
+  async startOpenCode(): Promise<void> {
     if (this.isStarted) {
       return;
     }
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
+    const enableHttpApi = config.get<boolean>("enableHttpApi", true);
+    const httpTimeout = config.get<number>("httpTimeout", 5000);
     const command = config.get<string>("command", "opencode -c");
 
-    this.terminalManager.createTerminal(this.terminalId, command);
+    let port: number | undefined;
+
+    if (enableHttpApi) {
+      try {
+        port = this.portManager.assignPortToTerminal(this.terminalId);
+        console.log(
+          `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.terminalId}`,
+        );
+      } catch (error) {
+        console.error("[OpenCodeTuiProvider] Failed to assign port:", error);
+        vscode.window.showWarningMessage(
+          "Failed to assign port for OpenCode HTTP API. Running without HTTP features.",
+        );
+      }
+    }
+
+    const terminal = this.terminalManager.createTerminal(
+      this.terminalId,
+      command,
+      port
+        ? {
+            _EXTENSION_OPENCODE_PORT: port.toString(),
+            OPENCODE_CALLER: "vscode",
+          }
+        : {},
+      port,
+    );
 
     this.terminalManager.onData((event) => {
       if (event.id === this.terminalId) {
@@ -86,6 +132,10 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this.terminalManager.onExit((id) => {
       if (id === this.terminalId) {
         this.isStarted = false;
+        this.httpAvailable = false;
+        this.apiClient = undefined;
+        this.autoContextSent = false;
+        this.portManager.releaseTerminalPorts(this.terminalId);
         this._view?.webview.postMessage({
           type: "terminalExited",
         });
@@ -93,6 +143,114 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     });
 
     this.isStarted = true;
+
+    if (enableHttpApi && port) {
+      this.apiClient = new OpenCodeApiClient(port, 10, 200, httpTimeout);
+      await this.pollForHttpReadiness();
+    } else {
+      console.log(
+        "[OpenCodeTuiProvider] HTTP API disabled or unavailable, using message passing fallback",
+      );
+      this.httpAvailable = false;
+    }
+  }
+
+  private async pollForHttpReadiness(): Promise<void> {
+    if (!this.apiClient) {
+      return;
+    }
+
+    const maxRetries = 10;
+    const delayMs = 200;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const isHealthy = await this.apiClient.healthCheck();
+        if (isHealthy) {
+          this.httpAvailable = true;
+          console.log("[OpenCodeTuiProvider] HTTP API is ready");
+          await this.sendAutoContext();
+          return;
+        }
+      } catch {
+        console.log(
+          `[OpenCodeTuiProvider] Health check attempt ${attempt}/${maxRetries} failed`,
+        );
+      }
+
+      if (attempt < maxRetries) {
+        await this.sleep(delayMs);
+      }
+    }
+
+    console.log(
+      "[OpenCodeTuiProvider] HTTP API not available after retries, using message passing fallback",
+    );
+    this.httpAvailable = false;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Sends auto-context to OpenCode when the terminal starts and HTTP is ready.
+   * Respects the autoShareContext configuration setting.
+   */
+  private async sendAutoContext(): Promise<void> {
+    // Only send once per terminal session
+    if (this.autoContextSent) {
+      return;
+    }
+
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    const enableHttpApi = config.get<boolean>("enableHttpApi", true);
+    const autoShareContext = config.get<boolean>("autoShareContext", true);
+
+    if (!enableHttpApi) {
+      console.log(
+        "[OpenCodeTuiProvider] HTTP API disabled, skipping auto-context",
+      );
+      return;
+    }
+
+    if (!autoShareContext) {
+      console.log(
+        "[OpenCodeTuiProvider] Auto-context sharing disabled by user",
+      );
+      return;
+    }
+
+    if (!this.httpAvailable || !this.apiClient) {
+      console.log(
+        "[OpenCodeTuiProvider] HTTP not available, skipping auto-context",
+      );
+      return;
+    }
+
+    const context = this.contextSharingService.getCurrentContext();
+    if (!context) {
+      console.log(
+        "[OpenCodeTuiProvider] No active editor, skipping auto-context",
+      );
+      return;
+    }
+
+    const fileRef = this.contextSharingService.formatContext(context);
+    console.log(`[OpenCodeTuiProvider] Sending auto-context: ${fileRef}`);
+
+    try {
+      await this.apiClient.appendPrompt(fileRef);
+      this.autoContextSent = true;
+      console.log(
+        "[OpenCodeTuiProvider] Auto-context sent successfully via HTTP",
+      );
+    } catch (error) {
+      console.error(
+        "[OpenCodeTuiProvider] Failed to send auto-context:",
+        error,
+      );
+    }
   }
 
   restart(): void {
@@ -147,6 +305,35 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           message.command,
         );
         break;
+      case "getClipboard":
+        this.handleGetClipboard();
+        break;
+      case "triggerPaste":
+        this.handlePaste();
+        break;
+    }
+  }
+
+  private async handlePaste(): Promise<void> {
+    try {
+      const text = await vscode.env.clipboard.readText();
+      if (text) {
+        this.pasteText(text);
+      }
+    } catch (error) {
+      console.error("[OpenCodeTuiProvider] Failed to paste:", error);
+    }
+  }
+
+  private async handleGetClipboard(): Promise<void> {
+    try {
+      const text = await vscode.env.clipboard.readText();
+      this._view?.webview.postMessage({
+        type: "clipboardContent",
+        text: text,
+      });
+    } catch (error) {
+      console.error("[OpenCodeTuiProvider] Failed to read clipboard:", error);
     }
   }
 

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 out/
+build/
 *.vsix
 .vscode-test/
 .DS_Store
@@ -17,3 +18,4 @@ out/
 
 # ai
 AGENTS.md
+package-lock.json
