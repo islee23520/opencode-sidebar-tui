@@ -24,7 +24,7 @@
     "url": " https://github.com/islee23520/opencode-sidebar-tui"
   },
   "license": "MIT",
-  "main": "./build/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onView:opencodeTui",
     "onStartupFinished"
@@ -272,7 +272,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "build-and-install": "npm run package && npx @vscode/vsce package && code --install-extension *.vsix --force"
+    "build-and-install": "npm run package && npx @vscode/vsce package --out build/ && code --install-extension build/*.vsix --force"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

@@ -565,7 +565,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
   private getHtmlForWebview(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, "build", "webview.js"),
+      vscode.Uri.joinPath(this.context.extensionUri, "dist", "webview.js"),
     );
 
     const nonce = this.getNonce();
