@@ -2,7 +2,6 @@ import "@xterm/xterm/css/xterm.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { WebglAddon } from "@xterm/addon-webgl";
 import { WebviewMessage, HostMessage } from "../types";
 
 declare function acquireVsCodeApi(): {
@@ -541,16 +540,6 @@ function initTerminal(): void {
     },
   });
 
-  try {
-    const webglAddon = new WebglAddon();
-    webglAddon.onContextLoss(() => {
-      webglAddon.dispose();
-    });
-    terminal.loadAddon(webglAddon);
-  } catch (e) {
-    console.warn("WebGL addon failed to load, using canvas renderer");
-  }
-
   terminal.open(container);
 
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
@@ -632,16 +621,30 @@ function initTerminal(): void {
     });
   });
 
-  window.addEventListener("resize", () => {
-    if (fitAddon && terminal) {
-      fitAddon.fit();
+  let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+  let isResizing = false;
+
+  const handleResize = () => {
+    if (isResizing) return;
+    isResizing = true;
+
+    if (resizeTimeout) {
+      clearTimeout(resizeTimeout);
     }
-  });
+
+    resizeTimeout = setTimeout(() => {
+      if (fitAddon && terminal) {
+        fitAddon.fit();
+        terminal.refresh(0, terminal.rows - 1);
+      }
+      isResizing = false;
+    }, 50);
+  };
+
+  window.addEventListener("resize", handleResize);
 
   const resizeObserver = new ResizeObserver(() => {
-    if (fitAddon && terminal) {
-      fitAddon.fit();
-    }
+    handleResize();
   });
 
   resizeObserver.observe(container);
@@ -854,26 +857,12 @@ window.addEventListener("message", (event) => {
       }
       break;
     case "webviewVisible":
-      // Refit and refresh terminal when webview becomes visible
-      // Use multiple timeouts to ensure proper rendering
       setTimeout(() => {
-        if (fitAddon && terminal) {
+        if (terminal && fitAddon) {
           fitAddon.fit();
           terminal.refresh(0, terminal.rows - 1);
         }
       }, 50);
-      setTimeout(() => {
-        if (fitAddon && terminal) {
-          fitAddon.fit();
-          terminal.refresh(0, terminal.rows - 1);
-        }
-      }, 150);
-      setTimeout(() => {
-        if (fitAddon && terminal) {
-          fitAddon.fit();
-          terminal.refresh(0, terminal.rows - 1);
-        }
-      }, 300);
       break;
     case "platformInfo":
       currentPlatform = message.platform;

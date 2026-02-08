@@ -5,7 +5,7 @@ const extensionConfig = {
   mode: "none",
   entry: "./src/extension.ts",
   output: {
-    path: path.resolve(__dirname, "dist"),
+    path: path.resolve(__dirname, "build"),
     filename: "extension.js",
     libraryTarget: "commonjs2",
   },
@@ -45,7 +45,7 @@ const webviewConfig = {
   mode: "none",
   entry: "./src/webview/main.ts",
   output: {
-    path: path.resolve(__dirname, "dist"),
+    path: path.resolve(__dirname, "build"),
     filename: "webview.js",
   },
   resolve: {

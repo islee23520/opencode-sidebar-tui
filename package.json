@@ -2,7 +2,7 @@
   "name": "opencode-sidebar-tui",
   "displayName": "OpenCode Sidebar TUI",
   "description": "Automatically render OpenCode TUI in VS Code sidebar with full terminal support",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "islee23520",
   "icon": "icon.png",
   "engines": {
@@ -24,7 +24,7 @@
     "url": " https://github.com/islee23520/opencode-sidebar-tui"
   },
   "license": "MIT",
-  "main": "./dist/extension.js",
+  "main": "./build/extension.js",
   "activationEvents": [
     "onView:opencodeTui",
     "onStartupFinished"
@@ -271,7 +271,8 @@
     "format": "prettier --write \"src/**/*.{ts,js,json,css,md}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "build-and-install": "npm run package && npx @vscode/vsce package && code --install-extension *.vsix --force"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
