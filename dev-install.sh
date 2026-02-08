@@ -2,6 +2,7 @@
 # Dev Install: Build, Package, Reinstall
 
 set -e
+set -o pipefail
 
 echo "📦 Building extension..."
 npm run compile

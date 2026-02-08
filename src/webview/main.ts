@@ -622,22 +622,16 @@ function initTerminal(): void {
   });
 
   let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
-  let isResizing = false;
 
   const handleResize = () => {
-    if (isResizing) return;
-    isResizing = true;
-
     if (resizeTimeout) {
       clearTimeout(resizeTimeout);
     }
-
     resizeTimeout = setTimeout(() => {
       if (fitAddon && terminal) {
         fitAddon.fit();
         terminal.refresh(0, terminal.rows - 1);
       }
-      isResizing = false;
     }, 50);
   };
 
