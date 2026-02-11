@@ -1,6 +1,7 @@
 import "@xterm/xterm/css/xterm.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebviewMessage, HostMessage } from "../types";
 
@@ -541,6 +542,16 @@ function initTerminal(): void {
   });
 
   terminal.open(container);
+
+  try {
+    const webglAddon = new WebglAddon();
+    webglAddon.onContextLoss(() => {
+      webglAddon.dispose();
+    });
+    terminal.loadAddon(webglAddon);
+  } catch (e) {
+    console.warn("WebGL renderer not available, falling back to canvas:", e);
+  }
 
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
   container.addEventListener("focusin", refreshTerminal);
