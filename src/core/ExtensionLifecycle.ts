@@ -280,20 +280,6 @@ export class ExtensionLifecycle {
     vscode.window.showInformationMessage(`Sent ${reference}`);
   }
 
-  private formatFileRef(uri: vscode.Uri): string {
-    if (!this.contextSharingService) {
-      this.contextSharingService = new ContextSharingService();
-    }
-    return this.contextSharingService.formatFileRef(uri);
-  }
-
-  private formatFileRefWithLineNumbers(editor: vscode.TextEditor): string {
-    if (!this.contextSharingService) {
-      this.contextSharingService = new ContextSharingService();
-    }
-    return this.contextSharingService.formatFileRefWithLineNumbers(editor);
-  }
-
   async deactivate(): Promise<void> {
     console.log("Deactivating OpenCode Sidebar TUI...");
 

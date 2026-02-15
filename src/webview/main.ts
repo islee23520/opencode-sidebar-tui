@@ -349,15 +349,11 @@ function initTerminal(): void {
         event.stopPropagation();
         return false;
       }
-      event.preventDefault();
-      event.stopPropagation();
-      return false;
+      return true;
     }
 
     if (isCtrlZ) {
-      event.preventDefault();
-      event.stopPropagation();
-      return false;
+      return true;
     }
 
     if (event.ctrlKey && (event.key === "v" || event.key === "V")) {
@@ -623,7 +619,7 @@ function initTerminal(): void {
   terminal.onData((data) => {
     if (justHandledCtrlC) {
       justHandledCtrlC = false;
-      const filteredData = data.replace(/[\x03\x1A]/g, "");
+      const filteredData = data.replace(/\x03/g, "");
       if (filteredData) {
         if (completionProvider) {
           completionProvider.handleData(filteredData);
@@ -636,16 +632,14 @@ function initTerminal(): void {
       return;
     }
 
-    const filteredData = data.replace(/[\x03\x1A]/g, "");
-
-    if (completionProvider && filteredData) {
-      completionProvider.handleData(filteredData);
+    if (completionProvider && data) {
+      completionProvider.handleData(data);
     }
 
-    if (filteredData) {
+    if (data) {
       vscode.postMessage({
         type: "terminalInput",
-        data: filteredData,
+        data,
       });
     }
   });

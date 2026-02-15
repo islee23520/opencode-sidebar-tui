@@ -78,66 +78,6 @@ describe("ExtensionLifecycle", () => {
     });
   });
 
-  describe("formatFileRef", () => {
-    it("should format file reference with @ prefix", async () => {
-      await lifecycle.activate(mockContext);
-
-      const uri = vscode.Uri.file("/workspace/src/test.ts");
-      vi.mocked(vscode.workspace.asRelativePath).mockReturnValue("src/test.ts");
-
-      const result = (lifecycle as any).formatFileRef(uri);
-
-      expect(result).toBe("@src/test.ts");
-    });
-  });
-
-  describe("formatFileRefWithLineNumbers", () => {
-    it("should format file reference without selection", async () => {
-      await lifecycle.activate(mockContext);
-
-      const uri = vscode.Uri.file("/workspace/src/test.ts");
-      const document = new vscode.TextDocument(uri, "content");
-      const selection = new vscode.Selection(0, 0, 0, 0);
-      const editor = new vscode.TextEditor(document, selection);
-
-      vi.mocked(vscode.workspace.asRelativePath).mockReturnValue("src/test.ts");
-
-      const result = (lifecycle as any).formatFileRefWithLineNumbers(editor);
-
-      expect(result).toBe("@src/test.ts");
-    });
-
-    it("should format file reference with single line selection", async () => {
-      await lifecycle.activate(mockContext);
-
-      const uri = vscode.Uri.file("/workspace/src/test.ts");
-      const document = new vscode.TextDocument(uri, "content");
-      const selection = new vscode.Selection(9, 0, 9, 10);
-      const editor = new vscode.TextEditor(document, selection);
-
-      vi.mocked(vscode.workspace.asRelativePath).mockReturnValue("src/test.ts");
-
-      const result = (lifecycle as any).formatFileRefWithLineNumbers(editor);
-
-      expect(result).toBe("@src/test.ts#L10");
-    });
-
-    it("should format file reference with multi-line selection", async () => {
-      await lifecycle.activate(mockContext);
-
-      const uri = vscode.Uri.file("/workspace/src/test.ts");
-      const document = new vscode.TextDocument(uri, "content");
-      const selection = new vscode.Selection(9, 0, 19, 10);
-      const editor = new vscode.TextEditor(document, selection);
-
-      vi.mocked(vscode.workspace.asRelativePath).mockReturnValue("src/test.ts");
-
-      const result = (lifecycle as any).formatFileRefWithLineNumbers(editor);
-
-      expect(result).toBe("@src/test.ts#L10-L20");
-    });
-  });
-
   describe("commands", () => {
     beforeEach(async () => {
       await lifecycle.activate(mockContext);
