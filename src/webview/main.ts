@@ -280,9 +280,29 @@ let currentPlatform: string = "";
 let justHandledCtrlC = false;
 let lastPasteTime = 0;
 
+function copySelectionToClipboard(selection: string): void {
+  navigator.clipboard.writeText(selection).catch(() => {
+    vscode.postMessage({
+      type: "setClipboard",
+      text: selection,
+    });
+  });
+}
+
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
   if (!container) return;
+
+  container.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+
+  container.addEventListener("mousedown", (event) => {
+    if (event.button === 2) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
 
   terminal = new Terminal({
     cursorBlink: true,
@@ -314,24 +334,20 @@ function initTerminal(): void {
       (event.key === "z" || event.key === "Z");
 
     if (isCtrlC) {
-      if (currentPlatform === "win32" && terminal) {
-        const selection = terminal.getSelection();
-        if (selection && selection.length > 0) {
-          navigator.clipboard.writeText(selection).catch((err) => {
-            console.error("Failed to copy to clipboard:", err);
-          });
-          justHandledCtrlC = true;
-          // Reset flag after a short delay to prevent the subsequent onData event
-          // (triggered by xterm.js when Ctrl+C is pressed) from being filtered.
-          // The 100ms duration is chosen to be longer than typical event propagation
-          // but short enough to not interfere with normal user input.
-          setTimeout(() => {
-            justHandledCtrlC = false;
-          }, 100);
-          event.preventDefault();
-          event.stopPropagation();
-          return false;
-        }
+      const selection = terminal?.getSelection();
+      if (selection && selection.length > 0) {
+        copySelectionToClipboard(selection);
+        justHandledCtrlC = true;
+        // Reset flag after a short delay to prevent the subsequent onData event
+        // (triggered by xterm.js when Ctrl+C is pressed) from being filtered.
+        // The 100ms duration is chosen to be longer than typical event propagation
+        // but short enough to not interfere with normal user input.
+        setTimeout(() => {
+          justHandledCtrlC = false;
+        }, 100);
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
       }
       event.preventDefault();
       event.stopPropagation();

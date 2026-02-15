@@ -388,9 +388,20 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       case "getClipboard":
         this.handleGetClipboard();
         break;
+      case "setClipboard":
+        this.handleSetClipboard(message.text);
+        break;
       case "triggerPaste":
         this.handlePaste();
         break;
+    }
+  }
+
+  private async handleSetClipboard(text: string): Promise<void> {
+    try {
+      await vscode.env.clipboard.writeText(text);
+    } catch (error) {
+      console.error("[OpenCodeTuiProvider] Failed to write clipboard:", error);
     }
   }
 
