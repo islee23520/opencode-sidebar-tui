@@ -156,16 +156,6 @@
         "when": "inFilesPicker && inQuickOpen"
       },
       {
-        "command": "-workbench.action.terminal.sendSequence",
-        "key": "ctrl+c",
-        "when": "focusedView == 'opencodeTui' && terminalFocus"
-      },
-      {
-        "command": "-workbench.action.terminal.sendSequence",
-        "key": "ctrl+z",
-        "when": "focusedView == 'opencodeTui' && terminalFocus"
-      },
-      {
         "command": "opencodeTui.paste",
         "key": "ctrl+v",
         "mac": "cmd+v",

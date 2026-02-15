@@ -87,10 +87,7 @@ export class TerminalManager {
   writeToTerminal(id: string, data: string): void {
     const terminal = this.terminals.get(id);
     if (terminal) {
-      const filteredData = data.replace(/[\x03\x1A]/g, "");
-      if (filteredData) {
-        terminal.process.write(filteredData);
-      }
+      terminal.process.write(data);
     }
   }
 
