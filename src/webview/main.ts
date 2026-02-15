@@ -278,6 +278,20 @@ let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
 let lastPasteTime = 0;
+let needsRefresh = false;
+let animationFrameId: number | null = null;
+
+function scheduleRefresh() {
+  if (animationFrameId !== null) return;
+
+  animationFrameId = requestAnimationFrame(() => {
+    animationFrameId = null;
+    if (terminal && needsRefresh) {
+      terminal.refresh(0, terminal.rows - 1);
+      needsRefresh = false;
+    }
+  });
+}
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -519,7 +533,8 @@ function initTerminal(): void {
       entries.forEach((entry) => {
         if (entry.isIntersecting && fitAddon && terminal) {
           fitAddon.fit();
-          terminal.refresh(0, terminal.rows - 1);
+          needsRefresh = true;
+          scheduleRefresh();
         }
       });
     },
@@ -538,7 +553,8 @@ function initTerminal(): void {
   setTimeout(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
-      terminal.refresh(0, terminal.rows - 1);
+      needsRefresh = true;
+      scheduleRefresh();
     }
   }, 100);
 
@@ -546,7 +562,8 @@ function initTerminal(): void {
   setTimeout(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
-      terminal.refresh(0, terminal.rows - 1);
+      needsRefresh = true;
+      scheduleRefresh();
     }
   }, 500);
 
@@ -580,7 +597,8 @@ function initTerminal(): void {
     resizeTimeout = setTimeout(() => {
       if (fitAddon && terminal) {
         fitAddon.fit();
-        terminal.refresh(0, terminal.rows - 1);
+        needsRefresh = true;
+        scheduleRefresh();
       }
     }, 50);
   };
@@ -804,7 +822,8 @@ window.addEventListener("message", (event) => {
       setTimeout(() => {
         if (terminal && fitAddon) {
           fitAddon.fit();
-          terminal.refresh(0, terminal.rows - 1);
+          needsRefresh = true;
+          scheduleRefresh();
         }
       }, 50);
       break;
