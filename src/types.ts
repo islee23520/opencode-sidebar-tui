@@ -9,7 +9,7 @@ export type WebviewMessage =
       column?: number;
     }
   | { type: "openUrl"; url: string }
-  | { type: "ready" }
+  | { type: "ready"; cols: number; rows: number }
   | { type: "filesDropped"; files: string[]; shiftKey: boolean }
   | { type: "listTerminals" }
   | {
@@ -25,6 +25,7 @@ export type HostMessage =
   | { type: "clipboardContent"; text: string }
   | { type: "terminalOutput"; data: string }
   | { type: "terminalExited" }
+  | { type: "clearTerminal" }
   | { type: "focusTerminal" }
   | { type: "terminalList"; terminals: { name: string; cwd: string }[] }
   | { type: "webviewVisible" }

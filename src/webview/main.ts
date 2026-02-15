@@ -1,8 +1,8 @@
 import "@xterm/xterm/css/xterm.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebviewMessage, HostMessage } from "../types";
 
 declare function acquireVsCodeApi(): {
@@ -277,21 +277,8 @@ let terminal: Terminal | null = null;
 let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
+let justHandledCtrlC = false;
 let lastPasteTime = 0;
-let needsRefresh = false;
-let animationFrameId: number | null = null;
-
-function scheduleRefresh() {
-  if (animationFrameId !== null) return;
-
-  animationFrameId = requestAnimationFrame(() => {
-    animationFrameId = null;
-    if (terminal && needsRefresh) {
-      terminal.refresh(0, terminal.rows - 1);
-      needsRefresh = false;
-    }
-  });
-}
 
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
@@ -312,6 +299,48 @@ function initTerminal(): void {
 
   terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
     if (completionProvider && !completionProvider.handleKey(event)) {
+      return false;
+    }
+
+    const isCtrlC =
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (event.key === "c" || event.key === "C");
+    const isCtrlZ =
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (event.key === "z" || event.key === "Z");
+
+    if (isCtrlC) {
+      if (currentPlatform === "win32" && terminal) {
+        const selection = terminal.getSelection();
+        if (selection && selection.length > 0) {
+          navigator.clipboard.writeText(selection).catch((err) => {
+            console.error("Failed to copy to clipboard:", err);
+          });
+          justHandledCtrlC = true;
+          // Reset flag after a short delay to prevent the subsequent onData event
+          // (triggered by xterm.js when Ctrl+C is pressed) from being filtered.
+          // The 100ms duration is chosen to be longer than typical event propagation
+          // but short enough to not interfere with normal user input.
+          setTimeout(() => {
+            justHandledCtrlC = false;
+          }, 100);
+          event.preventDefault();
+          event.stopPropagation();
+          return false;
+        }
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      return false;
+    }
+
+    if (isCtrlZ) {
+      event.preventDefault();
+      event.stopPropagation();
       return false;
     }
 
@@ -340,15 +369,6 @@ function initTerminal(): void {
       });
     }),
   );
-
-  const webglAddon = new WebglAddon();
-  terminal.loadAddon(webglAddon);
-
-  // Handle WebGL context loss gracefully
-  webglAddon.onContextLoss(() => {
-    webglAddon.dispose();
-    console.warn("WebGL context lost, falling back to canvas renderer");
-  });
 
   // Register file path link provider
   terminal.registerLinkProvider({
@@ -523,6 +543,16 @@ function initTerminal(): void {
 
   terminal.open(container);
 
+  try {
+    const webglAddon = new WebglAddon();
+    webglAddon.onContextLoss(() => {
+      webglAddon.dispose();
+    });
+    terminal.loadAddon(webglAddon);
+  } catch (e) {
+    console.warn("WebGL renderer not available, falling back to canvas:", e);
+  }
+
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
   container.addEventListener("focusin", refreshTerminal);
   container.addEventListener("click", refreshTerminal);
@@ -533,8 +563,7 @@ function initTerminal(): void {
       entries.forEach((entry) => {
         if (entry.isIntersecting && fitAddon && terminal) {
           fitAddon.fit();
-          needsRefresh = true;
-          scheduleRefresh();
+          terminal.refresh(0, terminal.rows - 1);
         }
       });
     },
@@ -546,6 +575,11 @@ function initTerminal(): void {
   requestAnimationFrame(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
+      vscode.postMessage({
+        type: "ready",
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
     }
   });
 
@@ -553,8 +587,12 @@ function initTerminal(): void {
   setTimeout(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
-      needsRefresh = true;
-      scheduleRefresh();
+      terminal.refresh(0, terminal.rows - 1);
+      vscode.postMessage({
+        type: "terminalResize",
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
     }
   }, 100);
 
@@ -562,20 +600,36 @@ function initTerminal(): void {
   setTimeout(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
-      needsRefresh = true;
-      scheduleRefresh();
+      terminal.refresh(0, terminal.rows - 1);
     }
   }, 500);
 
   terminal.onData((data) => {
-    if (completionProvider) {
-      completionProvider.handleData(data);
+    if (justHandledCtrlC) {
+      justHandledCtrlC = false;
+      const filteredData = data.replace(/[\x03\x1A]/g, "");
+      if (filteredData) {
+        if (completionProvider) {
+          completionProvider.handleData(filteredData);
+        }
+        vscode.postMessage({
+          type: "terminalInput",
+          data: filteredData,
+        });
+      }
+      return;
     }
 
-    if (data) {
+    const filteredData = data.replace(/[\x03\x1A]/g, "");
+
+    if (completionProvider && filteredData) {
+      completionProvider.handleData(filteredData);
+    }
+
+    if (filteredData) {
       vscode.postMessage({
         type: "terminalInput",
-        data: data,
+        data: filteredData,
       });
     }
   });
@@ -597,8 +651,7 @@ function initTerminal(): void {
     resizeTimeout = setTimeout(() => {
       if (fitAddon && terminal) {
         fitAddon.fit();
-        needsRefresh = true;
-        scheduleRefresh();
+        terminal.refresh(0, terminal.rows - 1);
       }
     }, 50);
   };
@@ -703,8 +756,6 @@ function initTerminal(): void {
       }
     }
   });
-
-  vscode.postMessage({ type: "ready" });
 }
 
 function showTerminalContextMenu(event: MouseEvent, terminalName: string) {
@@ -813,6 +864,20 @@ window.addEventListener("message", (event) => {
         terminal.write("\r\n\x1b[31mOpenCode exited\x1b[0m\r\n");
       }
       break;
+    case "clearTerminal":
+      if (terminal) {
+        terminal.clear();
+        terminal.reset();
+        if (fitAddon) {
+          fitAddon.fit();
+          vscode.postMessage({
+            type: "terminalResize",
+            cols: terminal.cols,
+            rows: terminal.rows,
+          });
+        }
+      }
+      break;
     case "focusTerminal":
       if (terminal) {
         terminal.focus();
@@ -822,8 +887,12 @@ window.addEventListener("message", (event) => {
       setTimeout(() => {
         if (terminal && fitAddon) {
           fitAddon.fit();
-          needsRefresh = true;
-          scheduleRefresh();
+          terminal.refresh(0, terminal.rows - 1);
+          vscode.postMessage({
+            type: "terminalResize",
+            cols: terminal.cols,
+            rows: terminal.rows,
+          });
         }
       }, 50);
       break;

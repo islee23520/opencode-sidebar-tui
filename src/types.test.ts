@@ -64,9 +64,13 @@ describe("Types", () => {
     it("should accept ready message", () => {
       const message: WebviewMessage = {
         type: "ready",
+        cols: 80,
+        rows: 24,
       };
 
       expect(message.type).toBe("ready");
+      expect(message.cols).toBe(80);
+      expect(message.rows).toBe(24);
     });
 
     it("should accept filesDropped message", () => {

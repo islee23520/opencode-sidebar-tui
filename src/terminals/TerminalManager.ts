@@ -27,6 +27,8 @@ export class TerminalManager {
     command?: string,
     env?: Record<string, string>,
     port?: number,
+    cols?: number,
+    rows?: number,
   ): Terminal {
     if (this.terminals.has(id)) {
       this.killTerminal(id);
@@ -50,8 +52,8 @@ export class TerminalManager {
 
     const ptyProcess = pty.spawn(shell, ptyArgs, {
       name: "xterm-256color",
-      cols: 80,
-      rows: 24,
+      cols: cols || 80,
+      rows: rows || 24,
       cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir(),
       env: mergedEnv,
       handleFlowControl: false,
