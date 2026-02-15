@@ -282,7 +282,6 @@
     "node-pty": "^1.2.0-beta.8"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
     "@types/node": "24.x",
     "@types/vscode": "^1.106.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
@@ -292,7 +291,6 @@
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^5.5.4",
-    "ovsx": "^0.10.8",
     "prettier": "^3.7.2",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",

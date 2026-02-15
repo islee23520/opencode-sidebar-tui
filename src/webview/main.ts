@@ -1,6 +1,7 @@
 import "@xterm/xterm/css/xterm.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebviewMessage, HostMessage } from "../types";
 
@@ -542,6 +543,16 @@ function initTerminal(): void {
 
   terminal.open(container);
 
+  try {
+    const webglAddon = new WebglAddon();
+    webglAddon.onContextLoss(() => {
+      webglAddon.dispose();
+    });
+    terminal.loadAddon(webglAddon);
+  } catch (e) {
+    console.warn("WebGL renderer not available, falling back to canvas:", e);
+  }
+
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
   container.addEventListener("focusin", refreshTerminal);
   container.addEventListener("click", refreshTerminal);
@@ -564,6 +575,11 @@ function initTerminal(): void {
   requestAnimationFrame(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
+      vscode.postMessage({
+        type: "ready",
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
     }
   });
 
@@ -572,6 +588,11 @@ function initTerminal(): void {
     if (fitAddon && terminal) {
       fitAddon.fit();
       terminal.refresh(0, terminal.rows - 1);
+      vscode.postMessage({
+        type: "terminalResize",
+        cols: terminal.cols,
+        rows: terminal.rows,
+      });
     }
   }, 100);
 
@@ -735,8 +756,6 @@ function initTerminal(): void {
       }
     }
   });
-
-  vscode.postMessage({ type: "ready" });
 }
 
 function showTerminalContextMenu(event: MouseEvent, terminalName: string) {
@@ -845,6 +864,20 @@ window.addEventListener("message", (event) => {
         terminal.write("\r\n\x1b[31mOpenCode exited\x1b[0m\r\n");
       }
       break;
+    case "clearTerminal":
+      if (terminal) {
+        terminal.clear();
+        terminal.reset();
+        if (fitAddon) {
+          fitAddon.fit();
+          vscode.postMessage({
+            type: "terminalResize",
+            cols: terminal.cols,
+            rows: terminal.rows,
+          });
+        }
+      }
+      break;
     case "focusTerminal":
       if (terminal) {
         terminal.focus();
@@ -855,6 +888,11 @@ window.addEventListener("message", (event) => {
         if (terminal && fitAddon) {
           fitAddon.fit();
           terminal.refresh(0, terminal.rows - 1);
+          vscode.postMessage({
+            type: "terminalResize",
+            cols: terminal.cols,
+            rows: terminal.rows,
+          });
         }
       }, 50);
       break;

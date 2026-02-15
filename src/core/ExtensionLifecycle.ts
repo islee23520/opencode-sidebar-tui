@@ -48,7 +48,7 @@ export class ExtensionLifecycle {
         this.tuiProvider,
         {
           webviewOptions: {
-            retainContextWhenHidden: false,
+            retainContextWhenHidden: true,
           },
         },
       );
