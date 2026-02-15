@@ -2,6 +2,7 @@ import "@xterm/xterm/css/xterm.css";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { WebviewMessage, HostMessage } from "../types";
 
 declare function acquireVsCodeApi(): {
@@ -325,6 +326,15 @@ function initTerminal(): void {
       });
     }),
   );
+
+  const webglAddon = new WebglAddon();
+  terminal.loadAddon(webglAddon);
+
+  // Handle WebGL context loss gracefully
+  webglAddon.onContextLoss(() => {
+    webglAddon.dispose();
+    console.warn("WebGL context lost, falling back to canvas renderer");
+  });
 
   // Register file path link provider
   terminal.registerLinkProvider({
