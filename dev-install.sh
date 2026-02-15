@@ -43,17 +43,24 @@ run_command() {
     fi
 
     if command -v "$cmd" >/dev/null 2>&1; then
-        if [ -n "$cmd_path" ]; then
+        if [ "$is_windows_shell" -eq 1 ] && [ -n "$cmd_path" ]; then
+            :
+        elif [ -n "$cmd_path" ]; then
             if "$cmd_path" "$@"; then
                 return
             fi
+
+            exit_code=$?
+            if [ "$exit_code" -ne 127 ] && [ "$exit_code" -ne 126 ]; then
+                exit "$exit_code"
+            fi
         elif "$cmd" "$@"; then
             return
-        fi
-
-        exit_code=$?
-        if [ "$exit_code" -ne 127 ]; then
-            exit "$exit_code"
+        else
+            exit_code=$?
+            if [ "$exit_code" -ne 127 ] && [ "$exit_code" -ne 126 ]; then
+                exit "$exit_code"
+            fi
         fi
     fi
 
