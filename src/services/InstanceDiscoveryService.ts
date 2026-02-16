@@ -55,7 +55,10 @@ export class InstanceDiscoveryService {
           port: candidate.port,
           workspacePath,
         });
-      } catch {
+      } catch (error) {
+        this.logger.debug(
+          `Health check failed for port ${candidate.port}: ${error instanceof Error ? error.message : String(error)}`,
+        );
         continue;
       }
     }
@@ -177,16 +180,28 @@ export class InstanceDiscoveryService {
       }
 
       const processStarted = await new Promise<boolean>((resolve) => {
-        const timeout = setTimeout(() => resolve(true), 500);
+        let resolved = false;
+        const timeout = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve(true);
+          }
+        }, 500);
 
         child.on("error", () => {
           clearTimeout(timeout);
-          resolve(false);
+          if (!resolved) {
+            resolved = true;
+            resolve(false);
+          }
         });
 
         child.on("exit", (code) => {
           clearTimeout(timeout);
-          resolve(code === 0);
+          if (!resolved) {
+            resolved = true;
+            resolve(code === 0);
+          }
         });
       });
 
