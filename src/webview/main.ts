@@ -277,8 +277,22 @@ let terminal: Terminal | null = null;
 let completionProvider: TerminalCompletionProvider | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
-let justHandledCtrlC = false;
 let lastPasteTime = 0;
+let needsRefresh = false;
+let animationFrameId: number | null = null;
+
+function scheduleRefresh() {
+  needsRefresh = true;
+  if (animationFrameId !== null) return;
+
+  animationFrameId = requestAnimationFrame(() => {
+    animationFrameId = null;
+    if (terminal && needsRefresh) {
+      terminal.refresh(0, terminal.rows - 1);
+      needsRefresh = false;
+    }
+  });
+}
 
 function copySelectionToClipboard(selection: string): void {
   navigator.clipboard.writeText(selection).catch(() => {
@@ -320,40 +334,6 @@ function initTerminal(): void {
   terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
     if (completionProvider && !completionProvider.handleKey(event)) {
       return false;
-    }
-
-    const isCtrlC =
-      event.ctrlKey &&
-      !event.shiftKey &&
-      !event.altKey &&
-      (event.key === "c" || event.key === "C");
-    const isCtrlZ =
-      event.ctrlKey &&
-      !event.shiftKey &&
-      !event.altKey &&
-      (event.key === "z" || event.key === "Z");
-
-    if (isCtrlC) {
-      const selection = terminal?.getSelection();
-      if (selection && selection.length > 0) {
-        copySelectionToClipboard(selection);
-        justHandledCtrlC = true;
-        // Reset flag after a short delay to prevent the subsequent onData event
-        // (triggered by xterm.js when Ctrl+C is pressed) from being filtered.
-        // The 100ms duration is chosen to be longer than typical event propagation
-        // but short enough to not interfere with normal user input.
-        setTimeout(() => {
-          justHandledCtrlC = false;
-        }, 100);
-        event.preventDefault();
-        event.stopPropagation();
-        return false;
-      }
-      return true;
-    }
-
-    if (isCtrlZ) {
-      return true;
     }
 
     if (event.ctrlKey && (event.key === "v" || event.key === "V")) {
@@ -442,8 +422,7 @@ function initTerminal(): void {
             if (url.hostname && !url.pathname.startsWith("/")) {
               path = `${url.hostname}:${path}`;
             }
-          } catch (e) {
-            console.error("Failed to parse file:// URL:", path, e);
+          } catch {
             continue;
           }
         }
@@ -561,9 +540,7 @@ function initTerminal(): void {
       webglAddon.dispose();
     });
     terminal.loadAddon(webglAddon);
-  } catch (e) {
-    console.warn("WebGL renderer not available, falling back to canvas:", e);
-  }
+  } catch {}
 
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
   container.addEventListener("focusin", refreshTerminal);
@@ -575,7 +552,7 @@ function initTerminal(): void {
       entries.forEach((entry) => {
         if (entry.isIntersecting && fitAddon && terminal) {
           fitAddon.fit();
-          terminal.refresh(0, terminal.rows - 1);
+          scheduleRefresh();
         }
       });
     },
@@ -599,7 +576,7 @@ function initTerminal(): void {
   setTimeout(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
-      terminal.refresh(0, terminal.rows - 1);
+      scheduleRefresh();
       vscode.postMessage({
         type: "terminalResize",
         cols: terminal.cols,
@@ -612,26 +589,11 @@ function initTerminal(): void {
   setTimeout(() => {
     if (fitAddon && terminal) {
       fitAddon.fit();
-      terminal.refresh(0, terminal.rows - 1);
+      scheduleRefresh();
     }
   }, 500);
 
   terminal.onData((data) => {
-    if (justHandledCtrlC) {
-      justHandledCtrlC = false;
-      const filteredData = data.replace(/\x03/g, "");
-      if (filteredData) {
-        if (completionProvider) {
-          completionProvider.handleData(filteredData);
-        }
-        vscode.postMessage({
-          type: "terminalInput",
-          data: filteredData,
-        });
-      }
-      return;
-    }
-
     if (completionProvider && data) {
       completionProvider.handleData(data);
     }
@@ -661,7 +623,7 @@ function initTerminal(): void {
     resizeTimeout = setTimeout(() => {
       if (fitAddon && terminal) {
         fitAddon.fit();
-        terminal.refresh(0, terminal.rows - 1);
+        scheduleRefresh();
       }
     }, 50);
   };
@@ -691,30 +653,15 @@ function initTerminal(): void {
     e.stopPropagation();
     container.style.opacity = "1";
 
-    console.log("[DROP] ShiftKey:", e.shiftKey);
-    console.log("[DROP] dataTransfer.types:", e.dataTransfer?.types);
-    console.log(
-      "[DROP] dataTransfer.items.length:",
-      e.dataTransfer?.items.length,
-    );
-    console.log(
-      "[DROP] dataTransfer.files.length:",
-      e.dataTransfer?.files.length,
-    );
-
     if (e.dataTransfer) {
       const files: string[] = [];
 
       const uriList = e.dataTransfer.getData("text/uri-list");
-      console.log("[DROP] URI List raw:", uriList);
-      console.log("[DROP] URI List length:", uriList?.length);
 
       if (uriList) {
         const uris = uriList
           .split("\n")
           .filter((uri) => uri.trim().length > 0 && !uri.startsWith("#"));
-        console.log("[DROP] Parsed URIs:", uris);
-        console.log("[DROP] Parsed URIs count:", uris.length);
 
         for (const uri of uris) {
           try {
@@ -722,47 +669,32 @@ function initTerminal(): void {
             if (url.protocol === "file:") {
               const path = decodeURIComponent(url.pathname);
               files.push(path);
-              console.log("[DROP] Added file from URI:", path);
             }
-          } catch (err) {
-            console.log("[DROP] Failed to parse URI:", uri, err);
+          } catch {
             files.push(uri.trim());
           }
         }
       }
 
       if (files.length === 0) {
-        console.log("[DROP] Fallback to dataTransfer.items");
         for (let i = 0; i < e.dataTransfer.items.length; i++) {
           const item = e.dataTransfer.items[i];
-          console.log(
-            "[DROP] Item",
-            i,
-            "- kind:",
-            item.kind,
-            "type:",
-            item.type,
-          );
           if (item.kind === "file") {
             const file = item.getAsFile();
             if (file) {
               const filePath = (file as any).path || file.name;
-              console.log("[DROP] Added file from item:", filePath);
               files.push(filePath);
             }
           }
         }
       }
 
-      console.log("[DROP] Final file count:", files.length, "Files:", files);
       if (files.length > 0) {
         vscode.postMessage({
           type: "filesDropped",
           files: files,
           shiftKey: e.shiftKey,
         });
-      } else {
-        console.warn("[DROP] No files found in drop event!");
       }
     }
   });
@@ -897,7 +829,7 @@ window.addEventListener("message", (event) => {
       setTimeout(() => {
         if (terminal && fitAddon) {
           fitAddon.fit();
-          terminal.refresh(0, terminal.rows - 1);
+          scheduleRefresh();
           vscode.postMessage({
             type: "terminalResize",
             cols: terminal.cols,
