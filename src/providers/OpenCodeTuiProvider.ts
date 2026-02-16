@@ -1,6 +1,5 @@
 import * as vscode from "vscode";
 import { TerminalManager } from "../terminals/TerminalManager";
-import { TerminalDiscoveryService } from "../services/TerminalDiscoveryService";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { PortManager } from "../services/PortManager";
@@ -26,7 +25,6 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly terminalManager: TerminalManager,
-    private readonly discoveryService: TerminalDiscoveryService,
     private readonly captureManager: OutputCaptureManager,
   ) {
     this.portManager = new PortManager();
@@ -382,16 +380,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           message.column,
         );
         break;
-      case "listTerminals":
-        this.handleListTerminals();
-        break;
-      case "terminalAction":
-        this.handleTerminalAction(
-          message.action,
-          message.terminalName,
-          message.command,
-        );
-        break;
+
       case "getClipboard":
         this.handleGetClipboard();
         break;
@@ -438,93 +427,6 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       this.logger.error(
         `[OpenCodeTuiProvider] Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`,
       );
-    }
-  }
-
-  private async handleListTerminals(): Promise<void> {
-    const terminals = await this.discoveryService.getTerminals();
-    this._view?.webview.postMessage({
-      type: "terminalList",
-      terminals: terminals,
-    });
-  }
-
-  private async handleTerminalAction(
-    action: "focus" | "sendCommand" | "capture",
-    terminalName: string,
-    command?: string,
-  ): Promise<void> {
-    const terminals = vscode.window.terminals;
-
-    let targetTerminal: vscode.Terminal | undefined = terminals.find(
-      (t) => t.name === terminalName,
-    );
-
-    if (!targetTerminal) {
-      const terminalInfos = await this.discoveryService.getTerminals();
-      const info = terminalInfos.find((t) => t.name === terminalName);
-      if (info) {
-        for (const t of terminals) {
-          const pid = await t.processId;
-          if (pid === info.pid) {
-            targetTerminal = t;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!targetTerminal) {
-      this.logger.warn(`Terminal not found: ${terminalName}`);
-      return;
-    }
-
-    switch (action) {
-      case "focus":
-        targetTerminal.show();
-        break;
-      case "sendCommand":
-        if (command) {
-          await this.sendCommandToTerminal(targetTerminal, command);
-        }
-        break;
-      case "capture":
-        try {
-          this.captureManager.startCapture(targetTerminal);
-          vscode.window.showInformationMessage(
-            `Started capturing terminal: ${terminalName}`,
-          );
-        } catch (e) {
-          vscode.window.showErrorMessage(`Failed to start capture: ${e}`);
-        }
-        break;
-    }
-  }
-
-  private async sendCommandToTerminal(
-    terminal: vscode.Terminal,
-    command: string,
-  ): Promise<void> {
-    const configKey = "opencodeTui.allowTerminalCommands";
-    const allowed = this.context.globalState.get<boolean>(configKey);
-
-    if (allowed) {
-      terminal.sendText(command);
-      return;
-    }
-
-    const result = await vscode.window.showInformationMessage(
-      "Allow OpenCode to send commands to external terminals?",
-      "Yes",
-      "Yes, don't ask again",
-      "No",
-    );
-
-    if (result === "Yes") {
-      terminal.sendText(command);
-    } else if (result === "Yes, don't ask again") {
-      await this.context.globalState.update(configKey, true);
-      terminal.sendText(command);
     }
   }
 

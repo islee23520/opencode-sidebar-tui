@@ -83,11 +83,6 @@
         "icon": "$(debug-restart)"
       },
       {
-        "command": "opencodeTui.sendTerminalCwd",
-        "title": "Send Terminal CWD to OpenCode",
-        "category": "OpenCode TUI"
-      },
-      {
         "command": "opencodeTui.paste",
         "title": "Paste",
         "category": "OpenCode TUI",
@@ -123,12 +118,6 @@
         {
           "command": "opencodeTui.sendAtMention",
           "group": "navigation"
-        }
-      ],
-      "terminal/context": [
-        {
-          "command": "opencodeTui.sendTerminalCwd",
-          "group": "9_cutcopypaste@5"
         }
       ]
     },

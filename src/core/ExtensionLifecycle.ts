@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import { OpenCodeTuiProvider } from "../providers/OpenCodeTuiProvider";
 import { OpenCodeCodeActionProvider } from "../providers/CodeActionProvider";
 import { TerminalManager } from "../terminals/TerminalManager";
-import { TerminalDiscoveryService } from "../services/TerminalDiscoveryService";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { ContextSharingService } from "../services/ContextSharingService";
 import { StatusBarManager } from "../services/StatusBarManager";
@@ -17,7 +16,6 @@ import { InstanceDiscoveryService } from "../services/InstanceDiscoveryService";
 export class ExtensionLifecycle {
   private terminalManager: TerminalManager | undefined;
   private tuiProvider: OpenCodeTuiProvider | undefined;
-  private discoveryService: TerminalDiscoveryService | undefined;
   private captureManager: OutputCaptureManager | undefined;
   private contextSharingService: ContextSharingService | undefined;
   private statusBarManager: StatusBarManager | undefined;
@@ -38,7 +36,6 @@ export class ExtensionLifecycle {
       this.terminalManager = new TerminalManager();
 
       // Initialize services
-      this.discoveryService = new TerminalDiscoveryService();
       this.captureManager = new OutputCaptureManager();
       this.contextSharingService = new ContextSharingService();
       this.outputChannelService = logger;
@@ -62,7 +59,6 @@ export class ExtensionLifecycle {
       this.tuiProvider = new OpenCodeTuiProvider(
         context,
         this.terminalManager,
-        this.discoveryService,
         this.captureManager,
       );
 
@@ -172,18 +168,7 @@ export class ExtensionLifecycle {
           }
 
           vscode.window.showInformationMessage(`Sent ${fileRef}`);
-        } else {
-          // If no editor is active but terminal is focused, send terminal CWD
-          this.sendTerminalCwd();
         }
-      },
-    );
-
-    // Send terminal's current working directory
-    const sendTerminalCwdCommand = vscode.commands.registerCommand(
-      "opencodeTui.sendTerminalCwd",
-      () => {
-        this.sendTerminalCwd();
       },
     );
 
@@ -291,50 +276,8 @@ export class ExtensionLifecycle {
       sendAllOpenFilesCommand,
       sendFileToTerminalCommand,
       restartCommand,
-      sendTerminalCwdCommand,
       pasteCommand,
     );
-  }
-
-  private async sendTerminalCwd(): Promise<void> {
-    const activeTerminal = vscode.window.activeTerminal;
-    if (!activeTerminal) {
-      vscode.window.showWarningMessage("No active terminal");
-      return;
-    }
-
-    const cwd = activeTerminal.shellIntegration?.cwd?.fsPath;
-    if (!cwd) {
-      vscode.window.showWarningMessage(
-        "Could not determine terminal working directory. Make sure shell integration is enabled.",
-      );
-      return;
-    }
-
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    let reference: string;
-
-    if (workspaceFolders && workspaceFolders.length > 0) {
-      const relativePath = vscode.workspace.asRelativePath(cwd, false);
-      reference = `@${relativePath}`;
-    } else {
-      reference = `@${cwd}`;
-    }
-
-    this.terminalManager?.writeToTerminal(
-      ExtensionLifecycle.TERMINAL_ID,
-      reference + " ",
-    );
-
-    const config = vscode.workspace.getConfiguration("opencodeTui");
-    if (config.get<boolean>("autoFocusOnSend", true)) {
-      vscode.commands.executeCommand("opencodeTui.focus");
-      setTimeout(() => {
-        this.tuiProvider?.focus();
-      }, 100);
-    }
-
-    vscode.window.showInformationMessage(`Sent ${reference}`);
   }
 
   async deactivate(): Promise<void> {
@@ -348,11 +291,6 @@ export class ExtensionLifecycle {
     if (this.terminalManager) {
       this.terminalManager.dispose();
       this.terminalManager = undefined;
-    }
-
-    if (this.discoveryService) {
-      this.discoveryService.dispose();
-      this.discoveryService = undefined;
     }
 
     if (this.statusBarManager) {
