@@ -19,6 +19,7 @@ export type WebviewMessage =
       command?: string;
     }
   | { type: "getClipboard" }
+  | { type: "setClipboard"; text: string }
   | { type: "triggerPaste" };
 
 export type HostMessage =

@@ -3,10 +3,19 @@ import { vi } from "vitest";
 export const window = {
   showInformationMessage: vi.fn(),
   showErrorMessage: vi.fn(),
+  showWarningMessage: vi.fn(),
   showTextDocument: vi.fn(),
   activeTextEditor: undefined as any,
+  activeTerminal: undefined as any,
+  terminals: [] as any[],
+  tabGroups: { all: [] as any[] },
   visibleTextEditors: [] as any[],
   registerWebviewViewProvider: vi.fn(),
+  onDidOpenTerminal: vi.fn((listener: Function) => ({ dispose: vi.fn() })),
+  onDidCloseTerminal: vi.fn((listener: Function) => ({ dispose: vi.fn() })),
+  onDidChangeTerminalState: vi.fn((listener: Function) => ({
+    dispose: vi.fn(),
+  })),
   createWebviewPanel: vi.fn(() => ({
     webview: {
       html: "",
@@ -43,6 +52,10 @@ export const commands = {
 export const env = {
   shell: "/bin/bash",
   openExternal: vi.fn(),
+  clipboard: {
+    readText: vi.fn(async () => ""),
+    writeText: vi.fn(async (_text: string) => {}),
+  },
 };
 
 export const Uri = {

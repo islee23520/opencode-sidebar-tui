@@ -2,7 +2,7 @@
   "name": "opencode-sidebar-tui",
   "displayName": "OpenCode Sidebar TUI",
   "description": "Automatically render OpenCode TUI in VS Code sidebar with full terminal support",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "publisher": "islee23520",
   "icon": "icon.png",
   "engines": {
@@ -154,16 +154,6 @@
         "command": "-workbench.action.quickOpenNavigateNextInFilePicker",
         "key": "ctrl+p",
         "when": "inFilesPicker && inQuickOpen"
-      },
-      {
-        "command": "-workbench.action.terminal.sendSequence",
-        "key": "ctrl+c",
-        "when": "focusedView == 'opencodeTui' && terminalFocus"
-      },
-      {
-        "command": "-workbench.action.terminal.sendSequence",
-        "key": "ctrl+z",
-        "when": "focusedView == 'opencodeTui' && terminalFocus"
       },
       {
         "command": "opencodeTui.paste",
