@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as os from "os";
 import * as path from "path";
 import * as fs from "fs";
+import { OutputChannelService } from "./OutputChannelService";
 
 export interface CaptureResult {
   success: boolean;
@@ -85,7 +86,9 @@ export class OutputCaptureManager {
       const content = fs.readFileSync(filePath, "utf-8");
       return this.stripAnsi(content);
     } catch (error) {
-      console.error("Failed to read capture file:", error);
+      OutputChannelService.getInstance().error(
+        `Failed to read capture file: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return "";
     }
   }
@@ -100,7 +103,9 @@ export class OutputCaptureManager {
       try {
         fs.unlinkSync(filePath);
       } catch (error) {
-        console.error("Failed to delete capture file:", error);
+        OutputChannelService.getInstance().error(
+          `Failed to delete capture file: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
     this.captures.delete(terminal);
