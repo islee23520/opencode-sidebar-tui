@@ -43,17 +43,21 @@ export class InstanceDiscoveryService {
         return [];
       }
 
-      const isHealthy = await this.healthCheck(candidate.port);
-      if (!isHealthy) {
+      try {
+        const isHealthy = await this.healthCheck(candidate.port);
+        if (!isHealthy) {
+          continue;
+        }
+
+        const workspacePath = await this.getWorkspacePath(candidate.port);
+        healthyInstances.push({
+          pid: candidate.pid,
+          port: candidate.port,
+          workspacePath,
+        });
+      } catch {
         continue;
       }
-
-      const workspacePath = await this.getWorkspacePath(candidate.port);
-      healthyInstances.push({
-        pid: candidate.pid,
-        port: candidate.port,
-        workspacePath,
-      });
     }
 
     const matchedInstances = this.filterByWorkspace(healthyInstances);
@@ -141,6 +145,7 @@ export class InstanceDiscoveryService {
       return undefined;
     } finally {
       this.inflightControllers.delete(controller);
+      controller.abort();
     }
   }
 
@@ -168,6 +173,24 @@ export class InstanceDiscoveryService {
       });
 
       if (!child.pid) {
+        return undefined;
+      }
+
+      const processStarted = await new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => resolve(true), 500);
+
+        child.on("error", () => {
+          clearTimeout(timeout);
+          resolve(false);
+        });
+
+        child.on("exit", (code) => {
+          clearTimeout(timeout);
+          resolve(code === 0);
+        });
+      });
+
+      if (!processStarted) {
         return undefined;
       }
 

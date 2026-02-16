@@ -13,11 +13,5 @@
     "coverage/**",
     "node_modules/**",
     ".sisyphus/**"
-  ],
-  "overrides": [
-    {
-      "files": ["src/**/*.ts"],
-      "rules": {}
-    }
   ]
 }

@@ -27,6 +27,7 @@ export class ExtensionLifecycle {
   private codeActionProvider: OpenCodeCodeActionProvider | undefined;
 
   private static readonly DEFAULT_HTTP_PORT = 16384;
+  private static readonly TERMINAL_ID = "opencode-main";
 
   async activate(context: vscode.ExtensionContext): Promise<void> {
     const logger = OutputChannelService.getInstance();
@@ -102,7 +103,6 @@ export class ExtensionLifecycle {
 
       logger.info("OpenCode Sidebar TUI activated successfully");
     } catch (error) {
-      console.error("Failed to activate OpenCode Sidebar TUI:", error);
       logger.error(
         `Failed to activate OpenCode Sidebar TUI: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -129,7 +129,7 @@ export class ExtensionLifecycle {
         if (editor && !editor.selection.isEmpty) {
           const selectedText = editor.document.getText(editor.selection);
           this.terminalManager?.writeToTerminal(
-            "opencode-main",
+            ExtensionLifecycle.TERMINAL_ID,
             selectedText + "\n",
           );
 
@@ -156,7 +156,10 @@ export class ExtensionLifecycle {
         if (editor && this.contextSharingService) {
           const fileRef =
             this.contextSharingService.formatFileRefWithLineNumbers(editor);
-          this.terminalManager?.writeToTerminal("opencode-main", fileRef + " ");
+          this.terminalManager?.writeToTerminal(
+            ExtensionLifecycle.TERMINAL_ID,
+            fileRef + " ",
+          );
 
           // Auto-focus sidebar if enabled
           const config = vscode.workspace.getConfiguration("opencodeTui");
@@ -210,7 +213,7 @@ export class ExtensionLifecycle {
 
         if (openFiles) {
           this.terminalManager?.writeToTerminal(
-            "opencode-main",
+            ExtensionLifecycle.TERMINAL_ID,
             openFiles + " ",
           );
 
@@ -235,7 +238,10 @@ export class ExtensionLifecycle {
       (uri: vscode.Uri) => {
         if (uri && this.contextSharingService) {
           const fileRef = this.contextSharingService.formatFileRef(uri);
-          this.terminalManager?.writeToTerminal("opencode-main", fileRef + " ");
+          this.terminalManager?.writeToTerminal(
+            ExtensionLifecycle.TERMINAL_ID,
+            fileRef + " ",
+          );
 
           // Auto-focus sidebar if enabled
           const config = vscode.workspace.getConfiguration("opencodeTui");
@@ -315,7 +321,10 @@ export class ExtensionLifecycle {
       reference = `@${cwd}`;
     }
 
-    this.terminalManager?.writeToTerminal("opencode-main", reference + " ");
+    this.terminalManager?.writeToTerminal(
+      ExtensionLifecycle.TERMINAL_ID,
+      reference + " ",
+    );
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
     if (config.get<boolean>("autoFocusOnSend", true)) {
