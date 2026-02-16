@@ -31,3 +31,29 @@ export type HostMessage =
   | { type: "terminalList"; terminals: { name: string; cwd: string }[] }
   | { type: "webviewVisible" }
   | { type: "platformInfo"; platform: string };
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+export type DiagnosticSeverity = "error" | "warning" | "information" | "hint";
+
+export interface ExtensionConfig {
+  autoStart: boolean;
+  command: string;
+  fontSize: number;
+  fontFamily: string;
+  cursorBlink: boolean;
+  cursorStyle: "block" | "underline" | "bar";
+  scrollback: number;
+  autoFocusOnSend: boolean;
+  autoStartOnOpen: boolean;
+  shellPath: string;
+  shellArgs: string[];
+  autoShareContext: boolean;
+  httpTimeout: number;
+  enableHttpApi: boolean;
+  logLevel: LogLevel;
+  showStatusBar: boolean;
+  contextDebounceMs: number;
+  maxDiagnosticLength: number;
+  enableAutoSpawn: boolean;
+  codeActionSeverities: DiagnosticSeverity[];
+}

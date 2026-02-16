@@ -1,0 +1,23 @@
+{
+  "root": true,
+  "env": {
+    "es2022": true,
+    "node": true,
+    "browser": true
+  },
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "ignorePatterns": [
+    "dist/**",
+    "build/**",
+    "coverage/**",
+    "node_modules/**",
+    ".sisyphus/**"
+  ],
+  "overrides": [
+    {
+      "files": ["src/**/*.ts"],
+      "rules": {}
+    }
+  ]
+}
