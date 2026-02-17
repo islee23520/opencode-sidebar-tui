@@ -26,7 +26,6 @@
   "license": "MIT",
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onView:opencodeTui",
     "onStartupFinished"
   ],
   "contributes": {

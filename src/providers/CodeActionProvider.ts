@@ -1,13 +1,12 @@
 import * as vscode from "vscode";
 import { ContextManager } from "../services/ContextManager";
-import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { formatDiagnostic, formatDiagnostics } from "../utils/PromptFormatter";
 
 type SeverityName = "error" | "warning" | "information" | "hint";
 
 interface ExplainAndFixCommandArgs {
   diagnostic: vscode.Diagnostic;
-  document: vscode.TextDocument;
+  documentUri: string;
 }
 
 const SEVERITY_MAP: Record<SeverityName, vscode.DiagnosticSeverity> = {
@@ -24,20 +23,29 @@ export class OpenCodeCodeActionProvider implements vscode.CodeActionProvider {
 
   constructor(
     private contextManager: ContextManager,
-    private apiClient: OpenCodeApiClient,
+    private readonly sendPrompt: (prompt: string) => Promise<void>,
   ) {}
 
   public registerCommand(): vscode.Disposable {
     return vscode.commands.registerCommand(
       "opencodeTui.explainAndFix",
       async (args?: ExplainAndFixCommandArgs) => {
-        if (!args?.diagnostic || !args.document) {
+        if (!args?.diagnostic || !args.documentUri) {
+          vscode.window.showWarningMessage(
+            "Explain and Fix could not read the selected diagnostic context.",
+          );
           return;
         }
 
         try {
-          const prompt = this.buildPrompt(args.diagnostic, args.document);
-          await this.apiClient.appendPrompt(prompt);
+          const document = await vscode.workspace.openTextDocument(
+            vscode.Uri.parse(args.documentUri),
+          );
+          const prompt = this.buildPrompt(args.diagnostic, document);
+          await this.sendPrompt(prompt);
+          vscode.window.showInformationMessage(
+            "Sent diagnostic to OpenCode terminal",
+          );
         } catch (error) {
           vscode.window.showErrorMessage(
             `Failed to send diagnostic prompt: ${error instanceof Error ? error.message : String(error)}`,
@@ -90,7 +98,7 @@ export class OpenCodeCodeActionProvider implements vscode.CodeActionProvider {
         arguments: [
           {
             diagnostic,
-            document,
+            documentUri: document.uri.toString(),
           },
         ],
       },

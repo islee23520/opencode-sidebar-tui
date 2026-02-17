@@ -62,6 +62,7 @@ export const workspace = {
     get: vi.fn((key: string, defaultValue?: any) => defaultValue),
     update: vi.fn(),
   })),
+  openTextDocument: vi.fn(async (uri: any) => new TextDocument(uri, "")),
   workspaceFolders: undefined as any,
   asRelativePath: vi.fn((uri: any, includeWorkspaceFolder?: boolean) => {
     if (typeof uri === "string") return uri;

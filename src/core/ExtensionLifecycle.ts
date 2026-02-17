@@ -7,7 +7,6 @@ import { ContextSharingService } from "../services/ContextSharingService";
 import { StatusBarManager } from "../services/StatusBarManager";
 import { ContextManager } from "../services/ContextManager";
 import { OutputChannelService } from "../services/OutputChannelService";
-import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { InstanceDiscoveryService } from "../services/InstanceDiscoveryService";
 
 /**
@@ -24,7 +23,6 @@ export class ExtensionLifecycle {
   private instanceDiscoveryService: InstanceDiscoveryService | undefined;
   private codeActionProvider: OpenCodeCodeActionProvider | undefined;
 
-  private static readonly DEFAULT_HTTP_PORT = 16384;
   private static readonly TERMINAL_ID = "opencode-main";
 
   async activate(context: vscode.ExtensionContext): Promise<void> {
@@ -77,12 +75,9 @@ export class ExtensionLifecycle {
       // Register commands
       this.registerCommands(context);
 
-      const codeActionApiClient =
-        this.tuiProvider.getApiClient() ??
-        new OpenCodeApiClient(ExtensionLifecycle.DEFAULT_HTTP_PORT);
       this.codeActionProvider = new OpenCodeCodeActionProvider(
         this.contextManager,
-        codeActionApiClient,
+        (prompt) => this.sendPromptToOpenCode(prompt),
       );
 
       const codeActionRegistration =
@@ -278,6 +273,44 @@ export class ExtensionLifecycle {
       restartCommand,
       pasteCommand,
     );
+  }
+
+  private async sendPromptToOpenCode(prompt: string): Promise<void> {
+    if (!this.tuiProvider || !this.terminalManager) {
+      throw new Error("OpenCode provider is not initialized");
+    }
+
+    if (!this.terminalManager.getTerminal(ExtensionLifecycle.TERMINAL_ID)) {
+      await this.tuiProvider.startOpenCode();
+    }
+
+    const apiClient = this.tuiProvider.getApiClient();
+    if (apiClient) {
+      try {
+        await apiClient.appendPrompt(prompt);
+      } catch (error) {
+        this.outputChannelService?.warn(
+          `Failed to send prompt via HTTP API, falling back to terminal input: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        this.terminalManager.writeToTerminal(
+          ExtensionLifecycle.TERMINAL_ID,
+          `${prompt}\n`,
+        );
+      }
+    } else {
+      this.terminalManager.writeToTerminal(
+        ExtensionLifecycle.TERMINAL_ID,
+        `${prompt}\n`,
+      );
+    }
+
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    if (config.get<boolean>("autoFocusOnSend", true)) {
+      vscode.commands.executeCommand("opencodeTui.focus");
+      setTimeout(() => {
+        this.tuiProvider?.focus();
+      }, 100);
+    }
   }
 
   async deactivate(): Promise<void> {

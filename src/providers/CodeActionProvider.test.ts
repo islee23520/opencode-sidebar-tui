@@ -63,10 +63,10 @@ describe("OpenCodeCodeActionProvider", () => {
 
   it("provideCodeActions returns empty array for no diagnostics", () => {
     const contextManager = { getDiagnostics: vi.fn(() => []) };
-    const apiClient = { appendPrompt: vi.fn() };
+    const sendPrompt = vi.fn(async () => {});
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     const actions = provider.provideCodeActions(
@@ -103,10 +103,10 @@ describe("OpenCodeCodeActionProvider", () => {
     } as any);
 
     const contextManager = { getDiagnostics: vi.fn(() => []) };
-    const apiClient = { appendPrompt: vi.fn() };
+    const sendPrompt = vi.fn(async () => {});
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     const errorDiagnostic = makeDiagnostic(
@@ -155,10 +155,10 @@ describe("OpenCodeCodeActionProvider", () => {
     } as any);
 
     const contextManager = { getDiagnostics: vi.fn(() => []) };
-    const apiClient = { appendPrompt: vi.fn() };
+    const sendPrompt = vi.fn(async () => {});
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     const warningDiagnostic = makeDiagnostic(
@@ -185,10 +185,10 @@ describe("OpenCodeCodeActionProvider", () => {
 
   it("action has correct title and command", () => {
     const contextManager = { getDiagnostics: vi.fn(() => []) };
-    const apiClient = { appendPrompt: vi.fn() };
+    const sendPrompt = vi.fn(async () => {});
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     const diagnostic = makeDiagnostic(vscode.DiagnosticSeverity.Error, "error");
@@ -221,13 +221,11 @@ describe("OpenCodeCodeActionProvider", () => {
     const contextManager = {
       getDiagnostics: vi.fn(() => [diagnostic]),
     };
-    const apiClient = {
-      appendPrompt: vi.fn(async () => {}),
-    };
+    const sendPrompt = vi.fn(async () => {});
 
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     provider.registerCommand();
@@ -245,11 +243,11 @@ describe("OpenCodeCodeActionProvider", () => {
 
     await handler({
       diagnostic,
-      document,
+      documentUri: document.uri.path,
     });
 
-    expect(apiClient.appendPrompt).toHaveBeenCalledTimes(1);
-    expect(apiClient.appendPrompt).toHaveBeenCalledWith(
+    expect(sendPrompt).toHaveBeenCalledTimes(1);
+    expect(sendPrompt).toHaveBeenCalledWith(
       expect.stringContaining("FORMATTED_PRIMARY"),
     );
   });
@@ -258,13 +256,11 @@ describe("OpenCodeCodeActionProvider", () => {
     const contextManager = {
       getDiagnostics: vi.fn(() => []),
     };
-    const apiClient = {
-      appendPrompt: vi.fn(async () => {}),
-    };
+    const sendPrompt = vi.fn(async () => {});
 
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     provider.registerCommand();
@@ -276,7 +272,7 @@ describe("OpenCodeCodeActionProvider", () => {
 
     await handler();
 
-    expect(apiClient.appendPrompt).not.toHaveBeenCalled();
+    expect(sendPrompt).not.toHaveBeenCalled();
   });
 
   it("command handler shows error when appendPrompt fails", async () => {
@@ -285,15 +281,13 @@ describe("OpenCodeCodeActionProvider", () => {
     const contextManager = {
       getDiagnostics: vi.fn(() => [diagnostic]),
     };
-    const apiClient = {
-      appendPrompt: vi.fn(async () => {
-        throw new Error("network fail");
-      }),
-    };
+    const sendPrompt = vi.fn(async () => {
+      throw new Error("network fail");
+    });
 
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     provider.registerCommand();
@@ -307,7 +301,7 @@ describe("OpenCodeCodeActionProvider", () => {
 
     await handler({
       diagnostic,
-      document,
+      documentUri: document.uri.path,
     });
 
     expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
@@ -329,13 +323,11 @@ describe("OpenCodeCodeActionProvider", () => {
     const contextManager = {
       getDiagnostics: vi.fn(() => [targetDiagnostic, relatedDiagnostic]),
     };
-    const apiClient = {
-      appendPrompt: vi.fn(async () => {}),
-    };
+    const sendPrompt = vi.fn(async () => {});
 
     const provider = new OpenCodeCodeActionProvider(
       contextManager as any,
-      apiClient as any,
+      sendPrompt,
     );
 
     provider.registerCommand();
@@ -350,19 +342,21 @@ describe("OpenCodeCodeActionProvider", () => {
 
     await handler({
       diagnostic: targetDiagnostic,
-      document,
+      documentUri: document.uri.path,
     });
 
     expect(promptFormatterMocks.formatDiagnostic).toHaveBeenCalledWith(
       targetDiagnostic,
-      document.uri,
+      expect.objectContaining({ path: document.uri.path }),
       500,
     );
     expect(promptFormatterMocks.formatDiagnostics).toHaveBeenCalledWith(
       [relatedDiagnostic],
-      document.uri,
+      expect.objectContaining({ path: document.uri.path }),
       500,
     );
-    expect(contextManager.getDiagnostics).toHaveBeenCalledWith(document.uri);
+    expect(contextManager.getDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({ path: document.uri.path }),
+    );
   });
 });
