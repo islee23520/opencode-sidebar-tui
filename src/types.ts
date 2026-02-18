@@ -20,7 +20,8 @@ export type WebviewMessage =
   | { type: "filesDropped"; files: string[]; shiftKey: boolean }
   | { type: "getClipboard" }
   | { type: "setClipboard"; text: string }
-  | { type: "triggerPaste" };
+  | { type: "triggerPaste" }
+  | { type: "imagePasted"; data: string; filename: string };
 
 export type HostMessage =
   | { type: "clipboardContent"; text: string }

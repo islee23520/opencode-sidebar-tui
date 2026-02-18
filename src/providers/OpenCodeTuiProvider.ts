@@ -1,4 +1,7 @@
 import * as vscode from "vscode";
+import * as os from "os";
+import * as path from "path";
+import * as fs from "fs";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
@@ -404,6 +407,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       case "triggerPaste":
         this.handlePaste();
         break;
+      case "imagePasted":
+        this.handleImagePasted(message.data, message.filename);
+        break;
     }
   }
 
@@ -426,6 +432,32 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       this.logger.error(
         `[OpenCodeTuiProvider] Failed to paste: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async handleImagePasted(
+    data: string,
+    filename: string,
+  ): Promise<void> {
+    try {
+      const base64Match = data.match(/^data:image\/\w+;base64,(.+)$/);
+      if (!base64Match) {
+        this.logger.error(
+          "[OpenCodeTuiProvider] Invalid image data URL format",
+        );
+        return;
+      }
+      const buffer = Buffer.from(base64Match[1], "base64");
+      const tmpPath = path.join(os.tmpdir(), path.basename(filename));
+      await fs.promises.writeFile(tmpPath, buffer);
+      this.pasteText(tmpPath);
+      setTimeout(() => {
+        fs.promises.unlink(tmpPath).catch(() => {});
+      }, 30_000);
+    } catch (error) {
+      this.logger.error(
+        `[OpenCodeTuiProvider] Failed to handle pasted image: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

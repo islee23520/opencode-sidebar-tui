@@ -43,6 +43,37 @@ function copySelectionToClipboard(selection: string): void {
   });
 }
 
+async function handlePasteWithImageSupport(): Promise<void> {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const imageType = item.types.find((t) => t.startsWith("image/"));
+      if (imageType) {
+        const blob = await item.getType(imageType);
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            const extension = imageType.split("/")[1] || "png";
+            vscode.postMessage({
+              type: "imagePasted",
+              data: reader.result,
+              filename: `opencode-clipboard-${Date.now()}.${extension}`,
+            });
+          }
+        };
+        reader.readAsDataURL(blob);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn(
+      "Could not read image from clipboard, falling back to text paste:",
+      err,
+    );
+  }
+  vscode.postMessage({ type: "triggerPaste" });
+}
+
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
   if (!container) return;
@@ -99,7 +130,7 @@ function initTerminal(): void {
       lastPasteTime = now;
       event.preventDefault();
       event.stopPropagation();
-      vscode.postMessage({ type: "triggerPaste" });
+      handlePasteWithImageSupport();
       return false;
     }
 
