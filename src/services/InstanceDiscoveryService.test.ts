@@ -295,4 +295,15 @@ describe("InstanceDiscoveryService", () => {
 
     expect(parsed).toBeUndefined();
   });
+
+  it("preserves backslashes in quoted Windows executable path", () => {
+    const parsed = (service as any).parseCommand(
+      '"C:\\Program Files\\OpenCode\\opencode.exe" -c --mode test',
+    );
+
+    expect(parsed).toEqual({
+      file: "C:\\Program Files\\OpenCode\\opencode.exe",
+      args: ["-c", "--mode", "test"],
+    });
+  });
 });

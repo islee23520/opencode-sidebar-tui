@@ -405,19 +405,28 @@ export class InstanceDiscoveryService {
     const tokens: string[] = [];
     let current = "";
     let quote: '"' | "'" | undefined;
-    let escaping = false;
 
     for (let i = 0; i < commandLine.length; i++) {
       const char = commandLine[i];
 
-      if (escaping) {
-        current += char;
-        escaping = false;
-        continue;
-      }
-
       if (char === "\\") {
-        escaping = true;
+        const nextChar = commandLine[i + 1];
+        if (quote && (nextChar === quote || nextChar === "\\")) {
+          current += nextChar;
+          i++;
+          continue;
+        }
+
+        if (
+          !quote &&
+          (nextChar === "'" || nextChar === '"' || /\s/.test(nextChar ?? ""))
+        ) {
+          current += nextChar;
+          i++;
+          continue;
+        }
+
+        current += char;
         continue;
       }
 
@@ -447,7 +456,7 @@ export class InstanceDiscoveryService {
       current += char;
     }
 
-    if (escaping || quote) {
+    if (quote) {
       return undefined;
     }
 
