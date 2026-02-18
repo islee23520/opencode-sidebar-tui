@@ -1,10 +1,15 @@
 import * as vscode from "vscode";
+import * as os from "os";
+import * as path from "path";
+import * as fs from "fs";
+import { randomUUID } from "crypto";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { PortManager } from "../services/PortManager";
 import { ContextSharingService } from "../services/ContextSharingService";
 import { OutputChannelService } from "../services/OutputChannelService";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from "../types";
 
 export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencodeTui";
@@ -404,6 +409,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       case "triggerPaste":
         this.handlePaste();
         break;
+      case "imagePasted":
+        this.handleImagePasted(message.data);
+        break;
     }
   }
 
@@ -426,6 +434,63 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       this.logger.error(
         `[OpenCodeTuiProvider] Failed to paste: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async handleImagePasted(data: string): Promise<void> {
+    try {
+      const base64Match = data.match(
+        /^data:(image\/[a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=]+)$/,
+      );
+      if (!base64Match) {
+        this.logger.error(
+          "[OpenCodeTuiProvider] Invalid image data URL format",
+        );
+        return;
+      }
+      const mimeType = base64Match[1];
+      if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
+        this.logger.error(
+          `[OpenCodeTuiProvider] Unsupported image type: ${mimeType}`,
+        );
+        return;
+      }
+      const buffer = Buffer.from(base64Match[2], "base64");
+      if (buffer.length > MAX_IMAGE_SIZE) {
+        this.logger.error(
+          "[OpenCodeTuiProvider] Image exceeds 10MB size limit",
+        );
+        return;
+      }
+      const extension = mimeType.split("/")[1];
+      const tmpPath = path.join(
+        os.tmpdir(),
+        `opencode-clipboard-${randomUUID()}.${extension}`,
+      );
+      await fs.promises.writeFile(tmpPath, buffer, {
+        flag: "wx",
+        mode: 0o600,
+      });
+      this.pasteText(tmpPath);
+      setTimeout(
+        async () => {
+          try {
+            await fs.promises.unlink(tmpPath);
+            this.logger.debug(
+              `[OpenCodeTuiProvider] Cleaned up temp file: ${tmpPath}`,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `[OpenCodeTuiProvider] Failed to cleanup temp file: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        },
+        5 * 60 * 1000,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[OpenCodeTuiProvider] Failed to handle pasted image: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
