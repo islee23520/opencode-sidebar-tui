@@ -11,9 +11,23 @@ export const window = {
   tabGroups: { all: [] as any[] },
   visibleTextEditors: [] as any[],
   registerWebviewViewProvider: vi.fn(),
+  onDidChangeActiveTextEditor: vi.fn((listener: Function) => ({
+    dispose: vi.fn(),
+  })),
+  onDidChangeTextEditorSelection: vi.fn((listener: Function) => ({
+    dispose: vi.fn(),
+  })),
   onDidOpenTerminal: vi.fn((listener: Function) => ({ dispose: vi.fn() })),
   onDidCloseTerminal: vi.fn((listener: Function) => ({ dispose: vi.fn() })),
   onDidChangeTerminalState: vi.fn((listener: Function) => ({
+    dispose: vi.fn(),
+  })),
+  createStatusBarItem: vi.fn(() => ({
+    text: "",
+    tooltip: "",
+    command: "",
+    show: vi.fn(),
+    hide: vi.fn(),
     dispose: vi.fn(),
   })),
   createWebviewPanel: vi.fn(() => ({
@@ -27,6 +41,20 @@ export const window = {
     onDidDispose: vi.fn(),
     dispose: vi.fn(),
   })),
+  createOutputChannel: vi.fn((name: string, options?: { log?: boolean }) => ({
+    append: vi.fn(),
+    appendLine: vi.fn(),
+    replace: vi.fn(),
+    clear: vi.fn(),
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    name,
+  })),
 };
 
 export const workspace = {
@@ -34,12 +62,24 @@ export const workspace = {
     get: vi.fn((key: string, defaultValue?: any) => defaultValue),
     update: vi.fn(),
   })),
+  openTextDocument: vi.fn(async (uri: any) => new TextDocument(uri, "")),
   workspaceFolders: undefined as any,
   asRelativePath: vi.fn((uri: any, includeWorkspaceFolder?: boolean) => {
     if (typeof uri === "string") return uri;
     return uri.fsPath || uri.path || "";
   }),
+  onDidChangeTextDocument: vi.fn((listener: Function) => ({
+    dispose: vi.fn(),
+  })),
   findFiles: vi.fn(),
+};
+
+export const languages = {
+  onDidChangeDiagnostics: vi.fn((listener: Function) => ({
+    dispose: vi.fn(),
+  })),
+  getDiagnostics: vi.fn((uri?: any) => (uri ? [] : [])),
+  registerCodeActionsProvider: vi.fn(() => ({ dispose: vi.fn() })),
 };
 
 export const commands = {
@@ -47,6 +87,22 @@ export const commands = {
     dispose: vi.fn(),
   })),
   executeCommand: vi.fn(),
+};
+
+export enum StatusBarAlignment {
+  Left = 1,
+  Right = 2,
+}
+
+export enum DiagnosticSeverity {
+  Error = 0,
+  Warning = 1,
+  Information = 2,
+  Hint = 3,
+}
+
+export const CodeActionKind = {
+  QuickFix: "quickfix",
 };
 
 export const env = {
@@ -254,7 +310,10 @@ export class TextDocument {
 export default {
   window,
   workspace,
+  languages,
   commands,
+  StatusBarAlignment,
+  DiagnosticSeverity,
   env,
   Uri,
   Range,

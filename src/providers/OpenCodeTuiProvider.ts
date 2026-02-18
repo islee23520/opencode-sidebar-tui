@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
 import { TerminalManager } from "../terminals/TerminalManager";
-import { TerminalDiscoveryService } from "../services/TerminalDiscoveryService";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { PortManager } from "../services/PortManager";
 import { ContextSharingService } from "../services/ContextSharingService";
+import { OutputChannelService } from "../services/OutputChannelService";
 
 export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencodeTui";
@@ -14,6 +14,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   private apiClient?: OpenCodeApiClient;
   private readonly portManager: PortManager;
   private readonly contextSharingService: ContextSharingService;
+  private readonly logger = OutputChannelService.getInstance();
   private httpAvailable = false;
   private autoContextSent = false;
   private dataListener?: vscode.Disposable;
@@ -24,7 +25,6 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly terminalManager: TerminalManager,
-    private readonly discoveryService: TerminalDiscoveryService,
     private readonly captureManager: OutputCaptureManager,
   ) {
     this.portManager = new PortManager();
@@ -125,6 +125,14 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  public getApiClient(): OpenCodeApiClient | undefined {
+    return this.apiClient;
+  }
+
+  public isHttpAvailable(): boolean {
+    return this.httpAvailable;
+  }
+
   async startOpenCode(): Promise<void> {
     if (this.isStarted) {
       return;
@@ -142,11 +150,13 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     if (enableHttpApi) {
       try {
         port = this.portManager.assignPortToTerminal(this.terminalId);
-        console.log(
+        this.logger.info(
           `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.terminalId}`,
         );
       } catch (error) {
-        console.error("[OpenCodeTuiProvider] Failed to assign port:", error);
+        this.logger.error(
+          `[OpenCodeTuiProvider] Failed to assign port: ${error instanceof Error ? error.message : String(error)}`,
+        );
         vscode.window.showWarningMessage(
           "Failed to assign port for OpenCode HTTP API. Running without HTTP features.",
         );
@@ -191,7 +201,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       this.apiClient = new OpenCodeApiClient(port, 10, 200, httpTimeout);
       await this.pollForHttpReadiness();
     } else {
-      console.log(
+      this.logger.info(
         "[OpenCodeTuiProvider] HTTP API disabled or unavailable, using message passing fallback",
       );
       this.httpAvailable = false;
@@ -211,12 +221,12 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         const isHealthy = await this.apiClient.healthCheck();
         if (isHealthy) {
           this.httpAvailable = true;
-          console.log("[OpenCodeTuiProvider] HTTP API is ready");
+          this.logger.info("[OpenCodeTuiProvider] HTTP API is ready");
           await this.sendAutoContext();
           return;
         }
       } catch {
-        console.log(
+        this.logger.info(
           `[OpenCodeTuiProvider] Health check attempt ${attempt}/${maxRetries} failed`,
         );
       }
@@ -226,7 +236,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    console.log(
+    this.logger.info(
       "[OpenCodeTuiProvider] HTTP API not available after retries, using message passing fallback",
     );
     this.httpAvailable = false;
@@ -251,21 +261,21 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     const autoShareContext = config.get<boolean>("autoShareContext", true);
 
     if (!enableHttpApi) {
-      console.log(
+      this.logger.info(
         "[OpenCodeTuiProvider] HTTP API disabled, skipping auto-context",
       );
       return;
     }
 
     if (!autoShareContext) {
-      console.log(
+      this.logger.info(
         "[OpenCodeTuiProvider] Auto-context sharing disabled by user",
       );
       return;
     }
 
     if (!this.httpAvailable || !this.apiClient) {
-      console.log(
+      this.logger.info(
         "[OpenCodeTuiProvider] HTTP not available, skipping auto-context",
       );
       return;
@@ -273,25 +283,24 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     const context = this.contextSharingService.getCurrentContext();
     if (!context) {
-      console.log(
+      this.logger.info(
         "[OpenCodeTuiProvider] No active editor, skipping auto-context",
       );
       return;
     }
 
     const fileRef = this.contextSharingService.formatContext(context);
-    console.log(`[OpenCodeTuiProvider] Sending auto-context: ${fileRef}`);
+    this.logger.info(`[OpenCodeTuiProvider] Sending auto-context: ${fileRef}`);
 
     try {
       await this.apiClient.appendPrompt(fileRef);
       this.autoContextSent = true;
-      console.log(
+      this.logger.info(
         "[OpenCodeTuiProvider] Auto-context sent successfully via HTTP",
       );
     } catch (error) {
-      console.error(
-        "[OpenCodeTuiProvider] Failed to send auto-context:",
-        error,
+      this.logger.error(
+        `[OpenCodeTuiProvider] Failed to send auto-context: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -385,6 +394,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           message.command,
         );
         break;
+
       case "getClipboard":
         this.handleGetClipboard();
         break;
@@ -401,7 +411,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     try {
       await vscode.env.clipboard.writeText(text);
     } catch (error) {
-      console.error("[OpenCodeTuiProvider] Failed to write clipboard:", error);
+      this.logger.error(
+        `[OpenCodeTuiProvider] Failed to write clipboard: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -412,7 +424,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         this.pasteText(text);
       }
     } catch (error) {
-      console.error("[OpenCodeTuiProvider] Failed to paste:", error);
+      this.logger.error(
+        `[OpenCodeTuiProvider] Failed to paste: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -424,15 +438,17 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         text: text,
       });
     } catch (error) {
-      console.error("[OpenCodeTuiProvider] Failed to read clipboard:", error);
+      this.logger.error(
+        `[OpenCodeTuiProvider] Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
   private async handleListTerminals(): Promise<void> {
-    const terminals = await this.discoveryService.getTerminals();
+    const terminals = await this.getTerminalEntries();
     this._view?.webview.postMessage({
       type: "terminalList",
-      terminals: terminals,
+      terminals,
     });
   }
 
@@ -441,28 +457,12 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     terminalName: string,
     command?: string,
   ): Promise<void> {
-    const terminals = vscode.window.terminals;
-
-    let targetTerminal: vscode.Terminal | undefined = terminals.find(
-      (t) => t.name === terminalName,
+    const targetTerminal = vscode.window.terminals.find(
+      (terminal) => terminal.name === terminalName,
     );
 
     if (!targetTerminal) {
-      const terminalInfos = await this.discoveryService.getTerminals();
-      const info = terminalInfos.find((t) => t.name === terminalName);
-      if (info) {
-        for (const t of terminals) {
-          const pid = await t.processId;
-          if (pid === info.pid) {
-            targetTerminal = t;
-            break;
-          }
-        }
-      }
-    }
-
-    if (!targetTerminal) {
-      console.warn(`Terminal not found: ${terminalName}`);
+      this.logger.warn(`Terminal not found: ${terminalName}`);
       return;
     }
 
@@ -476,16 +476,35 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         }
         break;
       case "capture":
-        try {
-          this.captureManager.startCapture(targetTerminal);
-          vscode.window.showInformationMessage(
-            `Started capturing terminal: ${terminalName}`,
-          );
-        } catch (e) {
-          vscode.window.showErrorMessage(`Failed to start capture: ${e}`);
-        }
+        this.startTerminalCapture(targetTerminal, terminalName);
         break;
     }
+  }
+
+  private async getTerminalEntries(): Promise<
+    Array<{ name: string; cwd: string }>
+  > {
+    const entries: Array<{ name: string; cwd: string }> = [];
+
+    for (const terminal of vscode.window.terminals) {
+      if (terminal.name === "OpenCode TUI") {
+        continue;
+      }
+
+      let cwd = "";
+      try {
+        cwd = terminal.shellIntegration?.cwd?.fsPath ?? "";
+      } catch {
+        cwd = "";
+      }
+
+      entries.push({
+        name: terminal.name,
+        cwd,
+      });
+    }
+
+    return entries;
   }
 
   private async sendCommandToTerminal(
@@ -509,10 +528,30 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     if (result === "Yes") {
       terminal.sendText(command);
-    } else if (result === "Yes, don't ask again") {
+      return;
+    }
+
+    if (result === "Yes, don't ask again") {
       await this.context.globalState.update(configKey, true);
       terminal.sendText(command);
     }
+  }
+
+  private startTerminalCapture(
+    terminal: vscode.Terminal,
+    terminalName: string,
+  ): void {
+    const result = this.captureManager.startCapture(terminal);
+    if (result.success) {
+      vscode.window.showInformationMessage(
+        `Started capturing terminal: ${terminalName}`,
+      );
+      return;
+    }
+
+    vscode.window.showErrorMessage(
+      `Failed to start capture: ${result.error ?? "Unknown error"}`,
+    );
   }
 
   private async handleOpenFile(
@@ -627,29 +666,28 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
       return files[0] || null;
     } catch (error) {
-      console.error("Fuzzy match failed:", error);
+      this.logger.error(
+        `Fuzzy match failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }
 
   private handleFilesDropped(files: string[], shiftKey: boolean): void {
-    console.log(
-      "[PROVIDER] handleFilesDropped - files:",
-      files,
-      "shiftKey:",
-      shiftKey,
+    this.logger.info(
+      `[PROVIDER] handleFilesDropped - files: ${JSON.stringify(files)} shiftKey: ${shiftKey}`,
     );
     if (shiftKey) {
       const fileRefs = files
         .map((file) => `@${vscode.workspace.asRelativePath(file)}`)
         .join(" ");
-      console.log("[PROVIDER] Writing with @:", fileRefs);
+      this.logger.info(`[PROVIDER] Writing with @: ${fileRefs}`);
       this.terminalManager.writeToTerminal(this.terminalId, fileRefs + " ");
     } else {
       const filePaths = files
         .map((file) => vscode.workspace.asRelativePath(file))
         .join(" ");
-      console.log("[PROVIDER] Writing without @:", filePaths);
+      this.logger.info(`[PROVIDER] Writing without @: ${filePaths}`);
       this.terminalManager.writeToTerminal(this.terminalId, filePaths + " ");
     }
   }

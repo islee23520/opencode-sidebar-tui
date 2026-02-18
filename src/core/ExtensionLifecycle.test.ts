@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ExtensionLifecycle } from "./ExtensionLifecycle";
+import { OutputChannelService } from "../services/OutputChannelService";
 import type * as vscodeTypes from "../test/mocks/vscode";
 
 const vscode = await vi.importActual<typeof vscodeTypes>(
@@ -22,6 +23,7 @@ describe("ExtensionLifecycle", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    OutputChannelService.resetInstance();
     lifecycle = new ExtensionLifecycle();
     mockContext = new vscode.ExtensionContext();
   });
@@ -54,6 +56,49 @@ describe("ExtensionLifecycle", () => {
       );
     });
 
+    it("should initialize wave services in order and show status bar", async () => {
+      await lifecycle.activate(mockContext);
+
+      expect(vscode.window.createOutputChannel).toHaveBeenCalledWith(
+        "OpenCode Sidebar TUI",
+        { log: true },
+      );
+      expect(vscode.window.createStatusBarItem).toHaveBeenCalledTimes(1);
+
+      const outputChannelCall = vi.mocked(vscode.window.createOutputChannel)
+        .mock.invocationCallOrder[0];
+      const statusBarCall = vi.mocked(vscode.window.createStatusBarItem).mock
+        .invocationCallOrder[0];
+
+      expect(outputChannelCall).toBeLessThan(statusBarCall);
+
+      const statusBar = vi.mocked(vscode.window.createStatusBarItem).mock
+        .results[0].value;
+      expect(statusBar.show).toHaveBeenCalledTimes(1);
+    });
+
+    it("should initialize ContextManager with OutputChannelService", async () => {
+      await lifecycle.activate(mockContext);
+
+      const outputChannel = vi.mocked(vscode.window.createOutputChannel).mock
+        .results[0].value;
+      expect(outputChannel.info).toHaveBeenCalledWith(
+        expect.stringContaining("ContextManager initialized"),
+      );
+    });
+
+    it("should register code actions provider for all languages", async () => {
+      await lifecycle.activate(mockContext);
+
+      expect(vscode.languages.registerCodeActionsProvider).toHaveBeenCalledWith(
+        "*",
+        expect.any(Object),
+        expect.objectContaining({
+          providedCodeActionKinds: expect.any(Array),
+        }),
+      );
+    });
+
     it("should handle activation errors", async () => {
       vi.mocked(vscode.window.registerWebviewViewProvider).mockImplementation(
         () => {
@@ -75,6 +120,19 @@ describe("ExtensionLifecycle", () => {
       await lifecycle.deactivate();
 
       expect(mockContext.subscriptions).toBeDefined();
+    });
+
+    it("should dispose wave services", async () => {
+      await lifecycle.activate(mockContext);
+      await lifecycle.deactivate();
+
+      const statusBar = vi.mocked(vscode.window.createStatusBarItem).mock
+        .results[0].value;
+      const outputChannel = vi.mocked(vscode.window.createOutputChannel).mock
+        .results[0].value;
+
+      expect(statusBar.dispose).toHaveBeenCalled();
+      expect(outputChannel.dispose).toHaveBeenCalled();
     });
   });
 
