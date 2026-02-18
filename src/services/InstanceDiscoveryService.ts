@@ -6,6 +6,8 @@ import { OutputChannelService } from "./OutputChannelService";
 const MIN_PORT = 16384;
 const MAX_PORT = 65535;
 const DEFAULT_COMMAND = "opencode -c";
+const SPAWN_HEALTH_RETRIES = 10;
+const SPAWN_HEALTH_DELAY_MS = 200;
 
 export interface OpenCodeInstance {
   port: number;
@@ -162,7 +164,15 @@ export class InstanceDiscoveryService {
       return undefined;
     }
 
-    const [file, ...args] = command.split(/\s+/);
+    const parsed = this.parseCommand(command);
+    if (!parsed) {
+      this.logger.error(
+        "Failed to parse opencodeTui.command for auto-spawn. Check quoting/escaping.",
+      );
+      return undefined;
+    }
+
+    const { file, args } = parsed;
     const port = this.generateEphemeralPort();
     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
@@ -209,10 +219,20 @@ export class InstanceDiscoveryService {
         return undefined;
       }
 
+      const ready = await this.waitForSpawnReadiness(port);
+      if (!ready) {
+        this.logger.warn(
+          `Spawned OpenCode process ${child.pid} did not become healthy on port ${port}`,
+        );
+        return undefined;
+      }
+
+      const detectedWorkspacePath = await this.getWorkspacePath(port);
+
       return {
         pid: child.pid,
         port,
-        workspacePath,
+        workspacePath: detectedWorkspacePath ?? workspacePath,
       };
     } catch (error) {
       this.logger.error(
@@ -353,7 +373,100 @@ export class InstanceDiscoveryService {
       return this.normalizePath(instance.workspacePath) === target;
     });
 
-    return matched.length > 0 ? matched : instances;
+    return matched;
+  }
+
+  private async waitForSpawnReadiness(port: number): Promise<boolean> {
+    for (let attempt = 1; attempt <= SPAWN_HEALTH_RETRIES; attempt++) {
+      if (this.disposed) {
+        return false;
+      }
+
+      try {
+        const healthy = await this.healthCheck(port);
+        if (healthy) {
+          return true;
+        }
+      } catch (error) {
+        void error;
+      }
+
+      if (attempt < SPAWN_HEALTH_RETRIES) {
+        await this.sleep(SPAWN_HEALTH_DELAY_MS);
+      }
+    }
+
+    return false;
+  }
+
+  private parseCommand(
+    commandLine: string,
+  ): { file: string; args: string[] } | undefined {
+    const tokens: string[] = [];
+    let current = "";
+    let quote: '"' | "'" | undefined;
+    let escaping = false;
+
+    for (let i = 0; i < commandLine.length; i++) {
+      const char = commandLine[i];
+
+      if (escaping) {
+        current += char;
+        escaping = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escaping = true;
+        continue;
+      }
+
+      if (quote) {
+        if (char === quote) {
+          quote = undefined;
+          continue;
+        }
+
+        current += char;
+        continue;
+      }
+
+      if (char === '"' || char === "'") {
+        quote = char;
+        continue;
+      }
+
+      if (/\s/.test(char)) {
+        if (current.length > 0) {
+          tokens.push(current);
+          current = "";
+        }
+        continue;
+      }
+
+      current += char;
+    }
+
+    if (escaping || quote) {
+      return undefined;
+    }
+
+    if (current.length > 0) {
+      tokens.push(current);
+    }
+
+    if (tokens.length === 0) {
+      return undefined;
+    }
+
+    return {
+      file: tokens[0],
+      args: tokens.slice(1),
+    };
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private normalizePath(pathValue: string): string {

@@ -129,6 +129,10 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     return this.apiClient;
   }
 
+  public isHttpAvailable(): boolean {
+    return this.httpAvailable;
+  }
+
   async startOpenCode(): Promise<void> {
     if (this.isStarted) {
       return;
@@ -380,6 +384,16 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           message.column,
         );
         break;
+      case "listTerminals":
+        this.handleListTerminals();
+        break;
+      case "terminalAction":
+        this.handleTerminalAction(
+          message.action,
+          message.terminalName,
+          message.command,
+        );
+        break;
 
       case "getClipboard":
         this.handleGetClipboard();
@@ -428,6 +442,116 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         `[OpenCodeTuiProvider] Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private async handleListTerminals(): Promise<void> {
+    const terminals = await this.getTerminalEntries();
+    this._view?.webview.postMessage({
+      type: "terminalList",
+      terminals,
+    });
+  }
+
+  private async handleTerminalAction(
+    action: "focus" | "sendCommand" | "capture",
+    terminalName: string,
+    command?: string,
+  ): Promise<void> {
+    const targetTerminal = vscode.window.terminals.find(
+      (terminal) => terminal.name === terminalName,
+    );
+
+    if (!targetTerminal) {
+      this.logger.warn(`Terminal not found: ${terminalName}`);
+      return;
+    }
+
+    switch (action) {
+      case "focus":
+        targetTerminal.show();
+        break;
+      case "sendCommand":
+        if (command) {
+          await this.sendCommandToTerminal(targetTerminal, command);
+        }
+        break;
+      case "capture":
+        this.startTerminalCapture(targetTerminal, terminalName);
+        break;
+    }
+  }
+
+  private async getTerminalEntries(): Promise<
+    Array<{ name: string; cwd: string }>
+  > {
+    const entries: Array<{ name: string; cwd: string }> = [];
+
+    for (const terminal of vscode.window.terminals) {
+      if (terminal.name === "OpenCode TUI") {
+        continue;
+      }
+
+      let cwd = "";
+      try {
+        cwd = terminal.shellIntegration?.cwd?.fsPath ?? "";
+      } catch {
+        cwd = "";
+      }
+
+      entries.push({
+        name: terminal.name,
+        cwd,
+      });
+    }
+
+    return entries;
+  }
+
+  private async sendCommandToTerminal(
+    terminal: vscode.Terminal,
+    command: string,
+  ): Promise<void> {
+    const configKey = "opencodeTui.allowTerminalCommands";
+    const allowed = this.context.globalState.get<boolean>(configKey);
+
+    if (allowed) {
+      terminal.sendText(command);
+      return;
+    }
+
+    const result = await vscode.window.showInformationMessage(
+      "Allow OpenCode to send commands to external terminals?",
+      "Yes",
+      "Yes, don't ask again",
+      "No",
+    );
+
+    if (result === "Yes") {
+      terminal.sendText(command);
+      return;
+    }
+
+    if (result === "Yes, don't ask again") {
+      await this.context.globalState.update(configKey, true);
+      terminal.sendText(command);
+    }
+  }
+
+  private startTerminalCapture(
+    terminal: vscode.Terminal,
+    terminalName: string,
+  ): void {
+    const result = this.captureManager.startCapture(terminal);
+    if (result.success) {
+      vscode.window.showInformationMessage(
+        `Started capturing terminal: ${terminalName}`,
+      );
+      return;
+    }
+
+    vscode.window.showErrorMessage(
+      `Failed to start capture: ${result.error ?? "Unknown error"}`,
+    );
   }
 
   private async handleOpenFile(

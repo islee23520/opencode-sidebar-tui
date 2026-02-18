@@ -8,6 +8,7 @@ import { StatusBarManager } from "../services/StatusBarManager";
 import { ContextManager } from "../services/ContextManager";
 import { OutputChannelService } from "../services/OutputChannelService";
 import { InstanceDiscoveryService } from "../services/InstanceDiscoveryService";
+import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 
 /**
  * Manages extension activation, service initialization, and cleanup.
@@ -163,6 +164,8 @@ export class ExtensionLifecycle {
           }
 
           vscode.window.showInformationMessage(`Sent ${fileRef}`);
+        } else {
+          this.sendTerminalCwd();
         }
       },
     );
@@ -281,11 +284,17 @@ export class ExtensionLifecycle {
     }
 
     if (!this.terminalManager.getTerminal(ExtensionLifecycle.TERMINAL_ID)) {
+      const sentByDiscovery =
+        await this.trySendPromptViaDiscoveredInstance(prompt);
+      if (sentByDiscovery) {
+        return;
+      }
+
       await this.tuiProvider.startOpenCode();
     }
 
     const apiClient = this.tuiProvider.getApiClient();
-    if (apiClient) {
+    if (apiClient && this.tuiProvider.isHttpAvailable()) {
       try {
         await apiClient.appendPrompt(prompt);
       } catch (error) {
@@ -311,6 +320,72 @@ export class ExtensionLifecycle {
         this.tuiProvider?.focus();
       }, 100);
     }
+  }
+
+  private async trySendPromptViaDiscoveredInstance(
+    prompt: string,
+  ): Promise<boolean> {
+    if (!this.instanceDiscoveryService) {
+      return false;
+    }
+
+    try {
+      const discovered =
+        await this.instanceDiscoveryService.discoverInstances();
+      const primary = discovered[0];
+      if (!primary) {
+        return false;
+      }
+
+      const client = new OpenCodeApiClient(primary.port, 3, 200, 3000);
+      await client.appendPrompt(prompt);
+      this.outputChannelService?.info(
+        `Sent prompt via discovered OpenCode instance on port ${primary.port}`,
+      );
+      return true;
+    } catch (error) {
+      this.outputChannelService?.warn(
+        `Failed to send prompt via discovered instance: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  }
+
+  private sendTerminalCwd(): void {
+    const activeTerminal = vscode.window.activeTerminal;
+    if (!activeTerminal) {
+      vscode.window.showWarningMessage("No active terminal");
+      return;
+    }
+
+    const cwd = activeTerminal.shellIntegration?.cwd?.fsPath;
+    if (!cwd) {
+      vscode.window.showWarningMessage(
+        "Could not determine terminal working directory. Make sure shell integration is enabled.",
+      );
+      return;
+    }
+
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    const reference =
+      workspaceFolders && workspaceFolders.length > 0
+        ? `@${vscode.workspace.asRelativePath(cwd, false)}`
+        : `@${cwd}`;
+
+    this.terminalManager?.writeToTerminal(
+      ExtensionLifecycle.TERMINAL_ID,
+      reference + " ",
+    );
+
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    if (config.get<boolean>("autoFocusOnSend", true)) {
+      vscode.commands.executeCommand("opencodeTui.focus");
+      setTimeout(() => {
+        this.tuiProvider?.focus();
+      }, 100);
+    }
+
+    vscode.window.showInformationMessage(`Sent ${reference}`);
   }
 
   async deactivate(): Promise<void> {

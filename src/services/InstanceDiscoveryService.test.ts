@@ -264,6 +264,10 @@ describe("InstanceDiscoveryService", () => {
     (vscode.workspace as any).workspaceFolders = [
       { uri: { fsPath: "/workspace/spawn" } },
     ];
+    vi.spyOn(service as any, "waitForSpawnReadiness").mockResolvedValue(true);
+    vi.spyOn(service as any, "getWorkspacePath").mockResolvedValue(
+      "/workspace/spawn",
+    );
 
     const spawned = await (service as any).spawnOpenCode();
 
@@ -271,5 +275,24 @@ describe("InstanceDiscoveryService", () => {
     expect(spawned.workspacePath).toBe("/workspace/spawn");
     expect(spawned.port).toBeGreaterThanOrEqual(16384);
     expect(spawned.port).toBeLessThanOrEqual(65535);
+  });
+
+  it("parses quoted command and args for auto-spawn", () => {
+    const parsed = (service as any).parseCommand(
+      '"/path with spaces/opencode" -c --profile "dev mode"',
+    );
+
+    expect(parsed).toEqual({
+      file: "/path with spaces/opencode",
+      args: ["-c", "--profile", "dev mode"],
+    });
+  });
+
+  it("returns undefined for malformed quoted command", () => {
+    const parsed = (service as any).parseCommand(
+      '"/path with spaces/opencode -c',
+    );
+
+    expect(parsed).toBeUndefined();
   });
 });

@@ -16,6 +16,7 @@ const vscode = acquireVsCodeApi();
 let terminal: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let currentPlatform: string = "";
+let justHandledCtrlC = false;
 let lastPasteTime = 0;
 let needsRefresh = false;
 let animationFrameId: number | null = null;
@@ -69,6 +70,27 @@ function initTerminal(): void {
   });
 
   terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
+    const isCtrlC =
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (event.key === "c" || event.key === "C");
+
+    if (isCtrlC) {
+      const selection = terminal?.getSelection();
+      if (selection && selection.length > 0) {
+        copySelectionToClipboard(selection);
+        justHandledCtrlC = true;
+        setTimeout(() => {
+          justHandledCtrlC = false;
+        }, 100);
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+      return true;
+    }
+
     if (event.ctrlKey && (event.key === "v" || event.key === "V")) {
       const now = Date.now();
       if (now - lastPasteTime < 500) {
@@ -214,7 +236,12 @@ function initTerminal(): void {
       webglAddon.dispose();
     });
     terminal.loadAddon(webglAddon);
-  } catch {}
+  } catch (error) {
+    console.warn(
+      "WebGL renderer not available, falling back to canvas:",
+      error,
+    );
+  }
 
   const refreshTerminal = () => terminal?.refresh(0, terminal.rows - 1);
   container.addEventListener("focusin", refreshTerminal);
@@ -268,6 +295,18 @@ function initTerminal(): void {
   }, 500);
 
   terminal.onData((data) => {
+    if (justHandledCtrlC) {
+      justHandledCtrlC = false;
+      const filteredData = data.replace(/\x03/g, "");
+      if (filteredData) {
+        vscode.postMessage({
+          type: "terminalInput",
+          data: filteredData,
+        });
+      }
+      return;
+    }
+
     if (data) {
       vscode.postMessage({
         type: "terminalInput",

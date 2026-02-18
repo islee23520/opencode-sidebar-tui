@@ -1,6 +1,13 @@
 export type WebviewMessage =
   | { type: "terminalInput"; data: string }
   | { type: "terminalResize"; cols: number; rows: number }
+  | { type: "listTerminals" }
+  | {
+      type: "terminalAction";
+      action: "focus" | "sendCommand" | "capture";
+      terminalName: string;
+      command?: string;
+    }
   | {
       type: "openFile";
       path: string;
@@ -17,6 +24,7 @@ export type WebviewMessage =
 
 export type HostMessage =
   | { type: "clipboardContent"; text: string }
+  | { type: "terminalList"; terminals: Array<{ name: string; cwd: string }> }
   | { type: "terminalOutput"; data: string }
   | { type: "terminalExited" }
   | { type: "clearTerminal" }
