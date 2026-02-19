@@ -20,7 +20,16 @@ export type WebviewMessage =
   | { type: "filesDropped"; files: string[]; shiftKey: boolean }
   | { type: "getClipboard" }
   | { type: "setClipboard"; text: string }
-  | { type: "triggerPaste" };
+  | { type: "triggerPaste" }
+  | { type: "imagePasted"; data: string };
+
+export const ALLOWED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+];
+export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export type HostMessage =
   | { type: "clipboardContent"; text: string }

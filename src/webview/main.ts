@@ -3,7 +3,12 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { WebviewMessage, HostMessage } from "../types";
+import {
+  WebviewMessage,
+  HostMessage,
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_SIZE,
+} from "../types";
 
 declare function acquireVsCodeApi(): {
   postMessage: (message: WebviewMessage) => void;
@@ -41,6 +46,46 @@ function copySelectionToClipboard(selection: string): void {
       text: selection,
     });
   });
+}
+
+async function handlePasteWithImageSupport(): Promise<void> {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const imageType = item.types.find((t) => ALLOWED_IMAGE_TYPES.includes(t));
+      if (imageType) {
+        const blob = await item.getType(imageType);
+        if (blob.size > MAX_IMAGE_SIZE) {
+          console.warn("Image too large, falling back to text paste");
+          break;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            vscode.postMessage({
+              type: "imagePasted",
+              data: reader.result,
+            });
+          }
+        };
+        reader.onerror = () => {
+          console.error("FileReader failed to read image");
+          vscode.postMessage({ type: "triggerPaste" });
+        };
+        reader.onabort = () => {
+          vscode.postMessage({ type: "triggerPaste" });
+        };
+        reader.readAsDataURL(blob);
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn(
+      "Could not read image from clipboard, falling back to text paste:",
+      err,
+    );
+  }
+  vscode.postMessage({ type: "triggerPaste" });
 }
 
 function initTerminal(): void {
@@ -99,7 +144,7 @@ function initTerminal(): void {
       lastPasteTime = now;
       event.preventDefault();
       event.stopPropagation();
-      vscode.postMessage({ type: "triggerPaste" });
+      handlePasteWithImageSupport();
       return false;
     }
 
