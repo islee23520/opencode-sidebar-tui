@@ -7,6 +7,7 @@ set -o pipefail
 run_command() {
     local cmd="$1"
     local is_windows_shell=0
+    local cmd_path=""
     shift
 
     case "$(uname -s 2>/dev/null || true)" in
@@ -15,9 +16,15 @@ run_command() {
             ;;
     esac
 
-    if [ "$is_windows_shell" -eq 1 ] && command -v "${cmd}.cmd" >/dev/null 2>&1; then
-        "${cmd}.cmd" "$@"
-        return
+    if [ "$is_windows_shell" -eq 1 ]; then
+        cmd_path=$(where.exe "$cmd" 2>/dev/null | tr -d '\r' | grep -iE '\.cmd$' | head -n 1)
+        if [ -n "$cmd_path" ]; then
+            if command -v cygpath >/dev/null 2>&1; then
+                cmd_path=$(cygpath -u "$cmd_path")
+            fi
+            "$cmd_path" "$@"
+            return
+        fi
     fi
 
     if command -v "$cmd" >/dev/null 2>&1; then
