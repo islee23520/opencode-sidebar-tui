@@ -218,12 +218,17 @@ export class ExtensionLifecycle {
     // Send file/folder from explorer context menu
     const sendFileToTerminalCommand = vscode.commands.registerCommand(
       "opencodeTui.sendFileToTerminal",
-      (uri: vscode.Uri) => {
+      (uri: vscode.Uri | vscode.Uri[]) => {
         if (uri && this.contextSharingService) {
-          const fileRef = this.contextSharingService.formatFileRef(uri);
+          const uris = Array.isArray(uri) ? uri : [uri];
+          const fileRefs = uris.map((u) =>
+            this.contextSharingService!.formatFileRef(u),
+          );
+          const allRefs = fileRefs.join(" ");
+
           this.terminalManager?.writeToTerminal(
             ExtensionLifecycle.TERMINAL_ID,
-            fileRef + " ",
+            allRefs + " ",
           );
 
           // Auto-focus sidebar if enabled
@@ -236,7 +241,11 @@ export class ExtensionLifecycle {
             }, 100);
           }
 
-          vscode.window.showInformationMessage(`Sent ${fileRef}`);
+          const message =
+            uris.length > 1
+              ? `Sent ${uris.length} files`
+              : `Sent ${fileRefs[0]}`;
+          vscode.window.showInformationMessage(message);
         }
       },
     );
