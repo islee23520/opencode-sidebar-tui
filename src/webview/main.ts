@@ -192,12 +192,13 @@ function initTerminal(): void {
       const pathRegex =
         /(?:^[\s"'])(@?((?:file:\/\/|\/|[A-Za-z]:\\|\.?\.?\/)[^\s"'#]+|[^\s"':\/]+(?:\/[^\s"':\/]+)+)(?:#L(\d+)(?:-L?(\d+))?)?)(?=[\s"']|$)/gi;
 
-      let match;
+      let match: RegExpExecArray | null = pathRegex.exec(lineText);
       let lastIndex = -1;
-      while ((match = pathRegex.exec(lineText)) !== null) {
+      while (match) {
         // Prevent infinite loop on zero-width matches
         if (match.index === lastIndex) {
           pathRegex.lastIndex++;
+          match = pathRegex.exec(lineText);
           continue;
         }
         lastIndex = match.index;
@@ -267,6 +268,8 @@ function initTerminal(): void {
             });
           },
         });
+
+        match = pathRegex.exec(lineText);
       }
 
       callback(links);
@@ -342,7 +345,7 @@ function initTerminal(): void {
   terminal.onData((data) => {
     if (justHandledCtrlC) {
       justHandledCtrlC = false;
-      const filteredData = data.replace(/\x03/g, "");
+      const filteredData = data.split("\u0003").join("");
       if (filteredData) {
         vscode.postMessage({
           type: "terminalInput",
@@ -402,31 +405,160 @@ function initTerminal(): void {
     container.style.opacity = "1";
   });
 
-  container.addEventListener("drop", (e) => {
+  container.addEventListener("drop", async (e) => {
     e.preventDefault();
     e.stopPropagation();
     container.style.opacity = "1";
 
     if (e.dataTransfer) {
+      const transferTypes = Array.from(e.dataTransfer.types ?? []);
+      const transferItems = Array.from(e.dataTransfer.items ?? []);
+
+      console.log("Drop event dataTransfer.types:", transferTypes);
+      console.log("Drop event dataTransfer.items:", transferItems.length);
+      console.log(
+        "Drop event dataTransfer.itemTypes:",
+        transferItems.map((item) => `${item.kind}:${item.type}`),
+      );
+
       const files: string[] = [];
+      const seen = new Set<string>();
+
+      const addFile = (filePath: string | null | undefined) => {
+        const normalizedPath = filePath?.trim();
+        if (!normalizedPath || seen.has(normalizedPath)) {
+          return;
+        }
+
+        seen.add(normalizedPath);
+        files.push(normalizedPath);
+      };
+
+      const extractFilePathFromValue = (value: string): string | null => {
+        const candidate = value.trim();
+
+        if (!candidate || candidate.startsWith("#")) {
+          return null;
+        }
+
+        try {
+          const url = new URL(candidate);
+
+          if (url.protocol === "file:") {
+            const decodedPath = decodeURIComponent(url.pathname);
+            const hasWindowsDrivePrefix =
+              decodedPath.length >= 3 &&
+              decodedPath[0] === "/" &&
+              /[A-Za-z]/.test(decodedPath[1] ?? "") &&
+              decodedPath[2] === ":";
+
+            return hasWindowsDrivePrefix ? decodedPath.slice(1) : decodedPath;
+          }
+        } catch {
+          const hasWindowsDrivePath =
+            candidate.length >= 3 &&
+            /[A-Za-z]/.test(candidate[0] ?? "") &&
+            candidate[1] === ":" &&
+            (candidate[2] === "\\" || candidate[2] === "/");
+
+          if (candidate.startsWith("/") || hasWindowsDrivePath) {
+            return candidate;
+          }
+        }
+
+        return null;
+      };
+
+      const parseDroppedText = (payload: string): string[] => {
+        const paths: string[] = [];
+        const lines = payload
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0);
+
+        for (const line of lines) {
+          const filePath = extractFilePathFromValue(line);
+          if (filePath) {
+            paths.push(filePath);
+          }
+        }
+
+        if (paths.length > 0) {
+          return paths;
+        }
+
+        try {
+          const parsed = JSON.parse(payload) as unknown;
+          const stack: unknown[] = [parsed];
+
+          while (stack.length > 0) {
+            const current = stack.pop();
+
+            if (typeof current === "string") {
+              const filePath = extractFilePathFromValue(current);
+              if (filePath) {
+                paths.push(filePath);
+              }
+              continue;
+            }
+
+            if (Array.isArray(current)) {
+              stack.push(...current);
+              continue;
+            }
+
+            if (current && typeof current === "object") {
+              stack.push(...Object.values(current as Record<string, unknown>));
+            }
+          }
+        } catch {}
+
+        return paths;
+      };
+
+      const readItemString = (item: DataTransferItem): Promise<string> =>
+        new Promise((resolve) => {
+          item.getAsString((value) => resolve(value ?? ""));
+        });
 
       const uriList = e.dataTransfer.getData("text/uri-list");
 
       if (uriList) {
-        const uris = uriList
-          .split("\n")
-          .filter((uri) => uri.trim().length > 0 && !uri.startsWith("#"));
+        const uriListPaths = parseDroppedText(uriList);
+        for (const uriListPath of uriListPaths) {
+          addFile(uriListPath);
+        }
+      }
 
-        for (const uri of uris) {
-          try {
-            const url = new URL(uri.trim());
-            if (url.protocol === "file:") {
-              const path = decodeURIComponent(url.pathname);
-              files.push(path);
-            }
-          } catch {
-            files.push(uri.trim());
+      const hasVsCodeInternalType = transferTypes.some((type) =>
+        type.startsWith("application/vnd.code."),
+      );
+
+      if (hasVsCodeInternalType || files.length === 0) {
+        for (const item of transferItems) {
+          if (item.kind !== "string") {
+            continue;
           }
+
+          if (
+            item.type === "text/uri-list" ||
+            item.type === "text/plain" ||
+            item.type.startsWith("application/vnd.code.")
+          ) {
+            const payload = await readItemString(item);
+            const payloadPaths = parseDroppedText(payload);
+
+            for (const payloadPath of payloadPaths) {
+              addFile(payloadPath);
+            }
+          }
+        }
+      }
+
+      if (e.dataTransfer.files.length > 0) {
+        for (const file of Array.from(e.dataTransfer.files)) {
+          const filePath = (file as File & { path?: string }).path || file.name;
+          addFile(filePath);
         }
       }
 
@@ -436,8 +568,9 @@ function initTerminal(): void {
           if (item.kind === "file") {
             const file = item.getAsFile();
             if (file) {
-              const filePath = (file as any).path || file.name;
-              files.push(filePath);
+              const filePath =
+                (file as File & { path?: string }).path || file.name;
+              addFile(filePath);
             }
           }
         }
