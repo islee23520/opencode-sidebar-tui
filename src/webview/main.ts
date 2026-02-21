@@ -577,11 +577,14 @@ function initTerminal(): void {
       }
 
       if (files.length > 0) {
+        console.log(`[WEBVIEW] Sending ${files.length} files:`, files);
         vscode.postMessage({
           type: "filesDropped",
           files: files,
           shiftKey: e.shiftKey,
         });
+      } else {
+        console.log("[WEBVIEW] No files collected from drop event");
       }
     }
   });
