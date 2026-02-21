@@ -10,6 +10,10 @@ import { OutputChannelService } from "../services/OutputChannelService";
 import { InstanceDiscoveryService } from "../services/InstanceDiscoveryService";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 
+// Module-level state for batching file sends from context menu
+let fileSendAccumulator: vscode.Uri[] = [];
+let fileSendTimeout: NodeJS.Timeout | undefined;
+
 /**
  * Manages extension activation, service initialization, and cleanup.
  */
@@ -219,9 +223,31 @@ export class ExtensionLifecycle {
     const sendFileToTerminalCommand = vscode.commands.registerCommand(
       "opencodeTui.sendFileToTerminal",
       (uri: vscode.Uri | vscode.Uri[]) => {
-        if (uri && this.contextSharingService) {
-          const uris = Array.isArray(uri) ? uri : [uri];
-          const fileRefs = uris.map((u) =>
+        if (!uri || !this.contextSharingService) {
+          return;
+        }
+
+        // Handle array case (if VS Code ever passes it)
+        const uris = Array.isArray(uri) ? uri : [uri];
+
+        fileSendAccumulator.push(...uris);
+
+        if (fileSendTimeout) {
+          clearTimeout(fileSendTimeout);
+        }
+
+        fileSendTimeout = setTimeout(() => {
+          if (fileSendAccumulator.length === 0) {
+            return;
+          }
+
+          const uniqueUris = [
+            ...new Map(
+              fileSendAccumulator.map((u: vscode.Uri) => [u.fsPath, u]),
+            ).values(),
+          ];
+
+          const fileRefs = uniqueUris.map((u: vscode.Uri) =>
             this.contextSharingService!.formatFileRef(u),
           );
           const allRefs = fileRefs.join(" ");
@@ -231,22 +257,22 @@ export class ExtensionLifecycle {
             allRefs + " ",
           );
 
-          // Auto-focus sidebar if enabled
           const config = vscode.workspace.getConfiguration("opencodeTui");
           if (config.get<boolean>("autoFocusOnSend", true)) {
             vscode.commands.executeCommand("opencodeTui.focus");
-            // Also focus the terminal inside the webview
             setTimeout(() => {
               this.tuiProvider?.focus();
             }, 100);
           }
 
           const message =
-            uris.length > 1
-              ? `Sent ${uris.length} files`
+            uniqueUris.length > 1
+              ? `Sent ${uniqueUris.length} files`
               : `Sent ${fileRefs[0]}`;
           vscode.window.showInformationMessage(message);
-        }
+
+          fileSendAccumulator = [];
+        }, 100);
       },
     );
 
