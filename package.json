@@ -46,6 +46,15 @@
           "type": "webview",
           "icon": "$(terminal)",
           "contextualTitle": "OpenCode TUI"
+        },
+
+
+        {
+          "id": "opencodeTui.instancesDashboard",
+          "name": "Instances",
+          "type": "webview",
+          "icon": "$(server)",
+          "contextualTitle": "OpenCode Instances"
         }
       ]
     },
