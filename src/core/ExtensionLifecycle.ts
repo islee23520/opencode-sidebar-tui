@@ -9,6 +9,8 @@ import { ContextManager } from "../services/ContextManager";
 import { OutputChannelService } from "../services/OutputChannelService";
 import { InstanceDiscoveryService } from "../services/InstanceDiscoveryService";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
+import { InstanceStore } from "../services/InstanceStore";
+import { InstanceRegistry } from "../services/InstanceRegistry";
 
 // Module-level state for batching file sends from context menu
 let fileSendAccumulator: vscode.Uri[] = [];
@@ -27,6 +29,8 @@ export class ExtensionLifecycle {
   private contextManager: ContextManager | undefined;
   private instanceDiscoveryService: InstanceDiscoveryService | undefined;
   private codeActionProvider: OpenCodeCodeActionProvider | undefined;
+  private instanceStore: InstanceStore | undefined;
+  private instanceRegistry: InstanceRegistry | undefined;
 
   private static readonly TERMINAL_ID = "opencode-main";
 
@@ -45,6 +49,11 @@ export class ExtensionLifecycle {
       this.statusBarManager = new StatusBarManager();
       this.contextManager = new ContextManager(this.outputChannelService);
       this.instanceDiscoveryService = new InstanceDiscoveryService();
+
+      // Initialize multi-instance support
+      this.instanceStore = new InstanceStore();
+      this.instanceRegistry = new InstanceRegistry(context);
+      this.instanceRegistry.hydrate(this.instanceStore);
 
       this.statusBarManager.show();
       context.subscriptions.push(this.statusBarManager);
@@ -457,6 +466,15 @@ export class ExtensionLifecycle {
     if (this.instanceDiscoveryService) {
       this.instanceDiscoveryService.dispose();
       this.instanceDiscoveryService = undefined;
+    }
+
+    if (this.instanceRegistry) {
+      this.instanceRegistry.dispose();
+      this.instanceRegistry = undefined;
+    }
+
+    if (this.instanceStore) {
+      this.instanceStore = undefined;
     }
 
     this.codeActionProvider = undefined;
