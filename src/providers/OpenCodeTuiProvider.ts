@@ -9,12 +9,14 @@ import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { PortManager } from "../services/PortManager";
 import { ContextSharingService } from "../services/ContextSharingService";
 import { OutputChannelService } from "../services/OutputChannelService";
+import { InstanceId, InstanceStore } from "../services/InstanceStore";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from "../types";
 
 export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencodeTui";
+  private static readonly LEGACY_TERMINAL_ID: InstanceId = "opencode-main";
   private _view?: vscode.WebviewView;
-  private terminalId = "opencode-main";
+  private activeInstanceId: InstanceId = "default";
   private isStarted = false;
   private apiClient?: OpenCodeApiClient;
   private readonly portManager: PortManager;
@@ -24,6 +26,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   private autoContextSent = false;
   private dataListener?: vscode.Disposable;
   private exitListener?: vscode.Disposable;
+  private activeInstanceSubscription?: vscode.Disposable;
   private lastKnownCols: number = 0;
   private lastKnownRows: number = 0;
 
@@ -31,9 +34,80 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     private readonly context: vscode.ExtensionContext,
     private readonly terminalManager: TerminalManager,
     private readonly captureManager: OutputCaptureManager,
+    private readonly instanceStore?: InstanceStore,
   ) {
     this.portManager = new PortManager();
     this.contextSharingService = new ContextSharingService();
+
+    if (this.instanceStore) {
+      this.subscribeToActiveInstanceChanges();
+    } else {
+      this.activeInstanceId = OpenCodeTuiProvider.LEGACY_TERMINAL_ID;
+    }
+  }
+
+  private subscribeToActiveInstanceChanges(): void {
+    if (!this.instanceStore) {
+      return;
+    }
+
+    try {
+      this.activeInstanceId = this.instanceStore.getActive().config.id;
+    } catch {}
+
+    this.activeInstanceSubscription = this.instanceStore.onDidSetActive(
+      (id) => {
+        void this.switchToInstance(id);
+      },
+    );
+  }
+
+  /**
+   * Switches the provider to the given instance and rebinds terminal streams.
+   */
+  public async switchToInstance(instanceId: InstanceId): Promise<void> {
+    if (instanceId === this.activeInstanceId) {
+      return;
+    }
+
+    this.disposeListeners();
+    this.resetState(false);
+    this.activeInstanceId = instanceId;
+
+    this._view?.webview.postMessage({ type: "clearTerminal" });
+
+    const existingTerminal =
+      this.terminalManager.getByInstance(instanceId) ||
+      this.terminalManager.getTerminal(instanceId);
+
+    if (existingTerminal) {
+      this.isStarted = true;
+      this.reconnectListeners();
+
+      const config = vscode.workspace.getConfiguration("opencodeTui");
+      const enableHttpApi = config.get<boolean>("enableHttpApi", true);
+      if (enableHttpApi && existingTerminal.port) {
+        const httpTimeout = config.get<number>("httpTimeout", 5000);
+        this.apiClient = new OpenCodeApiClient(
+          existingTerminal.port,
+          10,
+          200,
+          httpTimeout,
+        );
+        await this.pollForHttpReadiness();
+      }
+
+      if (this.lastKnownCols && this.lastKnownRows) {
+        this.terminalManager.resizeTerminal(
+          this.activeInstanceId,
+          this.lastKnownCols,
+          this.lastKnownRows,
+        );
+      }
+      return;
+    }
+
+    await this.startOpenCode();
   }
 
   resolveWebviewView(
@@ -52,7 +126,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     const processAlive =
       this.isStarted &&
-      this.terminalManager.getTerminal(this.terminalId) !== undefined;
+      this.terminalManager.getTerminal(this.activeInstanceId) !== undefined;
 
     if (this.isStarted && !processAlive) {
       this.resetState();
@@ -99,7 +173,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this.disposeListeners();
 
     this.dataListener = this.terminalManager.onData((event) => {
-      if (event.id === this.terminalId) {
+      if (event.id === this.activeInstanceId) {
         this._view?.webview.postMessage({
           type: "terminalOutput",
           data: event.data,
@@ -108,7 +182,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     });
 
     this.exitListener = this.terminalManager.onExit((id) => {
-      if (id === this.terminalId) {
+      if (id === this.activeInstanceId) {
         this.resetState();
         this._view?.webview.postMessage({
           type: "terminalExited",
@@ -154,9 +228,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     if (enableHttpApi) {
       try {
-        port = this.portManager.assignPortToTerminal(this.terminalId);
+        port = this.portManager.assignPortToTerminal(this.activeInstanceId);
         this.logger.info(
-          `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.terminalId}`,
+          `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.activeInstanceId}`,
         );
       } catch (error) {
         this.logger.error(
@@ -168,8 +242,8 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    const terminal = this.terminalManager.createTerminal(
-      this.terminalId,
+    this.terminalManager.createTerminal(
+      this.activeInstanceId,
       command,
       port
         ? {
@@ -180,10 +254,11 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       port,
       this.lastKnownCols || undefined,
       this.lastKnownRows || undefined,
+      this.activeInstanceId,
     );
 
     this.dataListener = this.terminalManager.onData((event) => {
-      if (event.id === this.terminalId) {
+      if (event.id === this.activeInstanceId) {
         this._view?.webview.postMessage({
           type: "terminalOutput",
           data: event.data,
@@ -192,7 +267,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     });
 
     this.exitListener = this.terminalManager.onExit((id) => {
-      if (id === this.terminalId) {
+      if (id === this.activeInstanceId) {
         this.resetState();
         this._view?.webview.postMessage({
           type: "terminalExited",
@@ -312,7 +387,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
   restart(): void {
     this.disposeListeners();
-    this.terminalManager.killTerminal(this.terminalId);
+    this.terminalManager.killTerminal(this.activeInstanceId);
     this.resetState();
 
     this._view?.webview.postMessage({ type: "clearTerminal" });
@@ -320,12 +395,14 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this.startOpenCode();
   }
 
-  private resetState(): void {
+  private resetState(releasePorts: boolean = true): void {
     this.isStarted = false;
     this.httpAvailable = false;
     this.apiClient = undefined;
     this.autoContextSent = false;
-    this.portManager.releaseTerminalPorts(this.terminalId);
+    if (releasePorts) {
+      this.portManager.releaseTerminalPorts(this.activeInstanceId);
+    }
   }
 
   private disposeListeners(): void {
@@ -342,13 +419,16 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   private handleMessage(message: any): void {
     switch (message.type) {
       case "terminalInput":
-        this.terminalManager.writeToTerminal(this.terminalId, message.data);
+        this.terminalManager.writeToTerminal(
+          this.activeInstanceId,
+          message.data,
+        );
         break;
       case "terminalResize":
         this.lastKnownCols = message.cols;
         this.lastKnownRows = message.rows;
         this.terminalManager.resizeTerminal(
-          this.terminalId,
+          this.activeInstanceId,
           message.cols,
           message.rows,
         );
@@ -363,7 +443,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         } else {
           if (this.lastKnownCols && this.lastKnownRows) {
             this.terminalManager.resizeTerminal(
-              this.terminalId,
+              this.activeInstanceId,
               this.lastKnownCols,
               this.lastKnownRows,
             );
@@ -747,13 +827,19 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         .map((file) => `@${vscode.workspace.asRelativePath(file)}`)
         .join(" ");
       this.logger.info(`[PROVIDER] Writing with @: ${fileRefs}`);
-      this.terminalManager.writeToTerminal(this.terminalId, fileRefs + " ");
+      this.terminalManager.writeToTerminal(
+        this.activeInstanceId,
+        fileRefs + " ",
+      );
     } else {
       const filePaths = files
         .map((file) => vscode.workspace.asRelativePath(file))
         .join(" ");
       this.logger.info(`[PROVIDER] Writing without @: ${filePaths}`);
-      this.terminalManager.writeToTerminal(this.terminalId, filePaths + " ");
+      this.terminalManager.writeToTerminal(
+        this.activeInstanceId,
+        filePaths + " ",
+      );
     }
   }
 
@@ -804,8 +890,10 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
   dispose(): void {
     this.disposeListeners();
+    this.activeInstanceSubscription?.dispose();
+    this.activeInstanceSubscription = undefined;
     if (this.isStarted) {
-      this.terminalManager.killTerminal(this.terminalId);
+      this.terminalManager.killTerminal(this.activeInstanceId);
     }
   }
 }
