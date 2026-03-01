@@ -311,6 +311,81 @@ export class ExtensionLifecycle {
       },
     );
 
+    // Open in new window
+    const openInNewWindowCommand = vscode.commands.registerCommand(
+      "opencode.openInNewWindow",
+      async () => {
+        if (!this.instanceStore) {
+          vscode.window.showErrorMessage("Instance store is not initialized");
+          return;
+        }
+
+        try {
+          const active = this.instanceStore.getActive();
+          const newId = `${Date.now()}`;
+          const newRecord = {
+            config: {
+              id: newId,
+              workspaceUri: active.config.workspaceUri,
+              label: `${active.config.label || "OpenCode"} (New Window)`,
+            },
+            runtime: {},
+            state: "disconnected" as const,
+          };
+
+          this.instanceStore.upsert(newRecord);
+          vscode.window.showInformationMessage(`Opened in new window: ${newRecord.config.label}`);
+        } catch (error) {
+          this.outputChannelService?.error(
+            `Failed to open in new window: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          vscode.window.showErrorMessage(
+            `Failed to open in new window: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      },
+    );
+
+    // Spawn for workspace
+    const spawnForWorkspaceCommand = vscode.commands.registerCommand(
+      "opencode.spawnForWorkspace",
+      async (uri?: vscode.Uri) => {
+        if (!this.instanceStore) {
+          vscode.window.showErrorMessage("Instance store is not initialized");
+          return;
+        }
+
+        try {
+          const workspaceUri = uri?.toString() || vscode.workspace.workspaceFolders?.[0]?.uri.toString();
+          if (!workspaceUri) {
+            vscode.window.showWarningMessage("No workspace folder available");
+            return;
+          }
+
+          const newId = `${Date.now()}`;
+          const newRecord = {
+            config: {
+              id: newId,
+              workspaceUri,
+              label: `OpenCode (${vscode.workspace.name || "Workspace"})`,
+            },
+            runtime: {},
+            state: "disconnected" as const,
+          };
+
+          this.instanceStore.upsert(newRecord);
+          vscode.window.showInformationMessage(`Spawned OpenCode for workspace: ${newRecord.config.label}`);
+        } catch (error) {
+          this.outputChannelService?.error(
+            `Failed to spawn for workspace: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          vscode.window.showErrorMessage(
+            `Failed to spawn for workspace: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      },
+    );
+
     context.subscriptions.push(
       startCommand,
       sendToTerminalCommand,
@@ -319,6 +394,8 @@ export class ExtensionLifecycle {
       sendFileToTerminalCommand,
       restartCommand,
       pasteCommand,
+      openInNewWindowCommand,
+      spawnForWorkspaceCommand,
     );
   }
 
