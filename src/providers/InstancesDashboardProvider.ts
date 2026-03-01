@@ -8,7 +8,7 @@ import {
 import { InstanceController } from "../services/InstanceController";
 
 type DashboardMessage = {
-  action?: "connect" | "disconnect" | "restart" | "focus" | "remove";
+  action?: "connect" | "disconnect" | "restart" | "focus" | "remove" | "openInNewWindow";
   instanceId?: InstanceId;
 };
 
@@ -231,7 +231,7 @@ export class InstancesDashboardProvider
         '<button data-action="disconnect" data-id="' + id + '">Disconnect</button>',
         '<button data-action="restart" data-id="' + id + '">Restart</button>',
         '<button data-action="focus" data-id="' + id + '">Focus</button>',
-        '<button data-action="remove" data-id="' + id + '">Remove</button>',
+        '<button data-action="openInNewWindow" data-id="' + id + '">Open in New Window</button>',
       ].join("");
     }
 
@@ -355,6 +355,17 @@ export class InstancesDashboardProvider
         case "remove":
           this.instanceStore.remove(message.instanceId);
           break;
+        case "openInNewWindow": {
+          const instance = this.instanceStore.get(message.instanceId);
+          if (instance?.config.workspaceUri) {
+            await vscode.commands.executeCommand(
+              "vscode.openFolder",
+              vscode.Uri.parse(instance.config.workspaceUri),
+              { forceNewWindow: true }
+            );
+          }
+          break;
+        }
       }
     } catch (error) {
       const errorMessage =
