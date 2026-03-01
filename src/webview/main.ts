@@ -393,6 +393,9 @@ function initTerminal(): void {
 
   resizeObserver.observe(container);
 
+  // Setup drag and drop for file references
+  setupDragAndDrop(vscode);
+
   container.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -586,6 +589,39 @@ function initTerminal(): void {
       } else {
         console.log("[WEBVIEW] No files collected from drop event");
       }
+    }
+  });
+}
+
+function setupDragAndDrop(vscode: any): void {
+  const terminalElement = document.getElementById("terminal-container");
+  if (!terminalElement) return;
+
+  terminalElement.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    terminalElement.style.border = "2px dashed var(--vscode-focusBorder)";
+  });
+
+  terminalElement.addEventListener("dragleave", (e) => {
+    e.preventDefault();
+    terminalElement.style.border = "";
+  });
+
+  terminalElement.addEventListener("drop", (e) => {
+    e.preventDefault();
+    terminalElement.style.border = "";
+
+    const files: string[] = [];
+    
+    if (e.dataTransfer) {
+      const uriList = e.dataTransfer.getData("text/uri-list");
+      if (uriList) {
+        files.push(...uriList.split("\n").filter(u => u.trim() && !u.startsWith("#")));
+      }
+    }
+
+    if (files.length > 0) {
+      vscode.postMessage({ type: "filesDropped", files });
     }
   });
 }
