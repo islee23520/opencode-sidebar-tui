@@ -9,10 +9,12 @@ export interface Terminal {
   onData: vscode.EventEmitter<{ id: string; data: string }>;
   onExit: vscode.EventEmitter<string>;
   port?: number;
+  instanceId?: string;
 }
 
 export class TerminalManager {
   private terminals: Map<string, Terminal> = new Map();
+  private instanceToTerminal: Map<string, string> = new Map();
   private readonly _onData = new vscode.EventEmitter<{
     id: string;
     data: string;
@@ -22,6 +24,9 @@ export class TerminalManager {
   readonly onData = this._onData.event;
   readonly onExit = this._onExit.event;
 
+  /**
+   * Creates a terminal process and registers it by terminal id.
+   */
   createTerminal(
     id: string,
     command?: string,
@@ -29,6 +34,7 @@ export class TerminalManager {
     port?: number,
     cols?: number,
     rows?: number,
+    instanceId?: string,
   ): Terminal {
     if (this.terminals.has(id)) {
       this.killTerminal(id);
@@ -68,6 +74,7 @@ export class TerminalManager {
       onExitEmitter.fire(id);
       this._onExit.fire(id);
       this.terminals.delete(id);
+      this.removeInstanceMappingForTerminal(id);
     });
 
     const terminal: Terminal = {
@@ -76,14 +83,31 @@ export class TerminalManager {
       onData: onDataEmitter,
       onExit: onExitEmitter,
       port,
+      instanceId,
     };
 
     this.terminals.set(id, terminal);
+    if (instanceId) {
+      this.instanceToTerminal.set(instanceId, id);
+    }
+
     return terminal;
   }
 
   getTerminal(id: string): Terminal | undefined {
     return this.terminals.get(id);
+  }
+
+  /**
+   * Gets a terminal by instance id.
+   */
+  getByInstance(instanceId: string): Terminal | undefined {
+    const terminalId = this.instanceToTerminal.get(instanceId);
+    if (!terminalId) {
+      return undefined;
+    }
+
+    return this.terminals.get(terminalId);
   }
 
   writeToTerminal(id: string, data: string): void {
@@ -100,6 +124,9 @@ export class TerminalManager {
     }
   }
 
+  /**
+   * Kills a terminal by terminal id and cleans related mappings.
+   */
   killTerminal(id: string): void {
     const terminal = this.terminals.get(id);
     if (terminal) {
@@ -107,15 +134,48 @@ export class TerminalManager {
       terminal.onData.dispose();
       terminal.onExit.dispose();
       this.terminals.delete(id);
+      this.removeInstanceMappingForTerminal(id);
     }
   }
 
+  /**
+   * Kills a terminal associated with the given instance id.
+   */
+  killByInstance(instanceId: string): void {
+    const terminalId = this.instanceToTerminal.get(instanceId);
+    if (!terminalId) {
+      return;
+    }
+
+    this.killTerminal(terminalId);
+    this.instanceToTerminal.delete(instanceId);
+  }
+
+  /**
+   * Disposes all terminals and manager event emitters.
+   */
   dispose(): void {
     for (const [id] of this.terminals) {
       this.killTerminal(id);
     }
+    this.instanceToTerminal.clear();
     this._onData.dispose();
     this._onExit.dispose();
+  }
+
+  /**
+   * Removes an instance-to-terminal mapping by terminal id.
+   */
+  private removeInstanceMappingForTerminal(terminalId: string): void {
+    for (const [
+      instanceId,
+      mappedTerminalId,
+    ] of this.instanceToTerminal.entries()) {
+      if (mappedTerminalId === terminalId) {
+        this.instanceToTerminal.delete(instanceId);
+        break;
+      }
+    }
   }
 
   private getShellConfig(): { shell: string; args: string[] } {
