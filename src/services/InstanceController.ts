@@ -6,6 +6,7 @@ import {
   InstanceState,
   InstanceStore,
 } from "./InstanceStore";
+import { ConnectionResolver } from "./ConnectionResolver";
 import { TerminalManager } from "../terminals/TerminalManager";
 
 const DEFAULT_COMMAND = "opencode -c";
@@ -22,6 +23,7 @@ export class InstanceController implements vscode.Disposable {
     private readonly instanceStore: InstanceStore,
     private readonly portManager: PortManager,
     private readonly outputChannel?: vscode.OutputChannel,
+    private readonly connectionResolver?: ConnectionResolver,
   ) {}
 
   /**
@@ -191,7 +193,11 @@ export class InstanceController implements vscode.Disposable {
   }
 
   /**
-   * Resolves an instance port using a simple store-backed strategy.
+   * Resolves an instance port.
+   *
+   * Uses 4-tier resolution via ConnectionResolver when available (stored runtime,
+   * health check, process discovery, and optional spawn fallback). Without a
+   * resolver, it falls back to the existing store-backed strategy.
    * @param instanceId - Target instance identifier.
    * @returns The resolved port when present.
    */
@@ -206,6 +212,45 @@ export class InstanceController implements vscode.Disposable {
       state: "resolving",
       error: undefined,
     });
+
+    if (this.connectionResolver) {
+      try {
+        const port = await this.connectionResolver.resolve(instanceId);
+        const latest = this.instanceStore.get(instanceId) ?? current;
+
+        if (port !== undefined) {
+          this.upsertRecord({
+            ...latest,
+            runtime: {
+              ...latest.runtime,
+              port,
+            },
+            state: "connected",
+            error: undefined,
+          });
+          return port;
+        }
+
+        this.upsertRecord({
+          ...latest,
+          state: "error",
+          error: "Unable to resolve a healthy port.",
+        });
+        return undefined;
+      } catch (error) {
+        const latest = this.instanceStore.get(instanceId) ?? current;
+        const message = error instanceof Error ? error.message : String(error);
+        this.outputChannel?.appendLine(
+          `[InstanceController] Failed to resolve '${instanceId}': ${message}`,
+        );
+        this.upsertRecord({
+          ...latest,
+          state: "error",
+          error: message,
+        });
+        return undefined;
+      }
+    }
 
     const port = current.runtime.port;
     this.upsertRecord({
