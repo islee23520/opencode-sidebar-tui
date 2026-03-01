@@ -95,6 +95,18 @@
         "title": "Paste",
         "category": "OpenCode TUI",
         "icon": "$(clippy)"
+      },
+      {
+        "command": "opencode.openInNewWindow",
+        "title": "Open Instance in New Window",
+        "category": "OpenCode TUI",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "opencode.spawnForWorkspace",
+        "title": "Spawn Instance for Workspace",
+        "category": "OpenCode TUI",
+        "icon": "$(add)"
       }
     ],
     "menus": {
