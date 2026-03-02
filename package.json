@@ -107,6 +107,12 @@
         "title": "Spawn Instance for Workspace",
         "category": "OpenCode TUI",
         "icon": "$(add)"
+      },
+      {
+        "command": "opencodeTui.selectInstance",
+        "title": "Select OpenCode Instance",
+        "category": "OpenCode TUI",
+        "icon": "$(server-environment)"
       }
     ],
     "menus": {

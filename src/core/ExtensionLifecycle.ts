@@ -12,6 +12,7 @@ import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { InstanceStore } from "../services/InstanceStore";
 import { InstanceRegistry } from "../services/InstanceRegistry";
 import { InstancesDashboardProvider } from "../providers/InstancesDashboardProvider";
+import { InstanceQuickPick } from "../services/InstanceQuickPick";
 
 // Module-level state for batching file sends from context menu
 let fileSendAccumulator: vscode.Uri[] = [];
@@ -33,6 +34,7 @@ export class ExtensionLifecycle {
   private instanceStore: InstanceStore | undefined;
   private instanceRegistry: InstanceRegistry | undefined;
   private instancesDashboardProvider: InstancesDashboardProvider | undefined;
+  private instanceQuickPick: InstanceQuickPick | undefined;
 
   private static readonly TERMINAL_ID = "opencode-main";
 
@@ -62,6 +64,11 @@ export class ExtensionLifecycle {
       context.subscriptions.push(this.statusBarManager);
       context.subscriptions.push(this.contextManager);
       context.subscriptions.push(this.instanceDiscoveryService);
+
+      this.instanceQuickPick = new InstanceQuickPick(
+        this.instanceStore,
+        this.instanceDiscoveryService,
+      );
 
       // Handle terminal closure for cleanup
       context.subscriptions.push(
@@ -401,6 +408,13 @@ export class ExtensionLifecycle {
       },
     );
 
+    const selectInstanceCommand = vscode.commands.registerCommand(
+      "opencodeTui.selectInstance",
+      () => {
+        this.instanceQuickPick?.show();
+      },
+    );
+
     context.subscriptions.push(
       startCommand,
       sendToTerminalCommand,
@@ -411,6 +425,7 @@ export class ExtensionLifecycle {
       pasteCommand,
       openInNewWindowCommand,
       spawnForWorkspaceCommand,
+      selectInstanceCommand,
     );
   }
 

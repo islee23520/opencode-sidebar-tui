@@ -17,7 +17,7 @@ export class StatusBarManager {
       1,
     );
     this.statusBarItem.tooltip = "Open OpenCode TUI";
-    this.statusBarItem.command = "opencodeTui.focus";
+    this.statusBarItem.command = "opencodeTui.selectInstance";
     this.instanceStore = instanceStore;
 
     if (this.instanceStore) {
