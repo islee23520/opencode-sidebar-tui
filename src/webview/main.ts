@@ -593,7 +593,7 @@ function initTerminal(): void {
   });
 }
 
-function setupDragAndDrop(vscode: any): void {
+function setupDragAndDrop(_vscode: any): void {
   const terminalElement = document.getElementById("terminal-container");
   if (!terminalElement) return;
 
@@ -607,23 +607,9 @@ function setupDragAndDrop(vscode: any): void {
     terminalElement.style.border = "";
   });
 
-  terminalElement.addEventListener("drop", (e) => {
-    e.preventDefault();
-    terminalElement.style.border = "";
-
-    const files: string[] = [];
-    
-    if (e.dataTransfer) {
-      const uriList = e.dataTransfer.getData("text/uri-list");
-      if (uriList) {
-        files.push(...uriList.split("\n").filter(u => u.trim() && !u.startsWith("#")));
-      }
-    }
-
-    if (files.length > 0) {
-      vscode.postMessage({ type: "filesDropped", files });
-    }
-  });
+  // NOTE: Drop handler is intentionally omitted here.
+  // The robust drop handler in initTerminal() handles file URI normalization
+  // and covers all drop scenarios (text/uri-list, vscode internal, File objects).
 }
 
 window.addEventListener("message", (event) => {

@@ -11,6 +11,7 @@ import { InstanceDiscoveryService } from "../services/InstanceDiscoveryService";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { InstanceStore } from "../services/InstanceStore";
 import { InstanceRegistry } from "../services/InstanceRegistry";
+import { InstancesDashboardProvider } from "../providers/InstancesDashboardProvider";
 
 // Module-level state for batching file sends from context menu
 let fileSendAccumulator: vscode.Uri[] = [];
@@ -31,6 +32,7 @@ export class ExtensionLifecycle {
   private codeActionProvider: OpenCodeCodeActionProvider | undefined;
   private instanceStore: InstanceStore | undefined;
   private instanceRegistry: InstanceRegistry | undefined;
+  private instancesDashboardProvider: InstancesDashboardProvider | undefined;
 
   private static readonly TERMINAL_ID = "opencode-main";
 
@@ -46,7 +48,6 @@ export class ExtensionLifecycle {
       this.captureManager = new OutputCaptureManager();
       this.contextSharingService = new ContextSharingService();
       this.outputChannelService = logger;
-      this.statusBarManager = new StatusBarManager();
       this.contextManager = new ContextManager(this.outputChannelService);
       this.instanceDiscoveryService = new InstanceDiscoveryService();
 
@@ -55,6 +56,8 @@ export class ExtensionLifecycle {
       this.instanceRegistry = new InstanceRegistry(context);
       this.instanceRegistry.hydrate(this.instanceStore);
 
+      // Initialize status bar with instance store for live updates
+      this.statusBarManager = new StatusBarManager(this.instanceStore);
       this.statusBarManager.show();
       context.subscriptions.push(this.statusBarManager);
       context.subscriptions.push(this.contextManager);
@@ -72,6 +75,7 @@ export class ExtensionLifecycle {
         context,
         this.terminalManager,
         this.captureManager,
+        this.instanceStore,
       );
 
       // Register webview provider
@@ -85,6 +89,17 @@ export class ExtensionLifecycle {
         },
       );
       context.subscriptions.push(provider);
+
+      // Register instances dashboard provider
+      this.instancesDashboardProvider = new InstancesDashboardProvider(
+        context,
+        this.instanceStore,
+      );
+      const dashboardProvider = vscode.window.registerWebviewViewProvider(
+        InstancesDashboardProvider.viewType,
+        this.instancesDashboardProvider,
+      );
+      context.subscriptions.push(dashboardProvider);
 
       // Register commands
       this.registerCommands(context);
@@ -548,6 +563,11 @@ export class ExtensionLifecycle {
     if (this.instanceRegistry) {
       this.instanceRegistry.dispose();
       this.instanceRegistry = undefined;
+    }
+
+    if (this.instancesDashboardProvider) {
+      this.instancesDashboardProvider.dispose();
+      this.instancesDashboardProvider = undefined;
     }
 
     if (this.instanceStore) {

@@ -822,8 +822,32 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this.logger.info(
       `[PROVIDER] handleFilesDropped - files: ${JSON.stringify(files)} shiftKey: ${shiftKey}`,
     );
+
+    // Normalize file:// URIs to filesystem paths (e.g. from drag & drop)
+    const normalizedFiles = files.map((file) => {
+      if (file.startsWith("file://")) {
+        try {
+          const url = new URL(file);
+          let decoded = decodeURIComponent(url.pathname);
+          // On Windows, file:///E:/path produces /E:/path — strip leading slash
+          if (
+            decoded.length >= 3 &&
+            decoded[0] === "/" &&
+            /[A-Za-z]/.test(decoded[1]) &&
+            decoded[2] === ":"
+          ) {
+            decoded = decoded.slice(1);
+          }
+          return decoded;
+        } catch {
+          return file;
+        }
+      }
+      return file;
+    });
+
     if (shiftKey) {
-      const fileRefs = files
+      const fileRefs = normalizedFiles
         .map((file) => `@${vscode.workspace.asRelativePath(file)}`)
         .join(" ");
       this.logger.info(`[PROVIDER] Writing with @: ${fileRefs}`);
@@ -832,7 +856,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         fileRefs + " ",
       );
     } else {
-      const filePaths = files
+      const filePaths = normalizedFiles
         .map((file) => vscode.workspace.asRelativePath(file))
         .join(" ");
       this.logger.info(`[PROVIDER] Writing without @: ${filePaths}`);
