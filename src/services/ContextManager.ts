@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { OutputChannelService } from "./OutputChannelService";
+import { FileReferenceManager } from "./FileReferenceManager";
 
 export class ContextManager implements vscode.Disposable {
   private debounceTimer: NodeJS.Timeout | null = null;
@@ -11,7 +12,10 @@ export class ContextManager implements vscode.Disposable {
   private activeEditor: vscode.TextEditor | undefined;
   private activeSelection: vscode.Selection | undefined;
 
-  constructor(outputChannel: OutputChannelService) {
+  constructor(
+    outputChannel: OutputChannelService,
+    private readonly fileRefManager?: FileReferenceManager,
+  ) {
     this.outputChannel = outputChannel;
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
@@ -21,6 +25,10 @@ export class ContextManager implements vscode.Disposable {
     this.activeSelection = this.activeEditor?.selection;
 
     this.setupEventListeners();
+
+    if (this.fileRefManager) {
+      this.setupFileReferenceListeners();
+    }
     this.outputChannel.info(
       `ContextManager initialized (debounce: ${this.debounceMs}ms)`,
     );
@@ -74,6 +82,20 @@ export class ContextManager implements vscode.Disposable {
       selectionDisposable,
       documentDisposable,
       diagnosticsDisposable,
+    );
+  }
+
+  private setupFileReferenceListeners(): void {
+    this.disposables.push(
+      this.fileRefManager!.onDidAddReference((ref) => {
+        this.outputChannel.info(`File reference added: ${ref.path}`);
+      }),
+      this.fileRefManager!.onDidRemoveReference((id) => {
+        this.outputChannel.info(`File reference removed: ${id}`);
+      }),
+      this.fileRefManager!.onDidClearReferences(() => {
+        this.outputChannel.info("All file references cleared");
+      }),
     );
   }
 

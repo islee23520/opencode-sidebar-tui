@@ -165,6 +165,14 @@ export const CancellationTokenSource = vi.fn(() => ({
   dispose: vi.fn(),
 }));
 
+export class Disposable {
+  constructor(private callOnDispose: () => void) {}
+
+  dispose() {
+    this.callOnDispose();
+  }
+}
+
 export class ExtensionContext {
   subscriptions: any[] = [];
   extensionPath = "/test/extension";
@@ -325,4 +333,5 @@ export default {
   Selection,
   TextEditor,
   TextDocument,
+  Disposable,
 };

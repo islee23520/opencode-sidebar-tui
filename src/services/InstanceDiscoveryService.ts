@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { execFile } from "node:child_process";
 import { OpenCodeApiClient } from "./OpenCodeApiClient";
+import { InstanceConfig, InstanceRecord, InstanceStore } from "./InstanceStore";
 import { OutputChannelService } from "./OutputChannelService";
 
 const MIN_PORT = 16384;
@@ -23,17 +24,30 @@ interface ProcessCandidate {
 export class InstanceDiscoveryService {
   private instances: OpenCodeInstance[] = [];
   private autoSpawn: boolean;
+  private enableProcessScan: boolean;
   private disposed = false;
+  private readonly instanceStore?: InstanceStore;
   private readonly inflightControllers = new Set<AbortController>();
   private readonly logger = OutputChannelService.getInstance();
 
-  constructor() {
+  constructor(instanceStore?: InstanceStore) {
     const config = vscode.workspace.getConfiguration("opencodeTui");
     this.autoSpawn = config.get<boolean>("enableAutoSpawn", true);
+    this.enableProcessScan = config.get<boolean>("enableProcessScan", true);
+    this.instanceStore = instanceStore;
   }
 
+  /**
+   * Discovers healthy OpenCode instances for the current workspace and mirrors
+   * discovered runtime metadata into the optional InstanceStore.
+   */
   public async discoverInstances(): Promise<OpenCodeInstance[]> {
     if (this.disposed) {
+      return [];
+    }
+
+    if (!this.enableProcessScan) {
+      this.logger.debug("Process scanning disabled by configuration");
       return [];
     }
 
@@ -68,6 +82,7 @@ export class InstanceDiscoveryService {
     const matchedInstances = this.filterByWorkspace(healthyInstances);
     if (matchedInstances.length > 0) {
       this.instances = matchedInstances;
+      this.syncToInstanceStore(this.instances);
       return [...this.instances];
     }
 
@@ -75,12 +90,42 @@ export class InstanceDiscoveryService {
       const spawned = await this.spawnOpenCode();
       if (spawned) {
         this.instances = [spawned];
+        this.syncToInstanceStore(this.instances);
         return [...this.instances];
       }
     }
 
     this.instances = [];
+    this.syncToInstanceStore(this.instances);
     return [];
+  }
+
+  private syncToInstanceStore(instances: OpenCodeInstance[]): void {
+    if (!this.instanceStore) {
+      return;
+    }
+
+    for (const instance of instances) {
+      const instanceId = `discovered-${instance.port}`;
+      const config: InstanceConfig = {
+        id: instanceId,
+        workspaceUri: instance.workspacePath,
+        label: `Port ${instance.port}`,
+        preferredPort: instance.port,
+      };
+
+      const record: InstanceRecord = {
+        config,
+        runtime: {
+          port: instance.port,
+          pid: instance.pid,
+          lastSeenAt: Date.now(),
+        },
+        state: "disconnected",
+      };
+
+      this.instanceStore.upsert(record);
+    }
   }
 
   private async scanProcesses(): Promise<OpenCodeInstance[]> {

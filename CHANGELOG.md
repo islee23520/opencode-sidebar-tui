@@ -5,6 +5,15 @@ All notable changes to the "OpenCode Sidebar TUI" extension will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-02-20
+
+### Fixed
+
+- Support multi-file selection in Explorer context menu - multiple files are now sent together as `@file1 @file2 @file3`
+- Improve drag-and-drop handling for VS Code editor tabs - files dragged from editor tabs are now properly captured
+- Remove duplicate "Send to OpenCode Terminal" from editor context menu - only "Send File Reference (@file)" remains
+- Fix multi-file drag-and-drop from Explorer - all selected files are now processed instead of just the first one
+
 ## [1.1.0] - 2025-02-06
 
 ### Added
@@ -81,5 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Drag & Drop**: Shift-drag files to send as references
 - **Configuration**: Customizable command, font, and terminal settings
 
+[1.3.2]: https://github.com/islee23520/opencode-sidebar-tui/compare/v1.1.0...v1.3.2
 [1.1.0]: https://github.com/islee23520/opencode-sidebar-tui/compare/v1.0.4...v1.1.0
 [1.0.4]: https://github.com/islee23520/opencode-sidebar-tui/releases/tag/v1.0.4

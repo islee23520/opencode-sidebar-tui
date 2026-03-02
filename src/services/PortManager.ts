@@ -9,7 +9,10 @@
  * - Port collision detection and prevention
  * - Per-terminal port tracking
  * - Automatic cleanup on terminal closure
+ * - Coordination with InstanceStore for cross-instance port conflict detection
  */
+
+import type { InstanceStore } from './InstanceStore';
 
 export class PortManager {
   // Ephemeral port range (16384-65535)
@@ -25,8 +28,20 @@ export class PortManager {
   // Track port-to-terminal reverse mapping for cleanup
   private portTerminalMap: Map<number, string> = new Map();
 
+  // Reference to InstanceStore for cross-instance port coordination
+  private instanceStore?: InstanceStore;
+
+  /**
+   * Initialize PortManager with optional InstanceStore for coordination
+   * @param instanceStore - Optional InstanceStore for cross-instance port conflict detection
+   */
+  constructor(instanceStore?: InstanceStore) {
+    this.instanceStore = instanceStore;
+  }
+
   /**
    * Get an available random port in the ephemeral range
+   * Checks both local tracking and InstanceStore for conflicts
    * @returns A random available port number
    * @throws Error if no ports are available
    */
@@ -42,7 +57,7 @@ export class PortManager {
     // Try random selection first (up to 100 attempts to avoid infinite loop)
     for (let attempt = 0; attempt < 100; attempt++) {
       const port = this.generateRandomPort();
-      if (!this.usedPorts.has(port)) {
+      if (this.isPortAvailable(port)) {
         return port;
       }
     }
@@ -153,15 +168,16 @@ export class PortManager {
   }
 
   /**
-   * Check if a port is available
+   * Check if a port is available (both locally and in InstanceStore)
    * @param port - The port number to check
-   * @returns true if port is available
+   * @returns true if port is available in both local tracking and InstanceStore
    */
   public isPortAvailable(port: number): boolean {
     if (!this.isValidPort(port)) {
       return false;
     }
-    return !this.usedPorts.has(port);
+    // Check local tracking AND instance store for conflicts
+    return !this.usedPorts.has(port) && !this.isPortClaimedByInstance(port);
   }
 
   /**
@@ -187,6 +203,20 @@ export class PortManager {
    */
   public getTerminalPortMappings(): Map<string, number> {
     return new Map(this.terminalPortMap);
+  }
+
+  /**
+   * Check if a port is claimed by any instance in InstanceStore
+   * @param port - The port number to check
+   * @returns true if port is claimed by an instance in the store
+   */
+  private isPortClaimedByInstance(port: number): boolean {
+    if (!this.instanceStore) {
+      return false;
+    }
+    
+    const instances = this.instanceStore.getAll();
+    return instances.some(instance => instance.runtime.port === port);
   }
 
   /**

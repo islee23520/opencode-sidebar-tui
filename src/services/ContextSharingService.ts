@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { FileReferenceManager } from "./FileReferenceManager";
 
 /**
  * Represents the current editor context including file path and selection.
@@ -18,6 +19,8 @@ export interface Context {
  * file references (@file, @file#L10, @file#L10-L20).
  */
 export class ContextSharingService {
+  constructor(private fileRefManager?: FileReferenceManager) {}
+
   /**
    * Gets the current editor context including file path and selection information.
    * Returns null if no editor is active or if the active editor has no valid document.
@@ -109,5 +112,30 @@ export class ContextSharingService {
     }
 
     return reference;
+  }
+
+  /**
+   * Adds current editor context to FileReferenceManager if available.
+   * No-op if FileReferenceManager is not provided or no context exists.
+   */
+  addCurrentContextToManager(): void {
+    if (!this.fileRefManager) return;
+    const context = this.getCurrentContext();
+    if (!context) return;
+    this.fileRefManager.addReference({
+      path: context.filePath,
+      lineStart: context.selectionStart,
+      lineEnd: context.selectionEnd,
+    });
+  }
+
+  /**
+   * Formats all managed file references from FileReferenceManager.
+   * Returns empty string if FileReferenceManager is not provided.
+   *
+   * @returns Serialized string of all managed references
+   */
+  formatAllManagedRefs(): string {
+    return this.fileRefManager?.serialize() ?? "";
   }
 }
