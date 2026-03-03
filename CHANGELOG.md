@@ -5,6 +5,24 @@ All notable changes to the "OpenCode Sidebar TUI" extension will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-03-03
+
+### Fixed
+
+- Fix all "Send to OpenCode" commands broken after 1.4.0 multi-instance patch
+  - Root cause: `OpenCodeTuiProvider.startOpenCode()` did not write `terminalKey` into the InstanceStore, causing `getActiveTerminalId()` to resolve to a non-existent terminal ID
+  - On fresh installs (empty store), `getActive()` threw → fallback to `"opencode-main"`, while the actual terminal was created with ID `"default"` → silent mismatch
+  - Fixed by ensuring the instance store record is created/updated with the correct `terminalKey` after terminal creation
+- Fix `sendFileToTerminal` (Send File Reference) not working from editor and explorer context menus
+- Fix `sendAtMention` (Send @file) not working
+- Fix `sendAllOpenFiles` (Send All Open Files) not working
+- Fix `sendToTerminal` (Send Selected Text) not working
+
+### Improved
+
+- Support multi-file selection in Explorer context menu — selecting multiple files and using "Send to OpenCode" now sends all selected files as `@file1 @file2 @file3`
+- Replace notification popups (`showInformationMessage`) with transient status bar messages (`setStatusBarMessage`) when sending files — less intrusive UX
+
 ## [1.3.2] - 2026-02-20
 
 ### Fixed
