@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import * as vscode from "vscode";
+import { CliToolType } from "../types";
 
 export type InstanceId = string;
 
@@ -20,6 +21,7 @@ export interface InstanceConfig {
   args?: string[];
   preferredPort?: number;
   enableHttpApi?: boolean;
+  toolId?: CliToolType;
 }
 
 export interface InstanceRuntime {
@@ -80,6 +82,27 @@ export class InstanceStore {
   public get(id: InstanceId): InstanceRecord | undefined {
     const record = this.records.get(id);
     return record ? this.cloneRecord(record) : undefined;
+  }
+
+  /**
+   * Returns all instance records for a specific tool.
+   * @param toolId - Tool identifier.
+   */
+  public getByTool(toolId: CliToolType): readonly InstanceRecord[] {
+    return this.getAll().filter((record) => record.config.toolId === toolId);
+  }
+
+  /**
+   * Returns all unique tool identifiers present in the store.
+   */
+  public getTools(): CliToolType[] {
+    const tools = new Set<CliToolType>();
+    for (const record of this.records.values()) {
+      if (record.config.toolId) {
+        tools.add(record.config.toolId);
+      }
+    }
+    return Array.from(tools);
   }
 
   /**
@@ -224,6 +247,7 @@ export class InstanceStore {
     return {
       config: {
         ...record.config,
+        toolId: record.config.toolId ?? "opencode",
         args: record.config.args ? [...record.config.args] : undefined,
       },
       runtime: {

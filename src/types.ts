@@ -66,3 +66,14 @@ export interface ExtensionConfig {
   enableAutoSpawn: boolean;
   codeActionSeverities: DiagnosticSeverity[];
 }
+
+export type CliToolType = "opencode" | "claude" | "codex" | "gemini" | "aider";
+
+export type CliState = "idle" | "starting" | "running" | "stopping" | "error";
+
+export type {
+  CliAdapter,
+  CliAdapterEvents,
+  CliConfig,
+  CliInstance,
+} from "./core/cli";
