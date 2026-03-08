@@ -378,6 +378,16 @@
           ],
           "description": "Diagnostic severities that trigger code actions"
         },
+        "opencodeTui.autoServe": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start OpenCode in background with serve mode on VS Code startup"
+        },
+        "opencodeTui.serveCommand": {
+          "type": "string",
+          "default": "opencode serve",
+          "description": "Command to launch OpenCode in serve mode (background)"
+        },
         "opencodeTui.tools.opencode": {
           "type": "object",
           "description": "OpenCode CLI settings",

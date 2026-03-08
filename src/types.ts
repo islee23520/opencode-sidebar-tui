@@ -66,6 +66,8 @@ export interface ExtensionConfig {
   maxDiagnosticLength: number;
   enableAutoSpawn: boolean;
   codeActionSeverities: DiagnosticSeverity[];
+  autoServe: boolean;
+  serveCommand: string;
 }
 
 export type CliToolType = "opencode" | "claude" | "codex" | "gemini" | "aider";

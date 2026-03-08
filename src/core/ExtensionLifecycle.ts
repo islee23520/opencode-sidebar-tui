@@ -170,12 +170,80 @@ export class ExtensionLifecycle {
       context.subscriptions.push(codeActionRegistration, explainAndFixCommand);
 
       logger.info("OpenCode Sidebar TUI activated successfully");
+
+      // Auto-serve OpenCode instances if enabled
+      await this.handleAutoServe();
     } catch (error) {
       logger.error(
         `Failed to activate OpenCode Sidebar TUI: ${error instanceof Error ? error.message : String(error)}`,
       );
       vscode.window.showErrorMessage(
         `Failed to activate OpenCode Sidebar TUI: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async handleAutoServe(): Promise<void> {
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    const autoServe = config.get<boolean>("autoServe", false);
+
+    if (!autoServe) {
+      return;
+    }
+
+    const logger = OutputChannelService.getInstance();
+    logger.info("Auto-serve is enabled, starting OpenCode in background...");
+
+    const serveCommand = config.get<string>("serveCommand", "opencode serve");
+    const toolId: CliToolType = "opencode";
+
+    // Create a new instance for serve mode
+    const instanceId = `opencode-serve-${Date.now()}`;
+
+    try {
+      // Check if there's already a running serve instance
+      const existingInstances = this.instanceStore?.getAll() || [];
+      const hasRunningServe = existingInstances.some(
+        (inst) =>
+          inst.config.toolId === toolId &&
+          (inst.state === "connected" || inst.state === "spawning"),
+      );
+
+      if (hasRunningServe) {
+        logger.info("OpenCode serve instance already running, skipping auto-serve");
+        return;
+      }
+
+      // Create instance record
+      this.instanceStore?.upsert({
+        config: {
+          id: instanceId,
+          toolId: toolId,
+          label: "OpenCode Serve (Auto)",
+          command: serveCommand,
+        },
+        runtime: {},
+        state: "disconnected",
+      });
+
+      // Spawn the instance
+      const port = await this.instanceController?.spawn(instanceId, {
+        command: serveCommand,
+        args: [],
+      });
+
+      if (port) {
+        logger.info(`OpenCode serve started on port ${port}`);
+        vscode.window.showInformationMessage(
+          `OpenCode serve started on port ${port}`
+        );
+      }
+    } catch (error) {
+      logger.error(
+        `Failed to auto-serve OpenCode: ${error instanceof Error ? error.message : String(error)}`
+      );
+      vscode.window.showWarningMessage(
+        `Failed to auto-start OpenCode serve: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
