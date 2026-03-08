@@ -16,7 +16,8 @@ type DashboardMessage = {
     | "focus"
     | "remove"
     | "openInNewWindow"
-    | "newInstance";
+    | "newInstance"
+    | "launchTmux";
   instanceId?: InstanceId;
   toolId?: CliToolType;
 };
@@ -322,6 +323,7 @@ export class InstancesDashboardProvider
         '<button data-action="disconnect" data-id="' + id + '">Disconnect</button>',
         '<button data-action="restart" data-id="' + id + '">Restart</button>',
         '<button data-action="focus" data-id="' + id + '">Focus</button>',
+        '<button data-action="launchTmux" data-id="' + id + '" title="Launch in tmux session">Tmux</button>',
         '<button data-action="openInNewWindow" data-id="' + id + '">Open in New Window</button>',
         '<button data-action="remove" data-id="' + id + '">Remove</button>',
       ].join("");
@@ -500,6 +502,9 @@ export class InstancesDashboardProvider
           }
           break;
         }
+        case "launchTmux":
+          await this.launchTmuxSession(message.instanceId);
+          break;
       }
     } catch (error) {
       const errorMessage =
@@ -560,6 +565,26 @@ export class InstancesDashboardProvider
   private focusInstance(instanceId: InstanceId): void {
     this.instanceStore.setActive(instanceId);
     void vscode.commands.executeCommand("opencodeTui.focus");
+  }
+
+  private async launchTmuxSession(instanceId: InstanceId): Promise<void> {
+    const instance = this.instanceStore.get(instanceId);
+    if (!instance) {
+      return;
+    }
+
+    const sessionName = `opencode-${instance.config.toolId}-${instanceId.slice(0, 8)}`;
+    const terminal = vscode.window.createTerminal({
+      name: `tmux: ${instance.config.label || sessionName}`,
+      shellPath: "/bin/bash",
+      shellArgs: ["-c", `tmux new-session -A -s ${sessionName}`],
+    });
+
+    terminal.show();
+
+    this.outputChannel?.appendLine(
+      `[InstancesDashboardProvider] Launched tmux session '${sessionName}' for instance ${instanceId}`,
+    );
   }
 
   private toDashboardInstance(record: InstanceRecord): DashboardInstanceDto {
