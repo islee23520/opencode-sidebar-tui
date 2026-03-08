@@ -88,6 +88,8 @@ async function handlePasteWithImageSupport(): Promise<void> {
   vscode.postMessage({ type: "triggerPaste" });
 }
 
+let terminalConfig: Partial<import("../types").ExtensionConfig> = {};
+
 function initTerminal(): void {
   const container = document.getElementById("terminal-container");
   if (!container) return;
@@ -104,14 +106,14 @@ function initTerminal(): void {
   });
 
   terminal = new Terminal({
-    cursorBlink: true,
-    fontSize: 14,
-    fontFamily: "monospace",
+    cursorBlink: terminalConfig.cursorBlink ?? true,
+    fontSize: terminalConfig.fontSize ?? 14,
+    fontFamily: terminalConfig.fontFamily ?? "monospace",
     theme: {
       background: "#1e1e1e",
       foreground: "#cccccc",
     },
-    scrollback: 10000,
+    scrollback: terminalConfig.scrollback ?? 10000,
   });
 
   terminal.attachCustomKeyEventHandler((event: KeyboardEvent): boolean => {
@@ -684,6 +686,26 @@ window.addEventListener("message", (event) => {
     case "clipboardContent":
       if (message.text && terminal) {
         terminal.paste(message.text);
+      }
+      break;
+    case "config":
+      terminalConfig = message.config || {};
+      // Apply config changes if terminal exists
+      if (terminal) {
+        if (terminalConfig.fontSize) {
+          terminal.options.fontSize = terminalConfig.fontSize;
+        }
+        if (terminalConfig.fontFamily) {
+          terminal.options.fontFamily = terminalConfig.fontFamily;
+        }
+        if (terminalConfig.cursorBlink !== undefined) {
+          terminal.options.cursorBlink = terminalConfig.cursorBlink;
+        }
+        if (terminalConfig.scrollback) {
+          terminal.options.scrollback = terminalConfig.scrollback;
+        }
+        // Refresh to apply changes
+        scheduleRefresh();
       }
       break;
   }

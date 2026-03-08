@@ -39,7 +39,8 @@ export type HostMessage =
   | { type: "clearTerminal" }
   | { type: "focusTerminal" }
   | { type: "webviewVisible" }
-  | { type: "platformInfo"; platform: string };
+  | { type: "platformInfo"; platform: string }
+  | { type: "config"; config: Partial<ExtensionConfig> };
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type DiagnosticSeverity = "error" | "warning" | "information" | "hint";

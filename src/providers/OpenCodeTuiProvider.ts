@@ -92,6 +92,13 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     } else {
       this.activeInstanceId = OpenCodeTuiProvider.LEGACY_TERMINAL_ID;
     }
+
+    // Listen for configuration changes
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("opencodeTui")) {
+        this.postConfigToWebview();
+      }
+    });
   }
 
   private subscribeToTabChanges(): void {
@@ -207,6 +214,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       void this.handleMessage(message);
     });
 
+    // Send config to webview
+    this.postConfigToWebview();
+
     if (processAlive) {
       this.reconnectListeners();
     }
@@ -272,6 +282,19 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     this._view?.webview.postMessage({
       type: "clipboardContent",
       text: text,
+    });
+  }
+
+  private postConfigToWebview(): void {
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    this._view?.webview.postMessage({
+      type: "config",
+      config: {
+        fontSize: config.get<number>("fontSize", 14),
+        fontFamily: config.get<string>("fontFamily", "monospace"),
+        cursorBlink: config.get<boolean>("cursorBlink", true),
+        scrollback: config.get<number>("scrollback", 10000),
+      },
     });
   }
 
