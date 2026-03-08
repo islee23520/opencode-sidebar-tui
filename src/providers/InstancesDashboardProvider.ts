@@ -493,12 +493,10 @@ export class InstancesDashboardProvider
           break;
         case "openInNewWindow": {
           const instance = this.instanceStore.get(message.instanceId);
-          if (instance?.config.workspaceUri) {
-            await vscode.commands.executeCommand(
-              "vscode.openFolder",
-              vscode.Uri.parse(instance.config.workspaceUri),
-              { forceNewWindow: true },
-            );
+          if (instance?.runtime?.port) {
+            await this.openInstanceInEditor(message.instanceId, instance.runtime.port);
+          } else {
+            vscode.window.showWarningMessage("Instance is not running or port is not available");
           }
           break;
         }
@@ -584,6 +582,194 @@ export class InstancesDashboardProvider
 
     this.outputChannel?.appendLine(
       `[InstancesDashboardProvider] Launched tmux session '${sessionName}' for instance ${instanceId}`,
+    );
+  }
+
+  private async openInstanceInEditor(instanceId: InstanceId, port: number): Promise<void> {
+    const instance = this.instanceStore.get(instanceId);
+    if (!instance) {
+      return;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+      'opencodeTui.instanceEditor',
+      `${instance.config.label || instanceId} (Port: ${port})`,
+      vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+      }
+    );
+
+    const nonce = this.getNonce();
+    const apiUrl = `http://localhost:${port}`;
+
+    panel.webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src ${apiUrl} ws://localhost:${port}; img-src data:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${instance.config.label || instanceId}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: var(--vscode-font-family);
+      background: var(--vscode-editor-background);
+      color: var(--vscode-foreground);
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .status-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #28a745;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .info-item {
+      background: var(--vscode-panel-background);
+      padding: 15px;
+      border-radius: 6px;
+    }
+    .info-label {
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 5px;
+    }
+    .info-value {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    button {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    .terminal-link {
+      display: inline-block;
+      margin-top: 10px;
+      color: var(--vscode-textLink-foreground);
+      text-decoration: none;
+    }
+    .terminal-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>🚀 ${instance.config.label || instanceId}</h2>
+    <div class="status">
+      <span class="status-indicator"></span>
+      <span>Connected</span>
+    </div>
+  </div>
+  
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="info-label">Instance ID</div>
+      <div class="info-value">${instanceId}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Port</div>
+      <div class="info-value">${port}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Tool</div>
+      <div class="info-value">${instance.config.toolId}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">API URL</div>
+      <div class="info-value">${apiUrl}</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="openTerminal()">Open in Terminal</button>
+    <button onclick="openBrowser()">Open in Browser</button>
+    <button onclick="copyUrl()">Copy URL</button>
+  </div>
+
+  <script nonce="${nonce}">
+    const apiUrl = '${apiUrl}';
+    
+    function openTerminal() {
+      vscode.postMessage({ command: 'openTerminal', instanceId: '${instanceId}' });
+    }
+    
+    function openBrowser() {
+      vscode.postMessage({ command: 'openBrowser', url: apiUrl });
+    }
+    
+    function copyUrl() {
+      navigator.clipboard.writeText(apiUrl);
+      vscode.postMessage({ command: 'showInfo', message: 'URL copied to clipboard' });
+    }
+    
+    // Health check
+    async function checkHealth() {
+      try {
+        const response = await fetch(\`\${apiUrl}/health\`);
+        const data = await response.json();
+        console.log('Health check:', data);
+      } catch (error) {
+        console.error('Health check failed:', error);
+      }
+    }
+    
+    checkHealth();
+    setInterval(checkHealth, 30000);
+  </script>
+</body>
+</html>`;
+
+    panel.webview.onDidReceiveMessage(async (message) => {
+      switch (message.command) {
+        case 'openTerminal':
+          vscode.commands.executeCommand('opencodeTui.focus');
+          break;
+        case 'openBrowser':
+          vscode.env.openExternal(vscode.Uri.parse(message.url));
+          break;
+        case 'showInfo':
+          vscode.window.showInformationMessage(message.message);
+          break;
+      }
+    });
+
+    this.outputChannel?.appendLine(
+      `[InstancesDashboardProvider] Opened instance ${instanceId} in editor (port: ${port})`,
     );
   }
 
