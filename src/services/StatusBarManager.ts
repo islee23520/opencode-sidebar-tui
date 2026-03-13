@@ -16,7 +16,7 @@ export class StatusBarManager {
       vscode.StatusBarAlignment.Left,
       1,
     );
-    this.statusBarItem.tooltip = "Open OpenCode TUI";
+    this.statusBarItem.tooltip = "Open CLI TUI";
     this.statusBarItem.command = "opencodeTui.selectInstance";
     this.instanceStore = instanceStore;
 

@@ -916,7 +916,7 @@ describe("InstanceStore", () => {
         state: "disconnected",
       });
       store.upsert({
-        config: { id: "a1", toolId: "aider" },
+        config: { id: "k1", toolId: "kimi" },
         runtime: {},
         state: "disconnected",
       });
@@ -925,7 +925,7 @@ describe("InstanceStore", () => {
       expect(tools).toHaveLength(3);
       expect(tools).toContain("opencode");
       expect(tools).toContain("claude");
-      expect(tools).toContain("aider");
+      expect(tools).toContain("kimi");
     });
   });
 });

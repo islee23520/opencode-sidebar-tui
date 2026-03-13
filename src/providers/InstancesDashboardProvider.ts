@@ -39,16 +39,14 @@ const TOOL_ICONS: Record<CliToolType, string> = {
   opencode: "$(terminal)",
   claude: "$(comment)",
   codex: "$(code)",
-  gemini: "$(star)",
-  aider: "$(diff)",
+  kimi: "$(rocket)",
 };
 
 const TOOL_COLORS: Record<CliToolType, string> = {
   opencode: "#3b82f6",
   claude: "#d97706",
   codex: "#10b981",
-  gemini: "#8b5cf6",
-  aider: "#ec4899",
+  kimi: "#f59e0b",
 };
 
 export class InstancesDashboardProvider
@@ -260,16 +258,14 @@ export class InstancesDashboardProvider
       <option value="opencode">OpenCode</option>
       <option value="claude">Claude</option>
       <option value="codex">Codex</option>
-      <option value="gemini">Gemini</option>
-      <option value="aider">Aider</option>
+      <option value="kimi">Kimi</option>
     </select>
     <select id="new-instance-tool">
       <option value="" disabled selected>+ New Instance</option>
       <option value="opencode">OpenCode</option>
       <option value="claude">Claude</option>
       <option value="codex">Codex</option>
-      <option value="gemini">Gemini</option>
-      <option value="aider">Aider</option>
+      <option value="kimi">Kimi</option>
     </select>
   </div>
   <div id="instances"></div>
@@ -291,16 +287,14 @@ export class InstancesDashboardProvider
       opencode: '#3b82f6',
       claude: '#d97706',
       codex: '#10b981',
-      gemini: '#8b5cf6',
-      aider: '#ec4899'
+      kimi: '#f59e0b'
     };
 
     const toolIcons = {
       opencode: '$(terminal)',
       claude: '$(comment)',
       codex: '$(code)',
-      gemini: '$(star)',
-      aider: '$(diff)'
+      kimi: '$(rocket)'
     };
 
     let currentInstances = [];
@@ -494,9 +488,14 @@ export class InstancesDashboardProvider
         case "openInNewWindow": {
           const instance = this.instanceStore.get(message.instanceId);
           if (instance?.runtime?.port) {
-            await this.openInstanceInEditor(message.instanceId, instance.runtime.port);
+            await this.openInstanceInEditor(
+              message.instanceId,
+              instance.runtime.port,
+            );
           } else {
-            vscode.window.showWarningMessage("Instance is not running or port is not available");
+            vscode.window.showWarningMessage(
+              "Instance is not running or port is not available",
+            );
           }
           break;
         }
@@ -585,20 +584,23 @@ export class InstancesDashboardProvider
     );
   }
 
-  private async openInstanceInEditor(instanceId: InstanceId, port: number): Promise<void> {
+  private async openInstanceInEditor(
+    instanceId: InstanceId,
+    port: number,
+  ): Promise<void> {
     const instance = this.instanceStore.get(instanceId);
     if (!instance) {
       return;
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'opencodeTui.instanceEditor',
+      "opencodeTui.instanceEditor",
       `${instance.config.label || instanceId} (Port: ${port})`,
       vscode.ViewColumn.One,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-      }
+      },
     );
 
     const nonce = this.getNonce();
@@ -756,13 +758,13 @@ export class InstancesDashboardProvider
 
     panel.webview.onDidReceiveMessage(async (message) => {
       switch (message.command) {
-        case 'openTerminal':
-          vscode.commands.executeCommand('opencodeTui.focus');
+        case "openTerminal":
+          vscode.commands.executeCommand("opencodeTui.focus");
           break;
-        case 'openBrowser':
+        case "openBrowser":
           vscode.env.openExternal(vscode.Uri.parse(message.url));
           break;
-        case 'showInfo':
+        case "showInfo":
           vscode.window.showInformationMessage(message.message);
           break;
       }

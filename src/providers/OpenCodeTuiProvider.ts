@@ -8,8 +8,7 @@ import {
   OpenCodeAdapter,
   ClaudeAdapter,
   CodexAdapter,
-  GeminiAdapter,
-  AiderAdapter,
+  KimiAdapter,
 } from "../adapters";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
@@ -34,8 +33,7 @@ export class CliAdapterFactory {
     this.adapters.set("opencode", new OpenCodeAdapter(terminalManager));
     this.adapters.set("claude", new ClaudeAdapter(terminalManager));
     this.adapters.set("codex", new CodexAdapter(terminalManager));
-    this.adapters.set("gemini", new GeminiAdapter(terminalManager));
-    this.adapters.set("aider", new AiderAdapter(terminalManager));
+    this.adapters.set("kimi", new KimiAdapter(terminalManager));
   }
 
   getAdapter(toolId: CliToolType): CliAdapter {
@@ -48,15 +46,14 @@ export class CliAdapterFactory {
   }
 }
 
-export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
+export class CliTuiProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencodeTui";
-  private static readonly LEGACY_TERMINAL_ID: InstanceId = "opencode-main";
+  private static readonly LEGACY_INSTANCE_ID: InstanceId = "cli-main";
   private static readonly DEFAULT_TOOL_COMMANDS: Record<CliToolType, string> = {
     opencode: "opencode -c",
     claude: "claude",
     codex: "codex",
-    gemini: "gemini",
-    aider: "aider",
+    kimi: "kimi",
   };
   private _view?: vscode.WebviewView;
   private activeInstanceId: InstanceId = "default";
@@ -90,7 +87,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     if (this.instanceStore) {
       this.subscribeToActiveInstanceChanges();
     } else {
-      this.activeInstanceId = OpenCodeTuiProvider.LEGACY_TERMINAL_ID;
+      this.activeInstanceId = CliTuiProvider.LEGACY_INSTANCE_ID;
     }
 
     // Listen for configuration changes
@@ -108,7 +105,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       }),
       this.tabManager.onDidChangeActive((activeTab) => {
         if (!activeTab) {
-          this.activeInstanceId = OpenCodeTuiProvider.LEGACY_TERMINAL_ID;
+          this.activeInstanceId = CliTuiProvider.LEGACY_INSTANCE_ID;
           this.resetState(false);
           this._view?.webview.postMessage({ type: "clearTerminal" });
           return;
@@ -157,7 +154,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       this.terminalManager.getTerminal(instanceId);
 
     if (!existingTerminal) {
-      await this.startOpenCode();
+      await this.startDefaultTool();
       return;
     }
 
@@ -226,7 +223,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       // Only start if sidebar is currently visible
       if (webviewView.visible) {
         if (!this.isStarted) {
-          this.startOpenCode();
+          this.startDefaultTool();
         }
       } else {
         // Wait until sidebar becomes visible
@@ -235,7 +232,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
             // Notify webview that it's now visible so it can refit the terminal
             this._view?.webview.postMessage({ type: "webviewVisible" });
             if (!this.isStarted) {
-              this.startOpenCode();
+              this.startDefaultTool();
               visibilityListener.dispose(); // Only trigger once
             }
           }
@@ -306,7 +303,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     return this.httpAvailable;
   }
 
-  async startOpenCode(): Promise<void> {
+  async startDefaultTool(): Promise<void> {
     const activeTab = this.tabManager.getActiveTab();
     if (
       activeTab?.toolId === "opencode" &&
@@ -343,7 +340,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       this.tabManager.removeTab(tab.id);
       const message =
         error instanceof Error ? error.message : "Failed to start CLI tool";
-      this.logger.error(`[OpenCodeTuiProvider] ${message}`);
+      this.logger.error(`[CliTuiProvider] ${message}`);
       vscode.window.showErrorMessage(
         `Failed to create ${toolId} tab: ${message}`,
       );
@@ -401,7 +398,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     const nextActive = this.tabManager.getActiveTab();
     if (!nextActive) {
-      this.activeInstanceId = OpenCodeTuiProvider.LEGACY_TERMINAL_ID;
+      this.activeInstanceId = CliTuiProvider.LEGACY_INSTANCE_ID;
       this.resetState(false);
       this._view?.webview.postMessage({ type: "clearTerminal" });
       return;
@@ -426,7 +423,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  public async restartOpenCode(): Promise<void> {
+  public async restartActiveTool(): Promise<void> {
     const active = this.tabManager.getActiveTab();
     if (active) {
       await this.closeTab(active.id);
@@ -469,9 +466,9 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       toolId === "opencode"
         ? config.get<string>(
             "command",
-            OpenCodeTuiProvider.DEFAULT_TOOL_COMMANDS.opencode,
+            CliTuiProvider.DEFAULT_TOOL_COMMANDS.opencode,
           )
-        : OpenCodeTuiProvider.DEFAULT_TOOL_COMMANDS[toolId];
+        : CliTuiProvider.DEFAULT_TOOL_COMMANDS[toolId];
 
     const env: Record<string, string> = {};
     const sourceEnv = toolConfig?.env ?? {};
@@ -561,7 +558,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       });
     } catch (error) {
       this.logger.warn(
-        `[OpenCodeTuiProvider] Failed to sync instance store: ${error instanceof Error ? error.message : String(error)}`,
+        `[CliTuiProvider] Failed to sync instance store: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -579,13 +576,13 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         const isHealthy = await this.apiClient.healthCheck();
         if (isHealthy) {
           this.httpAvailable = true;
-          this.logger.info("[OpenCodeTuiProvider] HTTP API is ready");
+          this.logger.info("[CliTuiProvider] HTTP API is ready");
           await this.sendAutoContext();
           return;
         }
       } catch {
         this.logger.info(
-          `[OpenCodeTuiProvider] Health check attempt ${attempt}/${maxRetries} failed`,
+          `[CliTuiProvider] Health check attempt ${attempt}/${maxRetries} failed`,
         );
       }
 
@@ -595,7 +592,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     }
 
     this.logger.info(
-      "[OpenCodeTuiProvider] HTTP API not available after retries, using message passing fallback",
+      "[CliTuiProvider] HTTP API not available after retries, using message passing fallback",
     );
     this.httpAvailable = false;
   }
@@ -620,21 +617,21 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
 
     if (!enableHttpApi) {
       this.logger.info(
-        "[OpenCodeTuiProvider] HTTP API disabled, skipping auto-context",
+        "[CliTuiProvider] HTTP API disabled, skipping auto-context",
       );
       return;
     }
 
     if (!autoShareContext) {
       this.logger.info(
-        "[OpenCodeTuiProvider] Auto-context sharing disabled by user",
+        "[CliTuiProvider] Auto-context sharing disabled by user",
       );
       return;
     }
 
     if (!this.httpAvailable || !this.apiClient) {
       this.logger.info(
-        "[OpenCodeTuiProvider] HTTP not available, skipping auto-context",
+        "[CliTuiProvider] HTTP not available, skipping auto-context",
       );
       return;
     }
@@ -642,29 +639,29 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     const context = this.contextSharingService.getCurrentContext();
     if (!context) {
       this.logger.info(
-        "[OpenCodeTuiProvider] No active editor, skipping auto-context",
+        "[CliTuiProvider] No active editor, skipping auto-context",
       );
       return;
     }
 
     const fileRef = this.contextSharingService.formatContext(context);
-    this.logger.info(`[OpenCodeTuiProvider] Sending auto-context: ${fileRef}`);
+    this.logger.info(`[CliTuiProvider] Sending auto-context: ${fileRef}`);
 
     try {
       await this.apiClient.appendPrompt(fileRef);
       this.autoContextSent = true;
       this.logger.info(
-        "[OpenCodeTuiProvider] Auto-context sent successfully via HTTP",
+        "[CliTuiProvider] Auto-context sent successfully via HTTP",
       );
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to send auto-context: ${error instanceof Error ? error.message : String(error)}`,
+        `[CliTuiProvider] Failed to send auto-context: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
   restart(): void {
-    void this.restartOpenCode();
+    void this.restartActiveTool();
   }
 
   private resetState(releasePorts: boolean = true): void {
@@ -717,7 +714,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
           this.lastKnownRows = message.rows;
         }
         if (!this.isStarted) {
-          await this.startOpenCode();
+          await this.startDefaultTool();
         } else {
           const activeTab = this.tabManager.getActiveTab();
           if (this.lastKnownCols && this.lastKnownRows) {
@@ -779,6 +776,15 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       case "imagePasted":
         await this.handleImagePasted(message.data);
         break;
+      case "showNotification":
+        if (message.level === "error") {
+          vscode.window.showErrorMessage(message.message);
+        } else if (message.level === "warning") {
+          vscode.window.showWarningMessage(message.message);
+        } else {
+          vscode.window.showInformationMessage(message.message);
+        }
+        break;
       case "createTab":
         if (message.toolId) {
           await this.createTab(message.toolId as CliToolType);
@@ -802,7 +808,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       await vscode.env.clipboard.writeText(text);
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to write clipboard: ${error instanceof Error ? error.message : String(error)}`,
+        `[CliTuiProvider] Failed to write clipboard: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -815,56 +821,69 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       }
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to paste: ${error instanceof Error ? error.message : String(error)}`,
+        `[CliTuiProvider] Failed to paste: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
   private async handleImagePasted(data: string): Promise<void> {
+    this.logger.info(`[handleImagePasted] START - data length: ${data.length}`);
     try {
+      this.logger.info("[handleImagePasted] Validating base64 format...");
       const base64Match = data.match(
         /^data:(image\/[a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=]+)$/,
       );
       if (!base64Match) {
-        this.logger.error(
-          "[OpenCodeTuiProvider] Invalid image data URL format",
-        );
+        this.logger.error("[handleImagePasted] Invalid image data URL format");
         return;
       }
       const mimeType = base64Match[1];
+      this.logger.info(`[handleImagePasted] Mime type: ${mimeType}`);
+
       if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
         this.logger.error(
-          `[OpenCodeTuiProvider] Unsupported image type: ${mimeType}`,
+          `[handleImagePasted] Unsupported image type: ${mimeType}`,
         );
         return;
       }
+
       const buffer = Buffer.from(base64Match[2], "base64");
+      this.logger.info(
+        `[handleImagePasted] Buffer size: ${buffer.length} bytes`,
+      );
+
       if (buffer.length > MAX_IMAGE_SIZE) {
         this.logger.error(
-          "[OpenCodeTuiProvider] Image exceeds 10MB size limit",
+          `[handleImagePasted] Image exceeds 10MB size limit (${buffer.length} bytes)`,
         );
         return;
       }
+
       const extension = mimeType.split("/")[1];
       const tmpPath = path.join(
         os.tmpdir(),
         `opencode-clipboard-${randomUUID()}.${extension}`,
       );
+      this.logger.info(`[handleImagePasted] Writing temp file: ${tmpPath}`);
+
       await fs.promises.writeFile(tmpPath, buffer, {
         flag: "wx",
         mode: 0o600,
       });
+      this.logger.info(
+        `[handleImagePasted] Temp file written successfully, calling pasteText`,
+      );
       this.pasteText(tmpPath);
       setTimeout(
         async () => {
           try {
             await fs.promises.unlink(tmpPath);
             this.logger.debug(
-              `[OpenCodeTuiProvider] Cleaned up temp file: ${tmpPath}`,
+              `[CliTuiProvider] Cleaned up temp file: ${tmpPath}`,
             );
           } catch (err) {
             this.logger.warn(
-              `[OpenCodeTuiProvider] Failed to cleanup temp file: ${err instanceof Error ? err.message : String(err)}`,
+              `[CliTuiProvider] Failed to cleanup temp file: ${err instanceof Error ? err.message : String(err)}`,
             );
           }
         },
@@ -872,7 +891,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       );
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to handle pasted image: ${error instanceof Error ? error.message : String(error)}`,
+        `[CliTuiProvider] Failed to handle pasted image: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -886,7 +905,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       });
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`,
+        `[CliTuiProvider] Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -934,7 +953,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     const entries: Array<{ name: string; cwd: string }> = [];
 
     for (const terminal of vscode.window.terminals) {
-      if (terminal.name === "OpenCode TUI") {
+      if (terminal.name === "CLI TUI") {
         continue;
       }
 
@@ -1180,7 +1199,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenCode TUI</title>
+  <title>CLI TUI</title>
   <style>
     body, html {
       margin: 0;
@@ -1212,6 +1231,160 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
     return text;
   }
 
+  public async tmuxAttach(): Promise<void> {
+    try {
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      const { stdout } = await execAsync(
+        "tmux list-sessions -F '#{session_name}|#{pane_current_path}'",
+      );
+      const sessionInfos = stdout
+        .trim()
+        .split("\n")
+        .filter((s) => s)
+        .map((line) => {
+          const [name, path] = line.split("|");
+          return { name, path };
+        });
+
+      if (sessionInfos.length === 0) {
+        vscode.window.showInformationMessage(
+          "No tmux sessions available. Create one first.",
+        );
+        return;
+      }
+
+      const relevantSessions: Array<{
+        name: string;
+        path: string;
+        cli: string;
+      }> = [];
+
+      for (const sessionInfo of sessionInfos) {
+        const cli = await this.checkSessionForAiCli(
+          sessionInfo.name,
+          execAsync,
+        );
+        if (cli) {
+          relevantSessions.push({
+            name: sessionInfo.name,
+            path: sessionInfo.path,
+            cli,
+          });
+        }
+      }
+
+      if (relevantSessions.length === 0) {
+        vscode.window.showInformationMessage(
+          "No tmux sessions with AI CLI found. Create a new session with opencode, claude, codex, or kimi.",
+        );
+        return;
+      }
+
+      const items = relevantSessions.map((s) => ({
+        label: s.name,
+        description: `${s.cli} (${s.path})`,
+        session: s.name,
+      }));
+
+      const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: "Select a tmux session with AI CLI",
+      });
+
+      if (selected) {
+        this.logger.info(
+          `[tmuxAttach] Killing existing terminal before attaching to tmux`,
+        );
+        this.terminalManager.dispose();
+
+        const terminalId = `tmux-${selected.session}`;
+        this.terminalManager.createTerminal(
+          terminalId,
+          `tmux attach-session -t "${selected.session}"`,
+        );
+        this.activeInstanceId = terminalId;
+
+        vscode.window.showInformationMessage(
+          `Killed existing session and attached to ${selected.description}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `[tmuxAttach] Failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      vscode.window.showErrorMessage(
+        "Failed to list tmux sessions. Is tmux installed?",
+      );
+    }
+  }
+
+  private async checkSessionForAiCli(
+    sessionName: string,
+    execAsync: any,
+  ): Promise<string | null> {
+    try {
+      const { stdout } = await execAsync(
+        `tmux list-panes -t ${sessionName} -F '#{pane_pid}'`,
+        { timeout: 5000 },
+      );
+
+      const pids = stdout
+        .trim()
+        .split("\n")
+        .filter((p: string) => p)
+        .map((p: string) => parseInt(p, 10));
+
+      for (const pid of pids) {
+        if (isNaN(pid)) continue;
+
+        try {
+          const { stdout: psOutput } = await execAsync(
+            `ps -eo pid,ppid,comm | grep -E "opencode|claude|codex|kimi"`,
+            { timeout: 5000 },
+          );
+
+          const processes = psOutput.toLowerCase();
+
+          if (processes.includes("opencode")) return "opencode";
+          if (processes.includes("claude")) return "claude";
+          if (processes.includes("codex")) return "codex";
+          if (processes.includes("kimi")) return "kimi";
+        } catch {}
+      }
+
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  public async tmuxCreate(): Promise<void> {
+    const sessionName = await vscode.window.showInputBox({
+      placeHolder: "Enter tmux session name",
+      prompt: "Create a new tmux session",
+      value: `opencode-${Date.now()}`,
+    });
+
+    if (sessionName) {
+      this.terminalManager.writeToTerminal(
+        this.activeInstanceId,
+        `\ntmux new-session -A -s "${sessionName}"\n`,
+      );
+      vscode.window.showInformationMessage(
+        `Created tmux session: ${sessionName}`,
+      );
+    }
+  }
+
+  public async tmuxDetach(): Promise<void> {
+    this.terminalManager.writeToTerminal(this.activeInstanceId, "\n\u0002d");
+    vscode.window.showInformationMessage(
+      "Detached from tmux session (Ctrl+B D)",
+    );
+  }
+
   dispose(): void {
     this.disposeListeners();
     this.activeInstanceSubscription?.dispose();
@@ -1228,7 +1401,7 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
         .stop(tab.id)
         .catch((error) => {
           this.logger.warn(
-            `[OpenCodeTuiProvider] Failed to stop tab ${tab.id}: ${error instanceof Error ? error.message : String(error)}`,
+            `[CliTuiProvider] Failed to stop tab ${tab.id}: ${error instanceof Error ? error.message : String(error)}`,
           );
         });
     }

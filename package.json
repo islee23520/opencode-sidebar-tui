@@ -2,7 +2,7 @@
   "name": "opencode-sidebar-tui",
   "displayName": "OpenCode Sidebar TUI",
   "description": "Automatically render OpenCode TUI in VS Code sidebar with full terminal support",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "publisher": "islee23520",
   "icon": "icon.png",
   "engines": {
@@ -58,6 +58,16 @@
     },
     "commands": [
       {
+        "command": "opencodeTui.open",
+        "title": "Open OpenCode Sidebar",
+        "category": "OpenCode TUI"
+      },
+      {
+        "command": "opencodeTui.focus",
+        "title": "Focus OpenCode Sidebar",
+        "category": "OpenCode TUI"
+      },
+      {
         "command": "opencodeTui.start",
         "title": "Start OpenCode",
         "category": "OpenCode TUI"
@@ -87,6 +97,24 @@
         "title": "Restart OpenCode",
         "category": "OpenCode TUI",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "opencodeTui.tmux.attach",
+        "title": "Attach to Tmux Session",
+        "category": "OpenCode TUI",
+        "icon": "$(terminal-tmux)"
+      },
+      {
+        "command": "opencodeTui.tmux.create",
+        "title": "Create Tmux Session",
+        "category": "OpenCode TUI",
+        "icon": "$(add)"
+      },
+      {
+        "command": "opencodeTui.tmux.detach",
+        "title": "Detach from Tmux",
+        "category": "OpenCode TUI",
+        "icon": "$(debug-disconnect)"
       },
       {
         "command": "opencodeTui.paste",
@@ -164,6 +192,21 @@
           "command": "opencodeTui.restart",
           "when": "view == opencodeTui",
           "group": "navigation@1"
+        },
+        {
+          "command": "opencodeTui.tmux.attach",
+          "when": "view == opencodeTui",
+          "group": "navigation@2"
+        },
+        {
+          "command": "opencodeTui.tmux.create",
+          "when": "view == opencodeTui",
+          "group": "navigation@3"
+        },
+        {
+          "command": "opencodeTui.tmux.detach",
+          "when": "view == opencodeTui",
+          "group": "navigation@4"
         }
       ],
       "explorer/context": [
@@ -280,7 +323,7 @@
           "description": "Cursor style"
         },
         "opencodeTui.scrollback": {
-          "type": "number",
+          "type": "number", 
           "default": 10000,
           "minimum": 0,
           "maximum": 100000,

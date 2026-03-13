@@ -49,42 +49,120 @@ function copySelectionToClipboard(selection: string): void {
 }
 
 async function handlePasteWithImageSupport(): Promise<void> {
+  console.log("[handlePasteWithImageSupport] Starting paste handling...");
   try {
+    console.log("[handlePasteWithImageSupport] Reading clipboard...");
     const items = await navigator.clipboard.read();
-    for (const item of items) {
+    console.log(
+      `[handlePasteWithImageSupport] Clipboard items: ${items.length}`,
+    );
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      console.log(
+        `[handlePasteWithImageSupport] Item ${i} types: ${item.types.join(", ")}`,
+      );
+
+      const unsupportedImageType = item.types.find(
+        (t) => t.startsWith("image/") && !ALLOWED_IMAGE_TYPES.includes(t),
+      );
+      if (unsupportedImageType) {
+        console.warn(
+          `[handlePasteWithImageSupport] Unsupported image type: ${unsupportedImageType}`,
+        );
+        vscode.postMessage({
+          type: "showNotification",
+          message: `Image format "${unsupportedImageType}" not supported. Please convert to PNG, JPEG, GIF, or WebP.`,
+          level: "warning",
+        });
+        vscode.postMessage({ type: "triggerPaste" });
+        return;
+      }
+
       const imageType = item.types.find((t) => ALLOWED_IMAGE_TYPES.includes(t));
       if (imageType) {
+        console.log(
+          `[handlePasteWithImageSupport] Found image type: ${imageType}`,
+        );
         const blob = await item.getType(imageType);
+        console.log(
+          `[handlePasteWithImageSupport] Blob size: ${blob.size} bytes`,
+        );
+
         if (blob.size > MAX_IMAGE_SIZE) {
-          console.warn("Image too large, falling back to text paste");
-          break;
+          const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
+          const maxMB = (MAX_IMAGE_SIZE / 1024 / 1024).toFixed(2);
+          console.warn(
+            `[handlePasteWithImageSupport] Image too large (${sizeMB}MB > ${maxMB}MB)`,
+          );
+          vscode.postMessage({
+            type: "showNotification",
+            message: `Image too large (${sizeMB}MB). Maximum size is ${maxMB}MB.`,
+            level: "warning",
+          });
+          vscode.postMessage({ type: "triggerPaste" });
+          return;
         }
+
         const reader = new FileReader();
         reader.onload = () => {
+          console.log(
+            "[handlePasteWithImageSupport] FileReader loaded successfully",
+          );
           if (typeof reader.result === "string") {
+            console.log(
+              `[handlePasteWithImageSupport] Sending imagePasted message (length: ${reader.result.length})`,
+            );
             vscode.postMessage({
               type: "imagePasted",
               data: reader.result,
             });
           }
         };
-        reader.onerror = () => {
-          console.error("FileReader failed to read image");
+        reader.onerror = (e) => {
+          console.error("[handlePasteWithImageSupport] FileReader failed:", e);
           vscode.postMessage({ type: "triggerPaste" });
         };
         reader.onabort = () => {
+          console.log("[handlePasteWithImageSupport] FileReader aborted");
           vscode.postMessage({ type: "triggerPaste" });
         };
         reader.readAsDataURL(blob);
         return;
       }
     }
+    console.log("[handlePasteWithImageSupport] No image found in clipboard");
   } catch (err) {
     console.warn(
-      "Could not read image from clipboard, falling back to text paste:",
+      "[handlePasteWithImageSupport] Could not read clipboard:",
       err,
     );
+
+    const errorMsg = err instanceof Error ? err.message : String(err);
+
+    if (errorMsg.includes("Permission") || errorMsg.includes("NotAllowed")) {
+      vscode.postMessage({
+        type: "showNotification",
+        message:
+          "Clipboard permission denied. Please allow clipboard access and try again.",
+        level: "error",
+      });
+    } else if (
+      errorMsg.includes("not supported") ||
+      errorMsg.includes("not implemented")
+    ) {
+      console.log(
+        "[handlePasteWithImageSupport] Clipboard API not supported, falling back to text paste",
+      );
+    } else {
+      vscode.postMessage({
+        type: "showNotification",
+        message: `Failed to read clipboard: ${errorMsg}`,
+        level: "warning",
+      });
+    }
   }
+  console.log("[handlePasteWithImageSupport] Falling back to text paste");
   vscode.postMessage({ type: "triggerPaste" });
 }
 
@@ -138,7 +216,10 @@ function initTerminal(): void {
       return true;
     }
 
-    if (event.ctrlKey && (event.key === "v" || event.key === "V")) {
+    const isPaste =
+      (event.ctrlKey || event.metaKey) &&
+      (event.key === "v" || event.key === "V");
+    if (isPaste) {
       const now = Date.now();
       if (now - lastPasteTime < 500) {
         return false;

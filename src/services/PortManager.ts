@@ -27,8 +27,7 @@ export class PortManager {
     opencode: { min: 16384, max: 32767 },
     claude: { min: 32768, max: 49151 },
     codex: { min: 49152, max: 57343 },
-    gemini: { min: 57344, max: 61439 },
-    aider: { min: 61440, max: 65535 },
+    kimi: { min: 57344, max: 65535 },
   };
 
   // Track used ports

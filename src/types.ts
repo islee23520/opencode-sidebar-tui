@@ -21,7 +21,12 @@ export type WebviewMessage =
   | { type: "getClipboard" }
   | { type: "setClipboard"; text: string }
   | { type: "triggerPaste" }
-  | { type: "imagePasted"; data: string };
+  | { type: "imagePasted"; data: string }
+  | {
+      type: "showNotification";
+      message: string;
+      level: "info" | "warning" | "error";
+    };
 
 export const ALLOWED_IMAGE_TYPES = [
   "image/png",
@@ -70,7 +75,7 @@ export interface ExtensionConfig {
   serveCommand: string;
 }
 
-export type CliToolType = "opencode" | "claude" | "codex" | "gemini" | "aider";
+export type CliToolType = "opencode" | "claude" | "codex" | "kimi";
 
 export type CliState = "idle" | "starting" | "running" | "stopping" | "error";
 

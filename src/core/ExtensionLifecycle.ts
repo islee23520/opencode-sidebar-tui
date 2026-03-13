@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { CliToolType } from "../types";
-import { OpenCodeTuiProvider } from "../providers/OpenCodeTuiProvider";
+import { CliTuiProvider } from "../providers/OpenCodeTuiProvider";
 import { OpenCodeCodeActionProvider } from "../providers/CodeActionProvider";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
@@ -18,6 +18,7 @@ import { InstanceController } from "../services/InstanceController";
 import { PortManager } from "../services/PortManager";
 import { ConnectionResolver } from "../services/ConnectionResolver";
 import { ConfigMigration } from "../services/ConfigMigration";
+import { CliReferenceSender } from "../services/CliReferenceSender";
 
 // Module-level state for batching file sends from context menu
 let fileSendAccumulator: vscode.Uri[] = [];
@@ -28,7 +29,7 @@ let fileSendTimeout: NodeJS.Timeout | undefined;
  */
 export class ExtensionLifecycle {
   private terminalManager: TerminalManager | undefined;
-  private tuiProvider: OpenCodeTuiProvider | undefined;
+  private tuiProvider: CliTuiProvider | undefined;
   private captureManager: OutputCaptureManager | undefined;
   private contextSharingService: ContextSharingService | undefined;
   private statusBarManager: StatusBarManager | undefined;
@@ -42,8 +43,12 @@ export class ExtensionLifecycle {
   private instanceQuickPick: InstanceQuickPick | undefined;
   private instanceController: InstanceController | undefined;
   private portManager: PortManager | undefined;
+  private cliReferenceSender: CliReferenceSender | undefined;
+  private isStartingTerminal: boolean = false;
+  private lastSendAtMentionTime: number = 0;
 
-  private static readonly TERMINAL_ID = "opencode-main";
+  private static readonly TERMINAL_ID = "cli-main";
+  private static readonly DEBOUNCE_MS = 500;
 
   /** Returns the terminal ID for the active instance, falling back to the static default. */
   private getActiveTerminalId(): string {
@@ -66,7 +71,7 @@ export class ExtensionLifecycle {
     logger.info("Initializing OpenCode Sidebar TUI...");
 
     try {
-      await ConfigMigration.migrate();
+      await ConfigMigration.migrate(context);
 
       // Initialize terminal manager
       this.terminalManager = new TerminalManager();
@@ -117,16 +122,22 @@ export class ExtensionLifecycle {
       );
 
       // Initialize TUI provider
-      this.tuiProvider = new OpenCodeTuiProvider(
+      this.tuiProvider = new CliTuiProvider(
         context,
         this.terminalManager,
         this.captureManager,
         this.instanceStore,
       );
 
+      this.cliReferenceSender = new CliReferenceSender(
+        this.terminalManager,
+        () => this.tuiProvider?.getApiClient(),
+        () => this.getActiveTerminalId(),
+      );
+
       // Register webview provider
       const provider = vscode.window.registerWebviewViewProvider(
-        OpenCodeTuiProvider.viewType,
+        CliTuiProvider.viewType,
         this.tuiProvider,
         {
           webviewOptions: {
@@ -210,7 +221,9 @@ export class ExtensionLifecycle {
       );
 
       if (hasRunningServe) {
-        logger.info("OpenCode serve instance already running, skipping auto-serve");
+        logger.info(
+          "OpenCode serve instance already running, skipping auto-serve",
+        );
         return;
       }
 
@@ -235,25 +248,46 @@ export class ExtensionLifecycle {
       if (port) {
         logger.info(`OpenCode serve started on port ${port}`);
         vscode.window.showInformationMessage(
-          `OpenCode serve started on port ${port}`
+          `OpenCode serve started on port ${port}`,
         );
       }
     } catch (error) {
       logger.error(
-        `Failed to auto-serve OpenCode: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to auto-serve OpenCode: ${error instanceof Error ? error.message : String(error)}`,
       );
       vscode.window.showWarningMessage(
-        `Failed to auto-start OpenCode serve: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to auto-start OpenCode serve: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
   private registerCommands(context: vscode.ExtensionContext): void {
+    const openCommand = vscode.commands.registerCommand(
+      "opencodeTui.open",
+      async () => {
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.opencodeTuiContainer",
+        );
+      },
+    );
+
+    const focusCommand = vscode.commands.registerCommand(
+      "opencodeTui.focus",
+      async () => {
+        await vscode.commands.executeCommand(
+          "workbench.view.extension.opencodeTuiContainer",
+        );
+        setTimeout(() => {
+          this.tuiProvider?.focus();
+        }, 100);
+      },
+    );
+
     // Start OpenCode command
     const startCommand = vscode.commands.registerCommand(
       "opencodeTui.start",
       () => {
-        this.tuiProvider?.startOpenCode();
+        this.tuiProvider?.startDefaultTool();
       },
     );
 
@@ -284,94 +318,142 @@ export class ExtensionLifecycle {
       },
     );
 
-    // Send current file reference (@filename) or terminal CWD
     const sendAtMentionCommand = vscode.commands.registerCommand(
       "opencodeTui.sendAtMention",
-      () => {
-        const editor = vscode.window.activeTextEditor;
-        if (editor && this.contextSharingService) {
-          const fileRef =
-            this.contextSharingService.formatFileRefWithLineNumbers(editor);
-          this.terminalManager?.writeToTerminal(
-            this.getActiveTerminalId(),
-            fileRef + " ",
-          );
+      async () => {
+        const logger = OutputChannelService.getInstance();
 
-          // Auto-focus sidebar if enabled
-          const config = vscode.workspace.getConfiguration("opencodeTui");
-          if (config.get<boolean>("autoFocusOnSend", true)) {
-            vscode.commands.executeCommand("opencodeTui.focus");
-            // Also focus the terminal inside the webview
-            setTimeout(() => {
-              this.tuiProvider?.focus();
-            }, 100);
-          }
-
-          vscode.window.setStatusBarMessage(`$(check) Sent ${fileRef}`, 3000);
-        } else {
-          this.sendTerminalCwd();
+        const now = Date.now();
+        if (now - this.lastSendAtMentionTime < ExtensionLifecycle.DEBOUNCE_MS) {
+          logger.info("[sendAtMention] Debounced - too soon since last call");
+          return;
         }
-      },
-    );
+        this.lastSendAtMentionTime = now;
 
-    // Send all open file references
-    const sendAllOpenFilesCommand = vscode.commands.registerCommand(
-      "opencodeTui.sendAllOpenFiles",
-      () => {
-        const fileRefs: string[] = [];
-
-        // Get all opened tabs across all editor groups (not just visible ones)
-        for (const group of vscode.window.tabGroups.all) {
-          for (const tab of group.tabs) {
-            if (tab.input instanceof vscode.TabInputText) {
-              const uri = tab.input.uri;
-              // Skip untitled/unsaved documents
-              if (
-                !uri.scheme.startsWith("untitled") &&
-                this.contextSharingService
-              ) {
-                fileRefs.push(this.contextSharingService.formatFileRef(uri));
-              }
-            }
-          }
-        }
-
-        const openFiles = fileRefs.join(" ");
-
-        if (openFiles) {
-          this.terminalManager?.writeToTerminal(
-            this.getActiveTerminalId(),
-            openFiles + " ",
+        if (this.isStartingTerminal) {
+          logger.info(
+            "[sendAtMention] Terminal is already starting, please wait...",
           );
-
-          // Auto-focus sidebar if enabled
-          const config = vscode.workspace.getConfiguration("opencodeTui");
-          if (config.get<boolean>("autoFocusOnSend", true)) {
-            vscode.commands.executeCommand("opencodeTui.focus");
-            // Also focus the terminal inside the webview
-            setTimeout(() => {
-              this.tuiProvider?.focus();
-            }, 100);
-          }
-
           vscode.window.setStatusBarMessage(
-            "$(check) Sent all open files",
+            "$(sync~spin) Terminal is starting, please wait...",
             3000,
           );
-        }
-      },
-    );
-
-    // Send file/folder from explorer context menu
-    const sendFileToTerminalCommand = vscode.commands.registerCommand(
-      "opencodeTui.sendFileToTerminal",
-      (...args: unknown[]) => {
-        if (!this.contextSharingService) {
           return;
         }
 
-        // VS Code explorer context menu passes (clickedUri, allSelectedUris)
-        // When multiple files are selected, the last argument is a Uri[]
+        const editor = vscode.window.activeTextEditor;
+
+        logger.info(
+          `[sendAtMention] Command triggered. Editor: ${editor ? "yes" : "no"}, CliReferenceSender: ${this.cliReferenceSender ? "yes" : "no"}`,
+        );
+
+        if (!editor) {
+          logger.warn("[sendAtMention] No active editor found");
+          vscode.window.showWarningMessage(
+            "No active editor. Please open a file first.",
+          );
+          return;
+        }
+
+        if (!this.cliReferenceSender) {
+          logger.warn("[sendAtMention] CliReferenceSender not initialized");
+          vscode.window.showWarningMessage(
+            "Extension not fully initialized. Please wait a moment and try again.",
+          );
+          return;
+        }
+
+        const selection = editor.selection;
+        logger.info(
+          `[sendAtMention] Selection: empty=${selection.isEmpty}, start=${selection.start.line}, end=${selection.end.line}`,
+        );
+
+        const result = await this.cliReferenceSender.sendCurrentContext();
+        logger.info(
+          `[sendAtMention] Result: success=${result.success}, method=${result.method}, error=${result.error || "none"}`,
+        );
+
+        if (result.success) {
+          vscode.window.setStatusBarMessage(
+            `$(check) Sent file reference (${result.method})`,
+            3000,
+          );
+        } else if (result.error === "No active terminal found") {
+          if (this.isStartingTerminal) {
+            vscode.window.setStatusBarMessage(
+              "$(sync~spin) Terminal is already starting...",
+              3000,
+            );
+            return;
+          }
+
+          this.isStartingTerminal = true;
+          logger.info(
+            "[sendAtMention] No terminal found, starting default tool...",
+          );
+          await vscode.commands.executeCommand("opencodeTui.open");
+          await this.tuiProvider?.startDefaultTool();
+          vscode.window.setStatusBarMessage(
+            "$(sync~spin) Starting OpenCode, please try again in a moment...",
+            5000,
+          );
+
+          setTimeout(() => {
+            this.isStartingTerminal = false;
+          }, 10000);
+        } else {
+          vscode.window.showWarningMessage(
+            `Failed to send file reference: ${result.error || "Unknown error"}`,
+          );
+        }
+      },
+    );
+
+    const sendAllOpenFilesCommand = vscode.commands.registerCommand(
+      "opencodeTui.sendAllOpenFiles",
+      async () => {
+        const logger = OutputChannelService.getInstance();
+
+        if (!this.cliReferenceSender) {
+          vscode.window.showWarningMessage(
+            "CLI reference sender not initialized",
+          );
+          return;
+        }
+
+        const result = await this.cliReferenceSender.sendAllOpenFiles();
+
+        if (result.success) {
+          vscode.window.setStatusBarMessage(
+            `$(check) Sent all open files (${result.method})`,
+            3000,
+          );
+        } else if (result.error === "No active terminal found") {
+          logger.info(
+            "[sendAllOpenFiles] No terminal found, starting default tool...",
+          );
+          await vscode.commands.executeCommand("opencodeTui.open");
+          await this.tuiProvider?.startDefaultTool();
+          vscode.window.setStatusBarMessage(
+            "$(sync~spin) Starting OpenCode, please try again in a moment...",
+            5000,
+          );
+        } else {
+          vscode.window.showWarningMessage(
+            `Failed to send open files: ${result.error || "Unknown error"}`,
+          );
+        }
+      },
+    );
+
+    const sendFileToTerminalCommand = vscode.commands.registerCommand(
+      "opencodeTui.sendFileToTerminal",
+      async (...args: unknown[]) => {
+        if (!this.contextSharingService || !this.cliReferenceSender) {
+          vscode.window.showWarningMessage("Extension not initialized");
+          return;
+        }
+
         let uris: vscode.Uri[];
         if (args.length > 0 && Array.isArray(args[args.length - 1])) {
           uris = args[args.length - 1] as vscode.Uri[];
@@ -380,49 +462,43 @@ export class ExtensionLifecycle {
         } else {
           return;
         }
-        fileSendAccumulator.push(...uris);
 
-        if (fileSendTimeout) {
-          clearTimeout(fileSendTimeout);
-        }
+        const fileRefs = uris.map((u) =>
+          this.contextSharingService!.formatFileRef(u),
+        );
+        const allRefs = fileRefs.join(" ");
 
-        fileSendTimeout = setTimeout(() => {
-          if (fileSendAccumulator.length === 0) {
-            return;
-          }
+        const outputLogger = OutputChannelService.getInstance();
+        outputLogger.info(`[sendFileToTerminal] Sending: ${allRefs}`);
 
-          const uniqueUris = [
-            ...new Map(
-              fileSendAccumulator.map((u: vscode.Uri) => [u.fsPath, u]),
-            ).values(),
-          ];
+        const result = await this.cliReferenceSender.sendFileReference(
+          allRefs,
+          {
+            autoFocus: true,
+          },
+        );
 
-          const fileRefs = uniqueUris.map((u: vscode.Uri) =>
-            this.contextSharingService!.formatFileRef(u),
-          );
-          const allRefs = fileRefs.join(" ");
-
-          this.terminalManager?.writeToTerminal(
-            this.getActiveTerminalId(),
-            allRefs + " ",
-          );
-
-          const config = vscode.workspace.getConfiguration("opencodeTui");
-          if (config.get<boolean>("autoFocusOnSend", true)) {
-            vscode.commands.executeCommand("opencodeTui.focus");
-            setTimeout(() => {
-              this.tuiProvider?.focus();
-            }, 100);
-          }
-
+        if (result.success) {
           const message =
-            uniqueUris.length > 1
-              ? `Sent ${uniqueUris.length} files`
+            fileRefs.length > 1
+              ? `Sent ${fileRefs.length} files`
               : `Sent ${fileRefs[0]}`;
           vscode.window.setStatusBarMessage(`$(check) ${message}`, 3000);
-
-          fileSendAccumulator = [];
-        }, 100);
+        } else if (result.error === "No active terminal found") {
+          outputLogger.info(
+            "[sendFileToTerminal] No terminal, starting default tool...",
+          );
+          await vscode.commands.executeCommand("opencodeTui.open");
+          await this.tuiProvider?.startDefaultTool();
+          vscode.window.setStatusBarMessage(
+            "$(sync~spin) Starting OpenCode, please try again...",
+            5000,
+          );
+        } else {
+          vscode.window.showWarningMessage(
+            `Failed to send: ${result.error || "Unknown error"}`,
+          );
+        }
       },
     );
 
@@ -432,6 +508,27 @@ export class ExtensionLifecycle {
       () => {
         this.tuiProvider?.restart();
         vscode.window.showInformationMessage("OpenCode restarted");
+      },
+    );
+
+    const tmuxAttachCommand = vscode.commands.registerCommand(
+      "opencodeTui.tmux.attach",
+      async () => {
+        await this.tuiProvider?.tmuxAttach();
+      },
+    );
+
+    const tmuxCreateCommand = vscode.commands.registerCommand(
+      "opencodeTui.tmux.create",
+      async () => {
+        await this.tuiProvider?.tmuxCreate();
+      },
+    );
+
+    const tmuxDetachCommand = vscode.commands.registerCommand(
+      "opencodeTui.tmux.detach",
+      async () => {
+        await this.tuiProvider?.tmuxDetach();
       },
     );
 
@@ -559,8 +656,7 @@ export class ExtensionLifecycle {
           { label: "OpenCode", id: "opencode" },
           { label: "Claude", id: "claude" },
           { label: "Codex", id: "codex" },
-          { label: "Gemini", id: "gemini" },
-          { label: "Aider", id: "aider" },
+          { label: "Kimi", id: "kimi" },
         ];
 
         const selected = await vscode.window.showQuickPick(tools, {
@@ -585,13 +681,9 @@ export class ExtensionLifecycle {
       "opencodeTui.createTab.codex",
       () => this.tuiProvider?.createTab("codex"),
     );
-    const createGeminiTabCommand = vscode.commands.registerCommand(
-      "opencodeTui.createTab.gemini",
-      () => this.tuiProvider?.createTab("gemini"),
-    );
-    const createAiderTabCommand = vscode.commands.registerCommand(
-      "opencodeTui.createTab.aider",
-      () => this.tuiProvider?.createTab("aider"),
+    const createKimiTabCommand = vscode.commands.registerCommand(
+      "opencodeTui.createTab.kimi",
+      () => this.tuiProvider?.createTab("kimi"),
     );
 
     const closeTabCommand = vscode.commands.registerCommand(
@@ -615,12 +707,17 @@ export class ExtensionLifecycle {
     );
 
     context.subscriptions.push(
+      openCommand,
+      focusCommand,
       startCommand,
       sendToTerminalCommand,
       sendAtMentionCommand,
       sendAllOpenFilesCommand,
       sendFileToTerminalCommand,
       restartCommand,
+      tmuxAttachCommand,
+      tmuxCreateCommand,
+      tmuxDetachCommand,
       pasteCommand,
       openInNewWindowCommand,
       spawnForWorkspaceCommand,
@@ -629,8 +726,7 @@ export class ExtensionLifecycle {
       createOpencodeTabCommand,
       createClaudeTabCommand,
       createCodexTabCommand,
-      createGeminiTabCommand,
-      createAiderTabCommand,
+      createKimiTabCommand,
       closeTabCommand,
       nextTabCommand,
       previousTabCommand,
@@ -649,13 +745,18 @@ export class ExtensionLifecycle {
         return;
       }
 
-      await this.tuiProvider.startOpenCode();
+      await this.tuiProvider.startDefaultTool();
     }
 
     const apiClient = this.tuiProvider.getApiClient();
     if (apiClient && this.tuiProvider.isHttpAvailable()) {
       try {
-        await apiClient.appendPrompt(prompt);
+        await Promise.race([
+          apiClient.appendPrompt(prompt),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("API timeout")), 2000),
+          ),
+        ]);
       } catch (error) {
         this.outputChannelService?.warn(
           `Failed to send prompt via HTTP API, falling back to terminal input: ${error instanceof Error ? error.message : String(error)}`,

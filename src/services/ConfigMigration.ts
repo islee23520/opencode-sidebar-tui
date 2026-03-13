@@ -4,11 +4,11 @@ import { OutputChannelService } from "./OutputChannelService";
 export class ConfigMigration {
   private static readonly MIGRATION_DONE_KEY = "migrationDone";
 
-  public static async migrate(): Promise<void> {
+  public static async migrate(context: vscode.ExtensionContext): Promise<void> {
     const config = vscode.workspace.getConfiguration("opencodeTui");
     const logger = OutputChannelService.getInstance();
 
-    if (config.get<boolean>(this.MIGRATION_DONE_KEY, false)) {
+    if (context.globalState.get<boolean>(this.MIGRATION_DONE_KEY, false)) {
       return;
     }
 
@@ -16,22 +16,17 @@ export class ConfigMigration {
 
     let migrated = false;
 
+    const toolsOpencodeGlobal = config.get<any>("tools.opencode") || {};
+    const toolsOpencodeWorkspace = config.get<any>("tools.opencode") || {};
+
     const commandInspect = config.inspect<string>("command");
     if (commandInspect) {
       if (commandInspect.globalValue !== undefined) {
-        await config.update(
-          "tools.opencode.command",
-          commandInspect.globalValue,
-          vscode.ConfigurationTarget.Global,
-        );
+        toolsOpencodeGlobal.command = commandInspect.globalValue;
         migrated = true;
       }
       if (commandInspect.workspaceValue !== undefined) {
-        await config.update(
-          "tools.opencode.command",
-          commandInspect.workspaceValue,
-          vscode.ConfigurationTarget.Workspace,
-        );
+        toolsOpencodeWorkspace.command = commandInspect.workspaceValue;
         migrated = true;
       }
     }
@@ -39,19 +34,11 @@ export class ConfigMigration {
     const shellPathInspect = config.inspect<string>("shellPath");
     if (shellPathInspect) {
       if (shellPathInspect.globalValue !== undefined) {
-        await config.update(
-          "tools.opencode.shellPath",
-          shellPathInspect.globalValue,
-          vscode.ConfigurationTarget.Global,
-        );
+        toolsOpencodeGlobal.shellPath = shellPathInspect.globalValue;
         migrated = true;
       }
       if (shellPathInspect.workspaceValue !== undefined) {
-        await config.update(
-          "tools.opencode.shellPath",
-          shellPathInspect.workspaceValue,
-          vscode.ConfigurationTarget.Workspace,
-        );
+        toolsOpencodeWorkspace.shellPath = shellPathInspect.workspaceValue;
         migrated = true;
       }
     }
@@ -59,21 +46,38 @@ export class ConfigMigration {
     const shellArgsInspect = config.inspect<string[]>("shellArgs");
     if (shellArgsInspect) {
       if (shellArgsInspect.globalValue !== undefined) {
-        await config.update(
-          "tools.opencode.shellArgs",
-          shellArgsInspect.globalValue,
-          vscode.ConfigurationTarget.Global,
-        );
+        toolsOpencodeGlobal.shellArgs = shellArgsInspect.globalValue;
         migrated = true;
       }
       if (shellArgsInspect.workspaceValue !== undefined) {
-        await config.update(
-          "tools.opencode.shellArgs",
-          shellArgsInspect.workspaceValue,
-          vscode.ConfigurationTarget.Workspace,
-        );
+        toolsOpencodeWorkspace.shellArgs = shellArgsInspect.workspaceValue;
         migrated = true;
       }
+    }
+
+    // Write the updated objects back (must write entire object for nested configs)
+    if (
+      commandInspect?.globalValue !== undefined ||
+      shellPathInspect?.globalValue !== undefined ||
+      shellArgsInspect?.globalValue !== undefined
+    ) {
+      await config.update(
+        "tools.opencode",
+        toolsOpencodeGlobal,
+        vscode.ConfigurationTarget.Global,
+      );
+    }
+
+    if (
+      commandInspect?.workspaceValue !== undefined ||
+      shellPathInspect?.workspaceValue !== undefined ||
+      shellArgsInspect?.workspaceValue !== undefined
+    ) {
+      await config.update(
+        "tools.opencode",
+        toolsOpencodeWorkspace,
+        vscode.ConfigurationTarget.Workspace,
+      );
     }
 
     if (migrated) {
@@ -83,11 +87,7 @@ export class ConfigMigration {
       );
     }
 
-    await config.update(
-      this.MIGRATION_DONE_KEY,
-      true,
-      vscode.ConfigurationTarget.Global,
-    );
+    await context.globalState.update(this.MIGRATION_DONE_KEY, true);
     logger.info("Configuration migration check completed");
   }
 }

@@ -25,5 +25,18 @@ dev-install.sh
 .git/**
 .DS_Store
 
+# AI/Editor specific directories
+.agent/**
+.agents/**
+.claude/**
+.kiro/**
+.omc/**
+.sisyphus/**
+.trae/**
+.windsurf/**
+
+# Symlinks and special directories
+skills/**
+
 # Dependencies are automatically included by vsce
 # node_modules/** is already handled by vsce (includes 'dependencies', excludes 'devDependencies')

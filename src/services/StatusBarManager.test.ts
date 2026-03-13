@@ -37,7 +37,7 @@ describe("StatusBarManager", () => {
   it("should create a status bar item with correct properties", () => {
     expect(vscode.window.createStatusBarItem).toHaveBeenCalled();
     expect(mockStatusBarItem.text).toBe("$(terminal) OpenCode");
-    expect(mockStatusBarItem.tooltip).toBe("Open OpenCode TUI");
+    expect(mockStatusBarItem.tooltip).toBe("Open CLI TUI");
     expect(mockStatusBarItem.command).toBe("opencodeTui.focus");
   });
 

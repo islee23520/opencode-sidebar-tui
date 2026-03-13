@@ -95,7 +95,11 @@ export class TerminalManager {
   }
 
   getTerminal(id: string): Terminal | undefined {
-    return this.terminals.get(id);
+    const terminal = this.terminals.get(id);
+    console.log(
+      `[TerminalManager] getTerminal("${id}"): ${terminal ? "FOUND" : "NOT FOUND"} (total: ${this.terminals.size})`,
+    );
+    return terminal;
   }
 
   /**
@@ -111,9 +115,21 @@ export class TerminalManager {
   }
 
   writeToTerminal(id: string, data: string): void {
+    console.log(
+      `[TerminalManager] writeToTerminal called - id: "${id}", data: "${data.substring(0, 50)}..."`,
+    );
+    console.log(
+      `[TerminalManager] Available terminals: ${Array.from(this.terminals.keys()).join(", ")}`,
+    );
     const terminal = this.terminals.get(id);
     if (terminal) {
+      console.log(
+        `[TerminalManager] Terminal found, writing ${data.length} chars`,
+      );
       terminal.process.write(data);
+      console.log(`[TerminalManager] Write completed`);
+    } else {
+      console.error(`[TerminalManager] Terminal NOT FOUND: "${id}"`);
     }
   }
 

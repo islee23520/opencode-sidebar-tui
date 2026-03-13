@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "electron": {
+      "source": "vercel-labs/agent-browser",
+      "sourceType": "github",
+      "computedHash": "38f4c75945d738dce0817f24d0c2def4a46b4cf1a20b7ab14b31f61efea16175"
+    }
+  }
+}
