@@ -523,6 +523,11 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       case "imagePasted":
         this.handleImagePasted(message.data);
         break;
+      case "switchSession":
+        if (message.sessionId) {
+          void this.switchToInstance(message.sessionId);
+        }
+        break;
     }
   }
 
