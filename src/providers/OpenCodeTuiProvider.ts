@@ -923,14 +923,61 @@ export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
       height: 100%;
       overflow: hidden;
       background-color: #1e1e1e;
+      display: flex;
+    }
+    #sidebar-container {
+      width: 200px;
+      height: 100%;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+      display: none; /* Hidden by default, shown when tree data arrives */
+      flex-direction: column;
+    }
+    #sidebar-container:not(:empty) {
+      display: flex;
     }
     #terminal-container {
-      width: 100%;
+      flex: 1;
       height: 100%;
+      min-width: 0;
+    }
+    /* Sidebar styles */
+    .session-tree-group-header {
+      cursor: pointer;
+      padding: 4px 8px;
+      font-weight: bold;
+      color: #ccc;
+      user-select: none;
+    }
+    .session-tree-group-header:hover {
+      background-color: #2a2d2e;
+    }
+    .session-tree-item {
+      cursor: pointer;
+      padding: 4px 8px 4px 24px;
+      color: #ccc;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-tree-item:hover {
+      background-color: #2a2d2e;
+    }
+    .session-tree-item.active {
+      background-color: #04395e;
+      color: #fff;
+    }
+    .session-tree-empty-state {
+      padding: 12px;
+      color: #888;
+      text-align: center;
+      font-style: italic;
     }
   </style>
 </head>
 <body>
+  <div id="sidebar-container"></div>
   <div id="terminal-container"></div>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>

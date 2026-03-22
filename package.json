@@ -47,8 +47,6 @@
           "icon": "$(terminal)",
           "contextualTitle": "OpenCode TUI"
         },
-
-
         {
           "id": "opencodeTui.instancesDashboard",
           "name": "Instances",
@@ -343,6 +341,7 @@
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^5.5.4",
+    "jsdom": "^29.0.1",
     "prettier": "^3.7.2",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",
