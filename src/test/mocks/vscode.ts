@@ -22,14 +22,6 @@ export const window = {
   onDidChangeTerminalState: vi.fn((listener: Function) => ({
     dispose: vi.fn(),
   })),
-  createStatusBarItem: vi.fn(() => ({
-    text: "",
-    tooltip: "",
-    command: "",
-    show: vi.fn(),
-    hide: vi.fn(),
-    dispose: vi.fn(),
-  })),
   createWebviewPanel: vi.fn(() => ({
     webview: {
       html: "",
@@ -89,11 +81,6 @@ export const commands = {
   })),
   executeCommand: vi.fn(),
 };
-
-export enum StatusBarAlignment {
-  Left = 1,
-  Right = 2,
-}
 
 export enum DiagnosticSeverity {
   Error = 0,
@@ -327,7 +314,6 @@ export default {
   workspace,
   languages,
   commands,
-  StatusBarAlignment,
   DiagnosticSeverity,
   CodeActionKind,
   ThemeColor,

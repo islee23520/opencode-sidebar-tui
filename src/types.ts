@@ -60,7 +60,6 @@ export interface ExtensionConfig {
   httpTimeout: number;
   enableHttpApi: boolean;
   logLevel: LogLevel;
-  showStatusBar: boolean;
   contextDebounceMs: number;
   maxDiagnosticLength: number;
   enableAutoSpawn: boolean;
