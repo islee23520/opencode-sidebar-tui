@@ -64,6 +64,31 @@ describe("TmuxSessionManager", () => {
     ]);
   });
 
+  it("reports available when tmux version command succeeds", async () => {
+    mockExecSequence([
+      {
+        stdout: "tmux 3.4",
+      },
+    ]);
+
+    await expect(manager.isAvailable()).resolves.toBe(true);
+    expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual(["-V"]);
+  });
+
+  it("reports unavailable when tmux binary is missing", async () => {
+    const missingTmuxError = Object.assign(new Error("spawn tmux ENOENT"), {
+      code: "ENOENT",
+    });
+
+    mockExecSequence([
+      {
+        error: missingTmuxError,
+      },
+    ]);
+
+    await expect(manager.isAvailable()).resolves.toBe(false);
+  });
+
   it("attaches to an existing tmux session before creating a new one", async () => {
     mockExecSequence([
       {

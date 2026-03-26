@@ -46,6 +46,19 @@ export class TmuxSessionManager {
     },
   ) {}
 
+  public async isAvailable(): Promise<boolean> {
+    try {
+      await this.runTmux(["-V"]);
+      return true;
+    } catch (error) {
+      if (this.isTmuxUnavailable(error)) {
+        return false;
+      }
+
+      throw error;
+    }
+  }
+
   public async discoverSessions(): Promise<TmuxSession[]> {
     const discoveredSessions = await this.discoverSessionDetails();
     return discoveredSessions.map(({ session }) => session);
