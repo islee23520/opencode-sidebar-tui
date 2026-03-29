@@ -6,7 +6,7 @@ import type { InstanceQuickPick } from "../../services/InstanceQuickPick";
 import type { InstanceStore } from "../../services/InstanceStore";
 import type { OutputChannelService } from "../../services/OutputChannelService";
 import type { TerminalManager } from "../../terminals/TerminalManager";
-import type { OpenCodeTuiProvider } from "../../providers/OpenCodeTuiProvider";
+import type { TerminalProvider } from "../../providers/TerminalProvider";
 import type { TmuxSessionManager } from "../../services/TmuxSessionManager";
 import {
   registerTerminalCommands,
@@ -26,7 +26,7 @@ export interface RegisterCommandDependencies
     TerminalCommandDependencies,
     TmuxSessionCommandDependencies,
     TmuxPaneCommandDependencies {
-  provider: OpenCodeTuiProvider | undefined;
+  provider: TerminalProvider | undefined;
   tmuxManager: TmuxSessionManager | undefined;
   terminalManager: TerminalManager | undefined;
   contextSharingService: ContextSharingService | undefined;

@@ -18,6 +18,8 @@ export class TmuxSessionsDashboardProvider
 
   private view?: vscode.WebviewView;
   private readonly subscriptions: vscode.Disposable[] = [];
+  private pollTimer?: ReturnType<typeof setInterval>;
+  private static readonly POLL_INTERVAL_MS = 3000;
 
   /**
    * @param context Extension context
@@ -60,12 +62,16 @@ export class TmuxSessionsDashboardProvider
       webviewView.onDidChangeVisibility(() => {
         if (webviewView.visible) {
           void this.postSessionsToWebview();
+          this.startPolling();
+        } else {
+          this.stopPolling();
         }
       }),
     );
 
     this.subscriptions.push(
       webviewView.onDidDispose(() => {
+        this.stopPolling();
         if (this.view === webviewView) {
           this.view = undefined;
         }
@@ -73,6 +79,7 @@ export class TmuxSessionsDashboardProvider
     );
 
     void this.postSessionsToWebview();
+    this.startPolling();
   }
 
   /**
@@ -188,6 +195,7 @@ export class TmuxSessionsDashboardProvider
         return;
       case "sendTextToPane":
         await this.sendTextToPane(message.paneId, message.text);
+        await this.postSessionsToWebview();
         return;
       case "killPane":
         await this.tmuxSessionManager.killPane(message.paneId);
@@ -708,10 +716,25 @@ export class TmuxSessionsDashboardProvider
    * Disposes of subscriptions and cleans up resources.
    */
   public dispose(): void {
+    this.stopPolling();
     for (const subscription of this.subscriptions) {
       subscription.dispose();
     }
     this.subscriptions.length = 0;
     this.view = undefined;
+  }
+
+  private startPolling(): void {
+    this.stopPolling();
+    this.pollTimer = setInterval(() => {
+      void this.postSessionsToWebview();
+    }, TmuxSessionsDashboardProvider.POLL_INTERVAL_MS);
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer !== undefined) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = undefined;
+    }
   }
 }

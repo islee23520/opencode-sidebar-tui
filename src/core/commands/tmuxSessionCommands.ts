@@ -1,12 +1,12 @@
 import * as vscode from "vscode";
-import type { OpenCodeTuiProvider } from "../../providers/OpenCodeTuiProvider";
+import type { TerminalProvider } from "../../providers/TerminalProvider";
 import type { InstanceController } from "../../services/InstanceController";
 import type { InstanceQuickPick } from "../../services/InstanceQuickPick";
 import type { InstanceStore } from "../../services/InstanceStore";
 import type { OutputChannelService } from "../../services/OutputChannelService";
 
 export interface TmuxSessionCommandDependencies {
-  provider: OpenCodeTuiProvider | undefined;
+  provider: TerminalProvider | undefined;
   instanceStore: InstanceStore | undefined;
   instanceController: InstanceController | undefined;
   instanceQuickPick: InstanceQuickPick | undefined;

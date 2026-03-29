@@ -308,7 +308,7 @@ export class OpenCodeMessageRouter {
       }
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to paste: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to paste: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -318,7 +318,7 @@ export class OpenCodeMessageRouter {
       await vscode.env.clipboard.writeText(text);
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to write clipboard: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to write clipboard: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -332,7 +332,7 @@ export class OpenCodeMessageRouter {
       });
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -343,25 +343,21 @@ export class OpenCodeMessageRouter {
         /^data:(image\/[a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=]+)$/,
       );
       if (!base64Match) {
-        this.logger.error(
-          "[OpenCodeTuiProvider] Invalid image data URL format",
-        );
+        this.logger.error("[TerminalProvider] Invalid image data URL format");
         return;
       }
 
       const mimeType = base64Match[1];
       if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
         this.logger.error(
-          `[OpenCodeTuiProvider] Unsupported image type: ${mimeType}`,
+          `[TerminalProvider] Unsupported image type: ${mimeType}`,
         );
         return;
       }
 
       const buffer = Buffer.from(base64Match[2], "base64");
       if (buffer.length > MAX_IMAGE_SIZE) {
-        this.logger.error(
-          "[OpenCodeTuiProvider] Image exceeds 10MB size limit",
-        );
+        this.logger.error("[TerminalProvider] Image exceeds 10MB size limit");
         return;
       }
 
@@ -383,11 +379,11 @@ export class OpenCodeMessageRouter {
           try {
             await fs.promises.unlink(tmpPath);
             this.logger.debug(
-              `[OpenCodeTuiProvider] Cleaned up temp file: ${tmpPath}`,
+              `[TerminalProvider] Cleaned up temp file: ${tmpPath}`,
             );
           } catch (err) {
             this.logger.warn(
-              `[OpenCodeTuiProvider] Failed to cleanup temp file: ${err instanceof Error ? err.message : String(err)}`,
+              `[TerminalProvider] Failed to cleanup temp file: ${err instanceof Error ? err.message : String(err)}`,
             );
           }
         },
@@ -395,7 +391,7 @@ export class OpenCodeMessageRouter {
       );
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to handle pasted image: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to handle pasted image: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

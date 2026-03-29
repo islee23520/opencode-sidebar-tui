@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { OpenCodeTuiProvider } from "../providers/OpenCodeTuiProvider";
+import { TerminalProvider } from "../providers/TerminalProvider";
 import { OpenCodeCodeActionProvider } from "../providers/CodeActionProvider";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
@@ -26,7 +26,7 @@ import {
  */
 export class ExtensionLifecycle {
   private terminalManager: TerminalManager | undefined;
-  private tuiProvider: OpenCodeTuiProvider | undefined;
+  private tuiProvider: TerminalProvider | undefined;
   private captureManager: OutputCaptureManager | undefined;
   private contextSharingService: ContextSharingService | undefined;
   private outputChannelService: OutputChannelService | undefined;
@@ -127,7 +127,7 @@ export class ExtensionLifecycle {
       );
 
       // Initialize TUI provider
-      this.tuiProvider = new OpenCodeTuiProvider(
+      this.tuiProvider = new TerminalProvider(
         context,
         this.terminalManager,
         this.captureManager,
@@ -137,7 +137,7 @@ export class ExtensionLifecycle {
 
       // Register webview provider
       const provider = vscode.window.registerWebviewViewProvider(
-        OpenCodeTuiProvider.viewType,
+        TerminalProvider.viewType,
         this.tuiProvider,
         {
           webviewOptions: {

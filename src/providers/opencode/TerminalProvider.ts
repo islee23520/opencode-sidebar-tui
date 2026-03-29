@@ -13,7 +13,7 @@ import {
 } from "./OpenCodeMessageRouter";
 import { OpenCodeSessionRuntime } from "./OpenCodeSessionRuntime";
 
-export class OpenCodeTuiProvider implements vscode.WebviewViewProvider {
+export class TerminalProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "opencodeTui";
 
   private _view?: vscode.WebviewView;

@@ -195,11 +195,11 @@ export class OpenCodeSessionRuntime {
         try {
           port = this.portManager.assignPortToTerminal(this.activeInstanceId);
           this.logger.info(
-            `[OpenCodeTuiProvider] Assigned port ${port} to terminal ${this.activeInstanceId}`,
+            `[TerminalProvider] Assigned port ${port} to terminal ${this.activeInstanceId}`,
           );
         } catch (error) {
           this.logger.error(
-            `[OpenCodeTuiProvider] Failed to assign port: ${error instanceof Error ? error.message : String(error)}`,
+            `[TerminalProvider] Failed to assign port: ${error instanceof Error ? error.message : String(error)}`,
           );
           vscode.window.showWarningMessage(
             "Failed to assign port for OpenCode HTTP API. Running without HTTP features.",
@@ -249,7 +249,7 @@ export class OpenCodeSessionRuntime {
           }
         } catch (err) {
           this.logger.warn(
-            `[OpenCodeTuiProvider] Failed to update instance store with terminal key: ${err instanceof Error ? err.message : String(err)}`,
+            `[TerminalProvider] Failed to update instance store with terminal key: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
       }
@@ -263,7 +263,7 @@ export class OpenCodeSessionRuntime {
         await this.pollForHttpReadiness();
       } else {
         this.logger.info(
-          "[OpenCodeTuiProvider] HTTP API disabled or unavailable, using message passing fallback",
+          "[TerminalProvider] HTTP API disabled or unavailable, using message passing fallback",
         );
         this.httpAvailable = false;
       }
@@ -339,13 +339,13 @@ export class OpenCodeSessionRuntime {
         const isHealthy = await this.apiClient.healthCheck();
         if (isHealthy) {
           this.httpAvailable = true;
-          this.logger.info("[OpenCodeTuiProvider] HTTP API is ready");
+          this.logger.info("[TerminalProvider] HTTP API is ready");
           await this.sendAutoContext();
           return;
         }
       } catch {
         this.logger.info(
-          `[OpenCodeTuiProvider] Health check attempt ${attempt}/${maxRetries} failed`,
+          `[TerminalProvider] Health check attempt ${attempt}/${maxRetries} failed`,
         );
       }
 
@@ -355,7 +355,7 @@ export class OpenCodeSessionRuntime {
     }
 
     this.logger.info(
-      "[OpenCodeTuiProvider] HTTP API not available after retries, using message passing fallback",
+      "[TerminalProvider] HTTP API not available after retries, using message passing fallback",
     );
     this.httpAvailable = false;
   }
@@ -413,19 +413,19 @@ export class OpenCodeSessionRuntime {
         workspacePath,
       );
       this.logger.info(
-        `[OpenCodeTuiProvider] tmux session ${result.action}: ${result.session.id}`,
+        `[TerminalProvider] tmux session ${result.action}: ${result.session.id}`,
       );
       return result.session.id;
     } catch (error) {
       if (error instanceof TmuxUnavailableError) {
         this.logger.info(
-          "[OpenCodeTuiProvider] tmux unavailable, continuing with default startup",
+          "[TerminalProvider] tmux unavailable, continuing with default startup",
         );
         return undefined;
       }
 
       this.logger.warn(
-        `[OpenCodeTuiProvider] Failed to ensure tmux session: ${error instanceof Error ? error.message : String(error)}. Continuing with default startup.`,
+        `[TerminalProvider] Failed to ensure tmux session: ${error instanceof Error ? error.message : String(error)}. Continuing with default startup.`,
       );
       return undefined;
     }
@@ -468,7 +468,7 @@ export class OpenCodeSessionRuntime {
       return preferredSession?.id;
     } catch (error) {
       this.logger.warn(
-        `[OpenCodeTuiProvider] Failed to resolve fallback tmux session: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to resolve fallback tmux session: ${error instanceof Error ? error.message : String(error)}`,
       );
       return undefined;
     }
@@ -563,7 +563,7 @@ export class OpenCodeSessionRuntime {
       await this.switchToTmuxSession(candidate);
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to create tmux session: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to create tmux session: ${error instanceof Error ? error.message : String(error)}`,
       );
       vscode.window.showErrorMessage("Failed to create tmux session");
     }
@@ -608,7 +608,7 @@ export class OpenCodeSessionRuntime {
       }
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to kill tmux session: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to kill tmux session: ${error instanceof Error ? error.message : String(error)}`,
       );
       vscode.window.showErrorMessage("Failed to kill tmux session");
     }
@@ -650,21 +650,21 @@ export class OpenCodeSessionRuntime {
 
     if (!enableHttpApi) {
       this.logger.info(
-        "[OpenCodeTuiProvider] HTTP API disabled, skipping auto-context",
+        "[TerminalProvider] HTTP API disabled, skipping auto-context",
       );
       return;
     }
 
     if (!autoShareContext) {
       this.logger.info(
-        "[OpenCodeTuiProvider] Auto-context sharing disabled by user",
+        "[TerminalProvider] Auto-context sharing disabled by user",
       );
       return;
     }
 
     if (!this.httpAvailable || !this.apiClient) {
       this.logger.info(
-        "[OpenCodeTuiProvider] HTTP not available, skipping auto-context",
+        "[TerminalProvider] HTTP not available, skipping auto-context",
       );
       return;
     }
@@ -672,23 +672,23 @@ export class OpenCodeSessionRuntime {
     const context = this.contextSharingService.getCurrentContext();
     if (!context) {
       this.logger.info(
-        "[OpenCodeTuiProvider] No active editor, skipping auto-context",
+        "[TerminalProvider] No active editor, skipping auto-context",
       );
       return;
     }
 
     const fileRef = this.contextSharingService.formatContext(context);
-    this.logger.info(`[OpenCodeTuiProvider] Sending auto-context: ${fileRef}`);
+    this.logger.info(`[TerminalProvider] Sending auto-context: ${fileRef}`);
 
     try {
       await this.apiClient.appendPrompt(fileRef);
       this.autoContextSent = true;
       this.logger.info(
-        "[OpenCodeTuiProvider] Auto-context sent successfully via HTTP",
+        "[TerminalProvider] Auto-context sent successfully via HTTP",
       );
     } catch (error) {
       this.logger.error(
-        `[OpenCodeTuiProvider] Failed to send auto-context: ${error instanceof Error ? error.message : String(error)}`,
+        `[TerminalProvider] Failed to send auto-context: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

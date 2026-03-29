@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { OpenCodeTuiProvider } from "../../providers/OpenCodeTuiProvider";
+import type { TerminalProvider } from "../../providers/TerminalProvider";
 import type { ContextSharingService } from "../../services/ContextSharingService";
 import type { OutputChannelService } from "../../services/OutputChannelService";
 import type { TerminalManager } from "../../terminals/TerminalManager";
@@ -8,7 +8,7 @@ let fileSendAccumulator: vscode.Uri[] = [];
 let fileSendTimeout: NodeJS.Timeout | undefined;
 
 export interface TerminalCommandDependencies {
-  provider: OpenCodeTuiProvider | undefined;
+  provider: TerminalProvider | undefined;
   terminalManager: TerminalManager | undefined;
   contextSharingService: ContextSharingService | undefined;
   outputChannel: OutputChannelService | undefined;
@@ -17,7 +17,7 @@ export interface TerminalCommandDependencies {
 }
 
 function focusSidebarIfConfigured(
-  provider: OpenCodeTuiProvider | undefined,
+  provider: TerminalProvider | undefined,
 ): void {
   const config = vscode.workspace.getConfiguration("opencodeTui");
   if (config.get<boolean>("autoFocusOnSend", true)) {

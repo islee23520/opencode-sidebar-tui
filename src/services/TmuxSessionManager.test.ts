@@ -384,6 +384,74 @@ describe("TmuxSessionManager", () => {
         TmuxUnavailableError,
       );
     });
+
+    it("lists panes for a session", async () => {
+      mockExecSequence([
+        {
+          stdout: "%0\t0\tbash\t1\n%1\t1\tvim\t0",
+        },
+      ]);
+      const panes = await manager.listPanes("test-session");
+      expect(panes).toEqual([
+        { paneId: "%0", index: 0, title: "bash", isActive: true },
+        { paneId: "%1", index: 1, title: "vim", isActive: false },
+      ]);
+    });
+
+    it("returns empty array when session has no panes (no server error)", async () => {
+      const err = Object.assign(new Error("no server running"), {
+        code: 1,
+        stderr: "failed to connect to server",
+      });
+      mockExecSequence([{ error: err }]);
+      const panes = await manager.listPanes("test-session");
+      expect(panes).toEqual([]);
+    });
+
+    it("throws TmuxUnavailableError for listPanes when tmux missing", async () => {
+      const err = Object.assign(new Error("spawn tmux ENOENT"), {
+        code: "ENOENT",
+      });
+      mockExecSequence([{ error: err }]);
+      await expect(manager.listPanes("test-session")).rejects.toBeInstanceOf(
+        TmuxUnavailableError,
+      );
+    });
+
+    it("lists pane DTOs for a session", async () => {
+      mockExecSequence([
+        {
+          stdout: "%0\t0\tbash\t0\n%2\t1\thtop\t1",
+        },
+      ]);
+      const dtos = await manager.listPaneDtos("test-session");
+      expect(dtos).toEqual([
+        { paneId: "%0", index: 0, title: "bash", isActive: false },
+        { paneId: "%2", index: 1, title: "htop", isActive: true },
+      ]);
+    });
+
+    it("sends text to a pane", async () => {
+      mockExecSequence([{ stdout: "" }]);
+      await manager.sendTextToPane("%0", "ls");
+      expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+        "send-keys",
+        "-t",
+        "%0",
+        "ls",
+        "C-m",
+      ]);
+    });
+
+    it("throws TmuxUnavailableError for sendTextToPane when tmux missing", async () => {
+      const err = Object.assign(new Error("spawn tmux ENOENT"), {
+        code: "ENOENT",
+      });
+      mockExecSequence([{ error: err }]);
+      await expect(manager.sendTextToPane("%0", "ls")).rejects.toBeInstanceOf(
+        TmuxUnavailableError,
+      );
+    });
   });
 
   it("surfaces a dedicated error when tmux is missing", async () => {

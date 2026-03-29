@@ -7,7 +7,7 @@ import { InstanceStore } from "../services/InstanceStore";
 import { OutputChannelService } from "../services/OutputChannelService";
 import { TmuxSessionManager } from "../services/TmuxSessionManager";
 import { TerminalManager } from "../terminals/TerminalManager";
-import { OpenCodeTuiProvider } from "./OpenCodeTuiProvider";
+import { TerminalProvider } from "./TerminalProvider";
 
 const vscode = await vi.importActual<typeof vscodeTypes>(
   "../test/mocks/vscode",
@@ -24,10 +24,10 @@ vi.mock("node-pty", async () => {
   return actual;
 });
 
-describe("OpenCodeTuiProvider", () => {
+describe("TerminalProvider", () => {
   let terminalManager: TerminalManager;
   let captureManager: OutputCaptureManager;
-  let provider: OpenCodeTuiProvider;
+  let provider: TerminalProvider;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -80,9 +80,9 @@ describe("OpenCodeTuiProvider", () => {
   function createProvider(options?: {
     instanceStore?: InstanceStore;
     tmuxSessionManager?: TmuxSessionManager;
-  }): OpenCodeTuiProvider {
+  }): TerminalProvider {
     const context = new vscode.ExtensionContext();
-    return new OpenCodeTuiProvider(
+    return new TerminalProvider(
       context as any,
       terminalManager,
       captureManager,
@@ -91,7 +91,7 @@ describe("OpenCodeTuiProvider", () => {
     );
   }
 
-  function resolveProvider(target: OpenCodeTuiProvider) {
+  function resolveProvider(target: TerminalProvider) {
     const view = vscode.WebviewView() as any;
     target.resolveWebviewView(view, {} as any, {} as any);
     const messageHandler = vi.mocked(view.webview.onDidReceiveMessage).mock
