@@ -813,7 +813,7 @@ export class TerminalManagerDashboardProvider
     }
 
     document.addEventListener("click", (event) => {
-      const target = (event.composedPath()?.[0] ?? event.target) as Element | null;
+      const target = event.composedPath()?.[0] ?? event.target;
       if (!target || !(target instanceof Element)) {
         return;
       }
