@@ -123,21 +123,18 @@ function render(payload: DashboardPayload): void {
     .map((s) => {
       const activeClass = s.isActive ? " active" : "";
       const statusText = s.isActive ? "Current" : "Available";
-      const buttonLabel = s.isActive ? "Current" : "Switch";
-      const disabled = s.isActive ? " disabled" : "";
       const sessionPanes = panes[s.id] || [];
       const paneCount = sessionPanes.length;
       const isExpanded = expandedSessions.has(s.id);
 
       return [
-        `<div class="session-card${activeClass}">`,
+        `<div class="session-card${activeClass}" data-session-id="${escapeHtml(s.id)}">`,
         '<div class="row">',
         "<div>",
         `<strong>${escapeHtml(s.name)}</strong>`,
         `<div class="status">${statusText}</div>`,
         "</div>",
-        `<button class="primary" data-session-id="${escapeHtml(s.id)}" title="${s.isActive ? "Currently active session" : "Switch to this session"}"${disabled}>${buttonLabel}</button>`,
-        `<button class="danger" data-action="killSession" data-session-id="${escapeHtml(s.id)}" title="Kill Session"${s.isActive ? " disabled" : ""}>✕</button>`,
+        `<button class="danger" data-action="killSession" data-session-id="${escapeHtml(s.id)}" title="Kill Session">✕</button>`,
         "</div>",
         '<div class="meta-grid">',
         `<div class="meta">tmux session: ${escapeHtml(s.id)}</div>`,
@@ -154,7 +151,7 @@ function render(payload: DashboardPayload): void {
           ? `<div class="pane-list">${sessionPanes
               .map((p) => {
                 const activePaneClass = p.isActive ? " active" : "";
-                return `<div class="pane-item${activePaneClass}" data-session-id="${escapeHtml(s.id)}" data-pane-id="${escapeHtml(p.paneId)}"><span class="pane-name">${detectToolIcon(p.currentCommand)}Pane ${p.index}${p.title ? ": " + escapeHtml(p.title) : ""}</span><div class="pane-actions"><button class="pane-action-switch" title="Switch">⇥</button><button class="pane-action-kill" title="Kill Pane">✕</button></div></div>`;
+                return `<div class="pane-item${activePaneClass}" data-session-id="${escapeHtml(s.id)}" data-pane-id="${escapeHtml(p.paneId)}"><span class="pane-name">${detectToolIcon(p.currentCommand)}Pane ${p.index}${p.title ? ": " + escapeHtml(p.title) : ""}</span></div>`;
               })
               .join("")}</div>`
           : "",
@@ -244,8 +241,10 @@ function selectAiTool(toolId: string): void {
 }
 
 document.addEventListener("click", (event) => {
-  const target = event.composedPath()?.[0] ?? event.target;
-  if (!target || !(target instanceof Element)) {
+  const target = event
+    .composedPath()
+    .find((el): el is Element => el instanceof Element);
+  if (!target) {
     return;
   }
 
@@ -261,6 +260,22 @@ document.addEventListener("click", (event) => {
       vscode.postMessage({ action: "activate", sessionId: matching.id });
     } else {
       vscode.postMessage({ action: "create" });
+    }
+    return;
+  }
+
+  if (
+    target.closest(".session-card") &&
+    !target.closest(".pane-header") &&
+    !target.closest('[data-action="killSession"]') &&
+    !target.closest(".pane-split-btn")
+  ) {
+    const card = target.closest(".session-card");
+    if (card instanceof HTMLElement && card.dataset.sessionId) {
+      vscode.postMessage({
+        action: "activate",
+        sessionId: card.dataset.sessionId,
+      });
     }
     return;
   }
@@ -290,7 +305,7 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  if (target.closest(".pane-action-switch")) {
+  if (target.closest(".pane-item")) {
     const item = target.closest(".pane-item");
     if (item instanceof HTMLElement) {
       vscode.postMessage({
@@ -298,29 +313,6 @@ document.addEventListener("click", (event) => {
         sessionId: item.dataset.sessionId,
         paneId: item.dataset.paneId,
       });
-    }
-    return;
-  }
-
-  if (target.closest(".pane-action-kill")) {
-    const item = target.closest(".pane-item");
-    if (item instanceof HTMLElement) {
-      const sessionId = item.dataset.sessionId;
-      const paneId = item.dataset.paneId;
-      const payloadPanes =
-        (lastPayload.panes && sessionId ? lastPayload.panes[sessionId] : []) ||
-        [];
-      if (payloadPanes.length <= 1) {
-        window.alert("Cannot kill the last pane — use 'Kill Session' instead.");
-        return;
-      }
-      if (paneId && window.confirm("Kill pane " + paneId + "?")) {
-        vscode.postMessage({
-          action: "killPane",
-          sessionId,
-          paneId,
-        });
-      }
     }
     return;
   }
@@ -340,9 +332,9 @@ document.addEventListener("click", (event) => {
 
   if (target.closest('[data-action="killSession"]')) {
     const button = target.closest('[data-action="killSession"]');
-    if (button instanceof HTMLButtonElement && !button.disabled) {
+    if (button instanceof HTMLButtonElement) {
       const sessionId = button.dataset.sessionId;
-      if (sessionId && window.confirm("Kill tmux session " + sessionId + "?")) {
+      if (sessionId) {
         vscode.postMessage({ action: "killSession", sessionId });
       }
     }

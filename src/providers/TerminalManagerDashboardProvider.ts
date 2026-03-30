@@ -295,10 +295,32 @@ export class TerminalManagerDashboardProvider
         );
         await this.postSessionsToWebview();
         return;
-      case "killSession":
+      case "killSession": {
+        const sessionsBefore = await this.tmuxSessionManager.discoverSessions();
+        const killedSession = sessionsBefore.find(
+          (s: TmuxDashboardSessionDto) => s.id === message.sessionId,
+        );
+        const wasActive = killedSession?.isActive ?? false;
+        const killedWorkspace = killedSession?.workspace;
+
         await this.tmuxSessionManager.killSession(message.sessionId);
+
+        if (wasActive && killedWorkspace) {
+          const sessionsAfter =
+            await this.tmuxSessionManager.discoverSessions();
+          const nextSession = sessionsAfter.find(
+            (s: TmuxDashboardSessionDto) => s.workspace === killedWorkspace,
+          );
+          if (nextSession) {
+            await vscode.commands.executeCommand(
+              "opencodeTui.switchTmuxSession",
+              nextSession.id,
+            );
+          }
+        }
         await this.postSessionsToWebview();
         return;
+      }
       default:
         return;
     }
@@ -375,6 +397,7 @@ export class TerminalManagerDashboardProvider
       border: 1px solid var(--vscode-panel-border);
       border-radius: 6px;
       padding: 8px;
+      cursor: pointer;
     }
     .session-card.active {
       border-color: var(--vscode-focusBorder);
