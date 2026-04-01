@@ -46,6 +46,36 @@ function copySelectionToClipboard(selection: string): void {
   });
 }
 
+function showCopyToast(): void {
+  const existing = document.getElementById("copy-toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "copy-toast";
+  toast.textContent = "Copied to clipboard";
+  Object.assign(toast.style, {
+    position: "fixed",
+    bottom: "24px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: "rgba(40,40,40,0.92)",
+    color: "#e0e0e0",
+    padding: "6px 16px",
+    borderRadius: "6px",
+    fontSize: "12px",
+    pointerEvents: "none",
+    zIndex: "9999",
+    transition: "opacity 0.4s ease",
+    opacity: "1",
+  });
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 400);
+  }, 1200);
+}
+
 async function handlePasteWithImageSupport(): Promise<void> {
   try {
     const items = await navigator.clipboard.read();
@@ -299,6 +329,8 @@ function initTerminal(): void {
     const selection = terminal?.getSelection();
     if (selection && selection.length > 0) {
       copySelectionToClipboard(selection);
+      showCopyToast();
+      terminal?.clearSelection();
     }
   });
 

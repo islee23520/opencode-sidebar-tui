@@ -459,6 +459,7 @@ export class TmuxSessionManager {
         "#{pane_id}\t#{pane_index}\t#{pane_title}\t#{pane_active}\t#{pane_current_command}\t#{window_id}";
       const stdout = await this.runTmux([
         "list-panes",
+        "-s",
         "-t",
         sessionId,
         "-F",
