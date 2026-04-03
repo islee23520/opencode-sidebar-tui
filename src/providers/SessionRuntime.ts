@@ -1,33 +1,33 @@
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { OutputCaptureManager } from "../../services/OutputCaptureManager";
-import { OpenCodeApiClient } from "../../services/OpenCodeApiClient";
-import { PortManager } from "../../services/PortManager";
-import { ContextSharingService } from "../../services/ContextSharingService";
-import { OutputChannelService } from "../../services/OutputChannelService";
-import { InstanceId, InstanceStore } from "../../services/InstanceStore";
-import { resolveAiToolConfigs, getToolLaunchCommand } from "../../types";
+import { OutputCaptureManager } from "../services/OutputCaptureManager";
+import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
+import { PortManager } from "../services/PortManager";
+import { ContextSharingService } from "../services/ContextSharingService";
+import { OutputChannelService } from "../services/OutputChannelService";
+import { InstanceId, InstanceStore } from "../services/InstanceStore";
+import { AiToolConfig, resolveAiToolConfigs } from "../types";
+import { AiToolFileReference } from "../services/aiTools/AiToolOperator";
 import {
   TmuxSessionManager,
   TmuxUnavailableError,
-} from "../../services/TmuxSessionManager";
-import { TerminalManager } from "../../terminals/TerminalManager";
-
-type LaunchChoice = "opencode" | "shell";
+} from "../services/TmuxSessionManager";
+import { TerminalManager } from "../terminals/TerminalManager";
+import { AiToolOperatorRegistry } from "../services/aiTools/AiToolOperatorRegistry";
 
 interface StartupWorkspaceResolution {
   workspacePath: string;
   isWorkspaceScoped: boolean;
 }
 
-interface OpenCodeSessionRuntimeCallbacks {
+interface SessionRuntimeCallbacks {
   postMessage: (message: unknown) => void;
   onActiveInstanceChanged: (instanceId: InstanceId) => void;
   requestStartOpenCode: () => Promise<void>;
 }
 
-export class OpenCodeSessionRuntime {
+export class SessionRuntime {
   private static readonly LEGACY_TERMINAL_ID: InstanceId = "opencode-main";
 
   private activeInstanceId: InstanceId = "default";
@@ -43,7 +43,8 @@ export class OpenCodeSessionRuntime {
   private lastKnownRows = 0;
   private selectedTmuxSessionId?: string;
   private forceNativeShellNextStart = false;
-  private pendingLaunchChoice?: LaunchChoice;
+  private pendingLaunchToolName?: string;
+  private activeTool?: AiToolConfig;
   private clipboardPollInterval?: ReturnType<typeof setInterval>;
   private lastTmuxBuffer = "";
 
@@ -56,12 +57,13 @@ export class OpenCodeSessionRuntime {
     private readonly instanceStore: InstanceStore | undefined,
     private readonly logger: OutputChannelService,
     private readonly contextSharingService: ContextSharingService,
-    private readonly callbacks: OpenCodeSessionRuntimeCallbacks,
+    private readonly aiToolRegistry: AiToolOperatorRegistry,
+    private readonly callbacks: SessionRuntimeCallbacks,
   ) {
     if (this.instanceStore) {
       this.subscribeToActiveInstanceChanges();
     } else {
-      this.activeInstanceId = OpenCodeSessionRuntime.LEGACY_TERMINAL_ID;
+      this.activeInstanceId = SessionRuntime.LEGACY_TERMINAL_ID;
     }
   }
 
@@ -86,6 +88,24 @@ export class OpenCodeSessionRuntime {
     return this.apiClient;
   }
 
+  public getActiveTool(): AiToolConfig | undefined {
+    return this.activeTool;
+  }
+
+  public resolveToolByName(toolName: string): AiToolConfig | undefined {
+    return this.resolveToolConfig(toolName);
+  }
+
+  public rememberSelectedTool(
+    toolName: string | undefined,
+    instanceId = this.activeInstanceId,
+  ): void {
+    this.persistSelectedTool(toolName, instanceId);
+    if (instanceId === this.activeInstanceId) {
+      this.activeTool = this.resolveToolConfig(toolName);
+    }
+  }
+
   public isHttpAvailable(): boolean {
     return this.httpAvailable;
   }
@@ -99,7 +119,7 @@ export class OpenCodeSessionRuntime {
 
   public async switchToInstance(
     instanceId: InstanceId,
-    options?: { forceRestart?: boolean },
+    options?: { forceRestart?: boolean; preferredToolName?: string },
   ): Promise<void> {
     const forceRestart = options?.forceRestart ?? false;
     if (instanceId === this.activeInstanceId && !forceRestart) {
@@ -120,12 +140,21 @@ export class OpenCodeSessionRuntime {
 
     if (existingTerminal && !forceRestart) {
       this.isStarted = true;
+      this.activeTool = this.resolveStoredTool(instanceId);
       this.reconnectListeners();
       this.syncActiveInstance(instanceId);
 
       const config = vscode.workspace.getConfiguration("opencodeTui");
       const enableHttpApi = config.get<boolean>("enableHttpApi", true);
-      if (enableHttpApi && existingTerminal.port) {
+      const operator = this.activeTool
+        ? this.aiToolRegistry.getForConfig(this.activeTool)
+        : undefined;
+      if (
+        enableHttpApi &&
+        existingTerminal.port &&
+        this.activeTool &&
+        operator?.supportsHttpApi(this.activeTool)
+      ) {
         const httpTimeout = config.get<number>("httpTimeout", 5000);
         this.apiClient = new OpenCodeApiClient(
           existingTerminal.port,
@@ -151,6 +180,8 @@ export class OpenCodeSessionRuntime {
       this.terminalManager.killTerminal(instanceId);
     }
 
+    this.pendingLaunchToolName =
+      options?.preferredToolName ?? this.pendingLaunchToolName;
     await this.callbacks.requestStartOpenCode();
     this.syncActiveInstance(instanceId);
   }
@@ -169,41 +200,21 @@ export class OpenCodeSessionRuntime {
       const enableHttpApi = config.get<boolean>("enableHttpApi", true);
       const httpTimeout = config.get<number>("httpTimeout", 5000);
 
+      let resolvedTool: AiToolConfig | undefined;
       let command: string | undefined;
-      const defaultToolName = config.get<string>("defaultAiTool", "opencode");
-      const tools = resolveAiToolConfigs(config.get("aiTools", []));
 
-      if (
-        this.forceNativeShellNextStart &&
-        this.pendingLaunchChoice === "shell"
-      ) {
-        command = undefined;
-        this.pendingLaunchChoice = undefined;
-      } else {
-        const defaultTool = tools.find((t) => t.name === defaultToolName);
-        if (defaultTool) {
-          command = getToolLaunchCommand(defaultTool);
-        } else {
-          const toolItems = tools.map((t) => ({
-            label: t.label,
-            description: `Launch ${t.label} in tmux`,
-            tool: t,
-          }));
-          const picked = await vscode.window.showQuickPick(toolItems, {
-            placeHolder: "Select AI tool to launch",
-          });
-          if (!picked) {
-            this.isStarting = false;
-            return;
-          }
-          command = getToolLaunchCommand(picked.tool);
-          await config.update(
-            "defaultAiTool",
-            picked.tool.name,
-            vscode.ConfigurationTarget.Global,
-          );
+      if (!(this.forceNativeShellNextStart && !this.pendingLaunchToolName)) {
+        resolvedTool = await this.resolveToolForStartup(config);
+        if (!resolvedTool) {
+          this.isStarting = false;
+          return;
         }
+
+        const operator = this.aiToolRegistry.getForConfig(resolvedTool);
+        command = operator.getLaunchCommand(resolvedTool);
       }
+
+      this.activeTool = resolvedTool;
       const forceNativeShell = this.forceNativeShellNextStart;
       const selectedTmuxSessionId = this.selectedTmuxSessionId;
       let tmuxSessionId = forceNativeShell
@@ -241,8 +252,16 @@ export class OpenCodeSessionRuntime {
       );
       this.selectedTmuxSessionId = undefined;
       this.forceNativeShellNextStart = false;
+      this.pendingLaunchToolName = undefined;
 
-      if (enableHttpApi && command !== undefined) {
+      const activeOperator =
+        this.activeTool && this.aiToolRegistry.getForConfig(this.activeTool);
+      if (
+        enableHttpApi &&
+        command !== undefined &&
+        this.activeTool &&
+        activeOperator?.supportsHttpApi(this.activeTool)
+      ) {
         try {
           port = this.portManager.assignPortToTerminal(this.activeInstanceId);
           this.logger.info(
@@ -280,6 +299,11 @@ export class OpenCodeSessionRuntime {
           if (existing) {
             this.instanceStore.upsert({
               ...existing,
+              config: {
+                ...existing.config,
+                command,
+                selectedAiTool: this.activeTool?.name,
+              },
               runtime: {
                 ...existing.runtime,
                 terminalKey: this.activeInstanceId,
@@ -289,7 +313,11 @@ export class OpenCodeSessionRuntime {
             });
           } else {
             this.instanceStore.upsert({
-              config: { id: this.activeInstanceId },
+              config: {
+                id: this.activeInstanceId,
+                command,
+                selectedAiTool: this.activeTool?.name,
+              },
               runtime: {
                 terminalKey: this.activeInstanceId,
                 tmuxSessionId,
@@ -340,6 +368,7 @@ export class OpenCodeSessionRuntime {
     this.isStarting = false;
     this.httpAvailable = false;
     this.apiClient = undefined;
+    this.activeTool = undefined;
     this.autoContextSent = false;
     if (releasePorts) {
       this.portManager.releaseTerminalPorts(this.activeInstanceId);
@@ -563,12 +592,25 @@ export class OpenCodeSessionRuntime {
   }
 
   public async switchToTmuxSession(sessionId: string): Promise<void> {
+    await this.switchToTmuxSessionWithTool(sessionId);
+  }
+
+  public async switchToTmuxSessionWithTool(
+    sessionId: string,
+    preferredToolName?: string,
+  ): Promise<void> {
     this.forceNativeShellNextStart = false;
     this.selectedTmuxSessionId = sessionId;
+    this.pendingLaunchToolName = preferredToolName;
+    if (preferredToolName) {
+      const instanceId = this.resolveInstanceIdFromSessionId(sessionId);
+      this.persistSelectedTool(preferredToolName, instanceId);
+    }
     await this.switchToInstance(
       this.resolveInstanceIdFromSessionId(sessionId),
       {
         forceRestart: true,
+        preferredToolName,
       },
     );
     this.notifyActiveSession(sessionId);
@@ -576,23 +618,23 @@ export class OpenCodeSessionRuntime {
 
   private async resolveLaunchChoice(
     configKey: "nativeShellDefault" | "tmuxSessionDefault",
-  ): Promise<LaunchChoice | undefined> {
+  ): Promise<string | undefined> {
     const config = vscode.workspace.getConfiguration("opencodeTui");
     const persisted = config.get<string>(configKey, "");
-    if (persisted === "opencode" || persisted === "shell") {
+    if (persisted === "shell" || this.resolveToolConfig(persisted, config)) {
       return persisted;
     }
 
-    const items: vscode.QuickPickItem[] = [
-      {
-        label: "$(terminal) OpenCode",
-        description: "Launch OpenCode in the terminal",
-      },
-      {
-        label: "$(shell) Default Shell (zsh)",
-        description: "Launch default shell without OpenCode",
-      },
-    ];
+    const items = this.getConfiguredTools(config).map((tool) => ({
+      label: `$(terminal) ${tool.label}`,
+      description: `Launch ${tool.label} in the terminal`,
+      value: tool.name,
+    }));
+    items.push({
+      label: "$(shell) Default Shell (zsh)",
+      description: "Launch default shell without an AI tool",
+      value: "shell",
+    });
 
     const picked = await vscode.window.showQuickPick(items, {
       placeHolder: "What would you like to launch?",
@@ -603,9 +645,16 @@ export class OpenCodeSessionRuntime {
       return undefined;
     }
 
-    const choice: LaunchChoice = picked.label.includes("OpenCode")
-      ? "opencode"
-      : "shell";
+    const choice =
+      picked.value ??
+      (picked.label.includes("Default Shell")
+        ? "shell"
+        : this.getConfiguredTools(config).find((tool) =>
+            picked.label.includes(tool.label),
+          )?.name);
+    if (!choice) {
+      return undefined;
+    }
 
     const remember = await vscode.window.showInformationMessage(
       "Remember this choice? You can change it later in settings.",
@@ -629,7 +678,11 @@ export class OpenCodeSessionRuntime {
     }
 
     this.forceNativeShellNextStart = true;
-    this.pendingLaunchChoice = launchChoice;
+    this.pendingLaunchToolName =
+      launchChoice === "shell" ? undefined : launchChoice;
+    if (this.pendingLaunchToolName) {
+      this.persistSelectedTool(this.pendingLaunchToolName);
+    }
 
     if (this.instanceStore) {
       const existing = this.instanceStore.get(this.activeInstanceId);
@@ -674,8 +727,8 @@ export class OpenCodeSessionRuntime {
 
       await this.tmuxSessionManager.createSession(candidate, workspacePath);
 
-      if (launchChoice === "opencode") {
-        await this.switchToTmuxSession(candidate);
+      if (launchChoice !== "shell") {
+        await this.switchToTmuxSessionWithTool(candidate, launchChoice);
       }
 
       return candidate;
@@ -686,6 +739,46 @@ export class OpenCodeSessionRuntime {
       vscode.window.showErrorMessage("Failed to create tmux session");
       return undefined;
     }
+  }
+
+  public async createTmuxWindow(): Promise<void> {
+    if (!this.tmuxSessionManager || !this.selectedTmuxSessionId) {
+      return;
+    }
+    await this.tmuxSessionManager.createWindow(this.selectedTmuxSessionId);
+  }
+
+  public async navigateTmuxWindow(direction: "next" | "prev"): Promise<void> {
+    if (!this.tmuxSessionManager || !this.selectedTmuxSessionId) {
+      return;
+    }
+    if (direction === "next") {
+      await this.tmuxSessionManager.nextWindow(this.selectedTmuxSessionId);
+    } else {
+      await this.tmuxSessionManager.prevWindow(this.selectedTmuxSessionId);
+    }
+  }
+
+  public async navigateTmuxSession(direction: "next" | "prev"): Promise<void> {
+    if (!this.tmuxSessionManager) {
+      return;
+    }
+    const sessions = await this.tmuxSessionManager.discoverSessions();
+    if (sessions.length === 0) {
+      return;
+    }
+    const currentIndex = sessions.findIndex(
+      (s) => s.id === this.selectedTmuxSessionId,
+    );
+    let targetIndex: number;
+    if (currentIndex === -1) {
+      targetIndex = 0;
+    } else if (direction === "next") {
+      targetIndex = (currentIndex + 1) % sessions.length;
+    } else {
+      targetIndex = (currentIndex - 1 + sessions.length) % sessions.length;
+    }
+    await this.switchToTmuxSession(sessions[targetIndex].id);
   }
 
   public async killTmuxSession(sessionId: string): Promise<void> {
@@ -700,6 +793,9 @@ export class OpenCodeSessionRuntime {
       const shouldFallbackToNative =
         this.selectedTmuxSessionId === sessionId ||
         activeTmuxSessionId === sessionId;
+      const fallbackWorkspacePath = shouldFallbackToNative
+        ? this.resolveWorkspacePathForTmuxFallback()
+        : undefined;
 
       if (this.selectedTmuxSessionId === sessionId) {
         this.selectedTmuxSessionId = undefined;
@@ -725,6 +821,17 @@ export class OpenCodeSessionRuntime {
       }
 
       if (shouldFallbackToNative && this.isStarted) {
+        const replacementSessionId = fallbackWorkspacePath
+          ? await this.findReplacementTmuxSession(
+              fallbackWorkspacePath,
+              sessionId,
+            )
+          : undefined;
+        if (replacementSessionId) {
+          await this.switchToTmuxSession(replacementSessionId);
+          return;
+        }
+
         await this.switchToNativeShell();
       }
     } catch (error) {
@@ -732,6 +839,111 @@ export class OpenCodeSessionRuntime {
         `[TerminalProvider] Failed to kill tmux session: ${error instanceof Error ? error.message : String(error)}`,
       );
       vscode.window.showErrorMessage("Failed to kill tmux session");
+    }
+  }
+
+  public async routeDroppedTextToTmuxPane(
+    text: string,
+    dropCell: { col: number; row: number },
+  ): Promise<boolean> {
+    if (!this.tmuxSessionManager) {
+      return false;
+    }
+    const sessionId =
+      this.selectedTmuxSessionId ??
+      this.resolveTmuxSessionIdForInstance(this.activeInstanceId) ??
+      (await this.resolveFallbackTmuxSessionId());
+    if (!sessionId) {
+      return false;
+    }
+    try {
+      const panes =
+        await this.tmuxSessionManager.listVisiblePaneGeometry(sessionId);
+      const target = panes.find((p) => {
+        const right = p.paneLeft + p.paneWidth - 1;
+        const bottom = p.paneTop + p.paneHeight - 1;
+        return (
+          dropCell.col >= p.paneLeft &&
+          dropCell.col <= right &&
+          dropCell.row >= p.paneTop &&
+          dropCell.row <= bottom
+        );
+      });
+      if (!target) {
+        return false;
+      }
+      await this.tmuxSessionManager.selectPane(target.paneId);
+      await this.tmuxSessionManager.sendTextToPane(target.paneId, text, {
+        submit: false,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public formatDroppedFiles(
+    paths: string[],
+    options: { useAtSyntax: boolean },
+  ): string {
+    const operator = this.activeTool
+      ? this.aiToolRegistry.getForConfig(this.activeTool)
+      : this.aiToolRegistry.getByToolName("opencode");
+    if (!operator) {
+      return paths.join(" ");
+    }
+
+    return operator.formatDroppedFiles(paths, options);
+  }
+
+  public formatFileReference(reference: AiToolFileReference): string {
+    const operator = this.activeTool
+      ? this.aiToolRegistry.getForConfig(this.activeTool)
+      : this.aiToolRegistry.getByToolName("opencode");
+    if (!operator) {
+      return reference.path;
+    }
+
+    return operator.formatFileReference(reference);
+  }
+
+  public formatPastedImage(tempPath: string): string | undefined {
+    const operator = this.activeTool
+      ? this.aiToolRegistry.getForConfig(this.activeTool)
+      : this.aiToolRegistry.getByToolName("opencode");
+    return operator?.formatPastedImage(tempPath);
+  }
+
+  private resolveWorkspacePathForTmuxFallback(): string | undefined {
+    const instanceWorkspacePath = this.resolveWorkspacePathFromActiveInstance();
+    if (instanceWorkspacePath) {
+      return instanceWorkspacePath;
+    }
+
+    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  }
+
+  private async findReplacementTmuxSession(
+    workspacePath: string,
+    killedSessionId: string,
+  ): Promise<string | undefined> {
+    if (!this.tmuxSessionManager) {
+      return undefined;
+    }
+
+    try {
+      const replacement =
+        await this.tmuxSessionManager.findSessionForWorkspace(workspacePath);
+      if (!replacement || replacement.id === killedSessionId) {
+        return undefined;
+      }
+
+      return replacement.id;
+    } catch (error) {
+      this.logger.warn(
+        `[TerminalProvider] Failed to resolve replacement tmux session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return undefined;
     }
   }
 
@@ -818,6 +1030,9 @@ export class OpenCodeSessionRuntime {
     const config = vscode.workspace.getConfiguration("opencodeTui");
     const enableHttpApi = config.get<boolean>("enableHttpApi", true);
     const autoShareContext = config.get<boolean>("autoShareContext", true);
+    const operator = this.activeTool
+      ? this.aiToolRegistry.getForConfig(this.activeTool)
+      : undefined;
 
     if (!enableHttpApi) {
       this.logger.info(
@@ -829,6 +1044,13 @@ export class OpenCodeSessionRuntime {
     if (!autoShareContext) {
       this.logger.info(
         "[TerminalProvider] Auto-context sharing disabled by user",
+      );
+      return;
+    }
+
+    if (!this.activeTool || !operator?.supportsAutoContext(this.activeTool)) {
+      this.logger.info(
+        "[TerminalProvider] Active tool does not support auto-context",
       );
       return;
     }
@@ -848,7 +1070,11 @@ export class OpenCodeSessionRuntime {
       return;
     }
 
-    const fileRef = this.contextSharingService.formatContext(context);
+    const fileRef = this.formatFileReference({
+      path: context.filePath,
+      selectionStart: context.selectionStart,
+      selectionEnd: context.selectionEnd,
+    });
     this.logger.info(`[TerminalProvider] Sending auto-context: ${fileRef}`);
 
     try {
@@ -862,5 +1088,91 @@ export class OpenCodeSessionRuntime {
         `[TerminalProvider] Failed to send auto-context: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private getConfiguredTools(
+    config = vscode.workspace.getConfiguration("opencodeTui"),
+  ): AiToolConfig[] {
+    return resolveAiToolConfigs(config.get("aiTools", []));
+  }
+
+  private resolveStoredTool(
+    instanceId = this.activeInstanceId,
+  ): AiToolConfig | undefined {
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    const storedToolName =
+      this.instanceStore?.get(instanceId)?.config.selectedAiTool;
+    return this.resolveToolConfig(
+      storedToolName ?? config.get<string>("defaultAiTool", "opencode"),
+      config,
+    );
+  }
+
+  private resolveToolConfig(
+    toolName: string | undefined,
+    config = vscode.workspace.getConfiguration("opencodeTui"),
+  ): AiToolConfig | undefined {
+    if (!toolName) {
+      return undefined;
+    }
+
+    return this.getConfiguredTools(config).find((tool) =>
+      this.aiToolRegistry.matchesName(tool, toolName),
+    );
+  }
+
+  private persistSelectedTool(
+    toolName: string | undefined,
+    instanceId = this.activeInstanceId,
+  ): void {
+    if (!this.instanceStore) {
+      return;
+    }
+
+    const record = this.instanceStore.get(instanceId);
+    if (!record) {
+      return;
+    }
+
+    this.instanceStore.upsert({
+      ...record,
+      config: {
+        ...record.config,
+        selectedAiTool: toolName,
+      },
+    });
+  }
+
+  private async resolveToolForStartup(
+    config: vscode.WorkspaceConfiguration,
+  ): Promise<AiToolConfig | undefined> {
+    const preferredToolName =
+      this.pendingLaunchToolName ??
+      this.instanceStore?.get(this.activeInstanceId)?.config.selectedAiTool ??
+      config.get<string>("defaultAiTool", "opencode");
+
+    let tool = this.resolveToolConfig(preferredToolName, config);
+    if (!tool) {
+      const toolItems = this.getConfiguredTools(config).map((candidate) => ({
+        label: candidate.label,
+        description: `Launch ${candidate.label} in the terminal`,
+        tool: candidate,
+      }));
+      const picked = await vscode.window.showQuickPick(toolItems, {
+        placeHolder: "Select AI tool to launch",
+      });
+      if (!picked) {
+        return undefined;
+      }
+      tool = picked.tool;
+      await config.update(
+        "defaultAiTool",
+        picked.tool.name,
+        vscode.ConfigurationTarget.Global,
+      );
+    }
+
+    this.persistSelectedTool(tool.name);
+    return tool;
   }
 }

@@ -3,19 +3,26 @@ import * as os from "os";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import * as vscode from "vscode";
-import { ContextSharingService } from "../../services/ContextSharingService";
-import { InstanceId, InstanceStore } from "../../services/InstanceStore";
-import { OpenCodeApiClient } from "../../services/OpenCodeApiClient";
-import { OutputCaptureManager } from "../../services/OutputCaptureManager";
-import { OutputChannelService } from "../../services/OutputChannelService";
-import { TerminalManager } from "../../terminals/TerminalManager";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE } from "../../types";
+import { ContextSharingService } from "../services/ContextSharingService";
+import { InstanceId, InstanceStore } from "../services/InstanceStore";
+import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
+import { OutputCaptureManager } from "../services/OutputCaptureManager";
+import { OutputChannelService } from "../services/OutputChannelService";
+import { TerminalManager } from "../terminals/TerminalManager";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_SIZE,
+  WebviewMessage,
+} from "../types";
 
-export interface OpenCodeMessageRouterProviderBridge {
+export interface MessageRouterProviderBridge {
   startOpenCode(): Promise<void>;
   switchToTmuxSession(sessionId: string): Promise<void>;
   killTmuxSession(sessionId: string): Promise<void>;
   createTmuxSession(): Promise<string | undefined>;
+  createTmuxWindow(): Promise<void>;
+  navigateTmuxWindow(direction: "next" | "prev"): Promise<void>;
+  navigateTmuxSession(direction: "next" | "prev"): Promise<void>;
   switchToNativeShell(): Promise<void>;
   pasteText(text: string): void;
   getActiveInstanceId(): InstanceId;
@@ -24,30 +31,23 @@ export interface OpenCodeMessageRouterProviderBridge {
   isStarted(): boolean;
   resizeActiveTerminal(cols: number, rows: number): void;
   postWebviewMessage(message: unknown): void;
+  routeDroppedTextToTmuxPane(
+    text: string,
+    dropCell: { col: number; row: number },
+  ): Promise<boolean>;
+  formatDroppedFiles(paths: string[], useAtSyntax: boolean): string;
+  formatPastedImage(tempPath: string): string | undefined;
+  launchAiTool(
+    sessionId: string,
+    toolName: string,
+    savePreference: boolean,
+  ): Promise<void>;
+  showAiToolSelector(sessionId: string, sessionName: string): Promise<void>;
 }
 
-type WebviewMessage = {
-  type: string;
-  data?: string;
-  cols?: number;
-  rows?: number;
-  files?: string[];
-  shiftKey?: boolean;
-  url?: string;
-  path?: string;
-  line?: number;
-  endLine?: number;
-  column?: number;
-  action?: "focus" | "sendCommand" | "capture";
-  terminalName?: string;
-  command?: string;
-  text?: string;
-  sessionId?: string;
-};
-
-export class OpenCodeMessageRouter {
+export class MessageRouter {
   public constructor(
-    private readonly provider: OpenCodeMessageRouterProviderBridge,
+    private readonly provider: MessageRouterProviderBridge,
     private readonly context: vscode.ExtensionContext,
     private readonly terminalManager: TerminalManager,
     private readonly captureManager: OutputCaptureManager,
@@ -74,7 +74,11 @@ export class OpenCodeMessageRouter {
         this.handleReady(message.cols, message.rows);
         break;
       case "filesDropped":
-        this.handleFilesDropped(message.files ?? [], message.shiftKey ?? false);
+        this.handleFilesDropped(
+          message.files ?? [],
+          message.shiftKey ?? false,
+          message.dropCell,
+        );
         break;
       case "openUrl":
         if (typeof message.url === "string") {
@@ -132,8 +136,28 @@ export class OpenCodeMessageRouter {
       case "createTmuxSession":
         void this.provider.createTmuxSession();
         break;
+      case "createTmuxWindow":
+        void this.provider.createTmuxWindow();
+        break;
+      case "navigateTmuxWindow":
+        if (message.direction === "next" || message.direction === "prev") {
+          void this.provider.navigateTmuxWindow(message.direction);
+        }
+        break;
+      case "navigateTmuxSession":
+        if (message.direction === "next" || message.direction === "prev") {
+          void this.provider.navigateTmuxSession(message.direction);
+        }
+        break;
       case "switchNativeShell":
         void this.provider.switchToNativeShell();
+        break;
+      case "launchAiTool":
+        void this.provider.launchAiTool(
+          message.sessionId,
+          message.tool,
+          message.savePreference,
+        );
         break;
       default:
         break;
@@ -249,9 +273,13 @@ export class OpenCodeMessageRouter {
     }
   }
 
-  public handleFilesDropped(files: string[], shiftKey: boolean): void {
+  public handleFilesDropped(
+    files: string[],
+    shiftKey: boolean,
+    dropCell?: { col: number; row: number },
+  ): void {
     this.logger.info(
-      `[PROVIDER] handleFilesDropped - files: ${JSON.stringify(files)} shiftKey: ${shiftKey}`,
+      `[PROVIDER] handleFilesDropped - files: ${JSON.stringify(files)} shiftKey: ${shiftKey} dropCell: ${JSON.stringify(dropCell)}`,
     );
 
     const normalizedFiles = files.map((file) => {
@@ -280,18 +308,37 @@ export class OpenCodeMessageRouter {
     ];
 
     if (shiftKey) {
-      const fileRefs = dedupedFiles
-        .map((file) => `@${vscode.workspace.asRelativePath(file)}`)
-        .join(" ");
-      this.logger.info(`[PROVIDER] Writing with @: ${fileRefs}`);
-      this.terminalManager.writeToTerminal(
-        this.provider.getActiveInstanceId(),
-        fileRefs + " ",
+      const fileRefs = this.provider.formatDroppedFiles(
+        dedupedFiles.map((file) => vscode.workspace.asRelativePath(file)),
+        true,
       );
+      this.logger.info(`[PROVIDER] Writing with @: ${fileRefs}`);
+
+      if (dropCell) {
+        void this.provider
+          .routeDroppedTextToTmuxPane(fileRefs + " ", dropCell)
+          .then((routed) => {
+            if (!routed) {
+              this.logger.info(
+                `[PROVIDER] Pane routing failed, falling back to active terminal`,
+              );
+              this.terminalManager.writeToTerminal(
+                this.provider.getActiveInstanceId(),
+                fileRefs + " ",
+              );
+            }
+          });
+      } else {
+        this.terminalManager.writeToTerminal(
+          this.provider.getActiveInstanceId(),
+          fileRefs + " ",
+        );
+      }
     } else {
-      const filePaths = dedupedFiles
-        .map((file) => vscode.workspace.asRelativePath(file))
-        .join(" ");
+      const filePaths = this.provider.formatDroppedFiles(
+        dedupedFiles.map((file) => vscode.workspace.asRelativePath(file)),
+        false,
+      );
       this.logger.info(`[PROVIDER] Writing without @: ${filePaths}`);
       this.terminalManager.writeToTerminal(
         this.provider.getActiveInstanceId(),
@@ -372,7 +419,10 @@ export class OpenCodeMessageRouter {
         mode: 0o600,
       });
 
-      this.provider.pasteText(tmpPath);
+      const formattedImage = this.provider.formatPastedImage(tmpPath);
+      if (formattedImage) {
+        this.provider.pasteText(formattedImage);
+      }
 
       setTimeout(
         async () => {
