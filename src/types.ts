@@ -17,7 +17,12 @@ export type WebviewMessage =
     }
   | { type: "openUrl"; url: string }
   | { type: "ready"; cols: number; rows: number }
-  | { type: "filesDropped"; files: string[]; shiftKey: boolean }
+  | {
+      type: "filesDropped";
+      files: string[];
+      shiftKey: boolean;
+      dropCell?: { col: number; row: number };
+    }
   | { type: "getClipboard" }
   | { type: "setClipboard"; text: string }
   | { type: "triggerPaste" }
@@ -25,7 +30,16 @@ export type WebviewMessage =
   | { type: "switchSession"; sessionId: string }
   | { type: "killSession"; sessionId: string }
   | { type: "createTmuxSession" }
-  | { type: "switchNativeShell" };
+  | { type: "createTmuxWindow" }
+  | { type: "navigateTmuxWindow"; direction: "next" | "prev" }
+  | { type: "navigateTmuxSession"; direction: "next" | "prev" }
+  | { type: "switchNativeShell" }
+  | {
+      type: "launchAiTool";
+      sessionId: string;
+      tool: string;
+      savePreference: boolean;
+    };
 
 export type AiTool = string;
 
@@ -34,13 +48,36 @@ export interface AiToolConfig {
   label: string;
   path: string;
   args: string[];
+  aliases?: string[];
+  operator?: string;
 }
 
 /** Built-in default tools — used when no user config exists */
 export const DEFAULT_AI_TOOLS: readonly AiToolConfig[] = [
-  { name: "opencode", label: "OpenCode", path: "", args: ["-c"] },
-  { name: "claude", label: "Claude", path: "", args: [] },
-  { name: "codex", label: "Codex", path: "", args: [] },
+  {
+    name: "opencode",
+    label: "OpenCode",
+    path: "",
+    args: ["-c"],
+    aliases: [],
+    operator: "opencode",
+  },
+  {
+    name: "claude-code",
+    label: "Claude Code",
+    path: "",
+    args: [],
+    aliases: ["claude"],
+    operator: "claude-code",
+  },
+  {
+    name: "codex",
+    label: "Codex",
+    path: "",
+    args: [],
+    aliases: [],
+    operator: "codex",
+  },
 ] as const;
 
 /** @deprecated Use resolveAiToolConfigs() instead */
@@ -66,6 +103,8 @@ export function resolveAiToolConfigs(
       label: String(t.label),
       path: typeof t.path === "string" ? t.path : "",
       args: Array.isArray(t.args) ? t.args.map(String) : [],
+      aliases: Array.isArray(t.aliases) ? t.aliases.map(String) : undefined,
+      operator: typeof t.operator === "string" ? t.operator : undefined,
     }));
 }
 
@@ -108,6 +147,7 @@ export type TmuxDashboardActionMessage =
   | { action: "createNativeShell" }
   | { action: "switchNativeShell" }
   | { action: "activateNativeShell"; instanceId: string }
+  | { action: "killNativeShell"; instanceId: string }
   | { action: "activate"; sessionId: string }
   | { action: "expandPanes"; sessionId: string }
   | { action: "createWindow"; sessionId: string }
@@ -116,7 +156,12 @@ export type TmuxDashboardActionMessage =
   | { action: "killWindow"; sessionId: string; windowId: string }
   | { action: "killSession"; sessionId: string }
   | { action: "selectWindow"; sessionId: string; windowId: string }
-  | { action: "switchPane"; sessionId: string; paneId: string }
+  | {
+      action: "switchPane";
+      sessionId: string;
+      paneId: string;
+      windowId?: string;
+    }
   | {
       action: "splitPane";
       sessionId: string;
@@ -239,7 +284,14 @@ export type HostMessage =
       sessionName: string;
       sessionId: string;
     }
-  | { type: "activeSession" };
+  | { type: "activeSession" }
+  | {
+      type: "showAiToolSelector";
+      sessionId: string;
+      sessionName: string;
+      defaultTool?: string;
+      tools?: AiToolConfig[];
+    };
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type DiagnosticSeverity = "error" | "warning" | "information" | "hint";

@@ -166,6 +166,8 @@ describe("Types", () => {
     it("uses default AI tools baseline", () => {
       expect(DEFAULT_AI_TOOLS[0]?.name).toBe("opencode");
       expect(DEFAULT_AI_TOOLS[0]?.args).toEqual(["-c"]);
+      expect(DEFAULT_AI_TOOLS[1]?.name).toBe("claude-code");
+      expect(DEFAULT_AI_TOOLS[1]?.aliases).toContain("claude");
     });
   });
 
