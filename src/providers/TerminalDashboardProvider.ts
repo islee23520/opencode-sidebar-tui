@@ -477,13 +477,11 @@ export class TerminalDashboardProvider
     sessionId: string,
     sessionName: string,
   ): Promise<void> {
-    // Prefer showing the selector in the terminal webview
     if (this.terminalProvider) {
       this.terminalProvider.showAiToolSelector(sessionId, sessionName);
       return;
     }
 
-    // Fallback: show in dashboard webview
     if (!this.view) {
       return;
     }
@@ -492,23 +490,27 @@ export class TerminalDashboardProvider
     const instanceId = this.instanceStore
       ?.getAll()
       .find((record) => record.runtime.tmuxSessionId === sessionId)?.config.id;
-    const defaultToolName =
+    const savedTool =
       (instanceId
         ? this.instanceStore?.get(instanceId)?.config.selectedAiTool
-        : undefined) ?? config.get<AiTool>("defaultAiTool", "opencode");
+        : undefined) ?? config.get<AiTool>("defaultAiTool", "");
+
+    if (savedTool) {
+      await this.handleLaunchAiTool(sessionId, savedTool, false);
+      return;
+    }
+
     const tools: AiToolConfig[] = resolveAiToolConfigs(
       config.get("aiTools", []),
     );
 
-    const message: TmuxDashboardHostMessage = {
+    await this.view.webview.postMessage({
       type: "showAiToolSelector",
       sessionId,
       sessionName,
-      defaultTool: defaultToolName,
+      defaultTool: undefined,
       tools,
-    };
-
-    await this.view.webview.postMessage(message);
+    } satisfies TmuxDashboardHostMessage);
   }
 
   /**

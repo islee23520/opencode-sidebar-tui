@@ -92,12 +92,6 @@
         "category": "OpenCode TUI"
       },
       {
-        "command": "opencodeTui.restart",
-        "title": "Restart OpenCode",
-        "category": "OpenCode TUI",
-        "icon": "$(debug-restart)"
-      },
-      {
         "command": "opencodeTui.paste",
         "title": "Paste",
         "category": "OpenCode TUI",
@@ -235,13 +229,7 @@
       }
     ],
     "menus": {
-      "view/title": [
-        {
-          "command": "opencodeTui.restart",
-          "when": "view == opencodeTui",
-          "group": "navigation@1"
-        }
-      ],
+      "view/title": [],
       "explorer/context": [
         {
           "command": "opencodeTui.sendFileToTerminal",
@@ -504,7 +492,7 @@
         },
         "opencodeTui.defaultAiTool": {
           "type": "string",
-          "default": "opencode",
+          "default": "",
           "description": "Name of the default AI tool to launch when creating a new tmux session"
         },
         "opencodeTui.nativeShellDefault": {

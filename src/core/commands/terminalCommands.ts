@@ -166,14 +166,6 @@ export function registerTerminalCommands(
     },
   );
 
-  const restartCommand = vscode.commands.registerCommand(
-    "opencodeTui.restart",
-    () => {
-      deps.provider?.restart();
-      vscode.window.showInformationMessage("OpenCode restarted");
-    },
-  );
-
   const pasteCommand = vscode.commands.registerCommand(
     "opencodeTui.paste",
     async () => {
@@ -204,7 +196,6 @@ export function registerTerminalCommands(
     sendAtMentionCommand,
     sendAllOpenFilesCommand,
     sendFileToTerminalCommand,
-    restartCommand,
     pasteCommand,
     focusCommand,
   ];

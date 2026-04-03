@@ -111,7 +111,6 @@ npx @vscode/vsce package
 ### Basic Commands
 
 - **OpenCode TUI: Start OpenCode** - Manually start OpenCode
-- **OpenCode TUI: Restart OpenCode** - Restart the OpenCode process
 - **OpenCode TUI: Paste** - Paste text into the terminal
 
 ### File Reference Commands

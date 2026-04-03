@@ -92,6 +92,10 @@ export class SessionRuntime {
     return this.activeTool;
   }
 
+  public getSelectedTmuxSessionId(): string | undefined {
+    return this.selectedTmuxSessionId;
+  }
+
   public resolveToolByName(toolName: string): AiToolConfig | undefined {
     return this.resolveToolConfig(toolName);
   }
@@ -671,18 +675,8 @@ export class SessionRuntime {
 
   public async switchToNativeShell(): Promise<void> {
     this.selectedTmuxSessionId = undefined;
-
-    const launchChoice = await this.resolveLaunchChoice("nativeShellDefault");
-    if (!launchChoice) {
-      return;
-    }
-
     this.forceNativeShellNextStart = true;
-    this.pendingLaunchToolName =
-      launchChoice === "shell" ? undefined : launchChoice;
-    if (this.pendingLaunchToolName) {
-      this.persistSelectedTool(this.pendingLaunchToolName);
-    }
+    this.pendingLaunchToolName = undefined;
 
     if (this.instanceStore) {
       const existing = this.instanceStore.get(this.activeInstanceId);
@@ -706,11 +700,6 @@ export class SessionRuntime {
       return undefined;
     }
 
-    const launchChoice = await this.resolveLaunchChoice("tmuxSessionDefault");
-    if (!launchChoice) {
-      return undefined;
-    }
-
     const { workspacePath } = this.resolveStartupWorkspacePath();
 
     try {
@@ -726,10 +715,7 @@ export class SessionRuntime {
       }
 
       await this.tmuxSessionManager.createSession(candidate, workspacePath);
-
-      if (launchChoice !== "shell") {
-        await this.switchToTmuxSessionWithTool(candidate, launchChoice);
-      }
+      await this.switchToTmuxSessionWithTool(candidate);
 
       return candidate;
     } catch (error) {
@@ -756,6 +742,45 @@ export class SessionRuntime {
       await this.tmuxSessionManager.nextWindow(this.selectedTmuxSessionId);
     } else {
       await this.tmuxSessionManager.prevWindow(this.selectedTmuxSessionId);
+    }
+  }
+
+  public async splitTmuxPane(direction: "h" | "v"): Promise<void> {
+    if (!this.tmuxSessionManager) {
+      return;
+    }
+    const sessionId =
+      this.selectedTmuxSessionId ??
+      this.resolveTmuxSessionIdForInstance(this.activeInstanceId) ??
+      (await this.resolveFallbackTmuxSessionId());
+    if (!sessionId) {
+      return;
+    }
+    const panes = await this.tmuxSessionManager.listPanes(sessionId);
+    const activePane = panes.find((p) => p.isActive) ?? panes[0];
+    if (activePane) {
+      await this.tmuxSessionManager.splitPane(activePane.paneId, direction);
+    }
+  }
+
+  public async killTmuxPane(): Promise<void> {
+    if (!this.tmuxSessionManager) {
+      return;
+    }
+    const sessionId =
+      this.selectedTmuxSessionId ??
+      this.resolveTmuxSessionIdForInstance(this.activeInstanceId) ??
+      (await this.resolveFallbackTmuxSessionId());
+    if (!sessionId) {
+      return;
+    }
+    const panes = await this.tmuxSessionManager.listPanes(sessionId);
+    if (panes.length <= 1) {
+      return;
+    }
+    const activePane = panes.find((p) => p.isActive) ?? panes[0];
+    if (activePane) {
+      await this.tmuxSessionManager.killPane(activePane.paneId);
     }
   }
 
@@ -1103,7 +1128,7 @@ export class SessionRuntime {
     const storedToolName =
       this.instanceStore?.get(instanceId)?.config.selectedAiTool;
     return this.resolveToolConfig(
-      storedToolName ?? config.get<string>("defaultAiTool", "opencode"),
+      storedToolName ?? config.get<string>("defaultAiTool", ""),
       config,
     );
   }
@@ -1149,7 +1174,7 @@ export class SessionRuntime {
     const preferredToolName =
       this.pendingLaunchToolName ??
       this.instanceStore?.get(this.activeInstanceId)?.config.selectedAiTool ??
-      config.get<string>("defaultAiTool", "opencode");
+      config.get<string>("defaultAiTool", "");
 
     let tool = this.resolveToolConfig(preferredToolName, config);
     if (!tool) {

@@ -10,15 +10,9 @@ import { OutputChannelService } from "../services/OutputChannelService";
 import { InstanceId, InstanceStore } from "../services/InstanceStore";
 import { TmuxSessionManager } from "../services/TmuxSessionManager";
 import { AiToolFileReference } from "../services/aiTools/AiToolOperator";
-import {
-  AiToolConfig,
-  resolveAiToolConfigs,
-} from "../types";
+import { AiToolConfig, resolveAiToolConfigs } from "../types";
 import { AiToolOperatorRegistry } from "../services/aiTools/AiToolOperatorRegistry";
-import {
-  MessageRouter,
-  MessageRouterProviderBridge,
-} from "./MessageRouter";
+import { MessageRouter, MessageRouterProviderBridge } from "./MessageRouter";
 import { SessionRuntime } from "./SessionRuntime";
 
 export class TerminalProvider implements vscode.WebviewViewProvider {
@@ -89,6 +83,9 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
         this.launchAiTool(sessionId, toolName, savePreference),
       showAiToolSelector: (sessionId, sessionName) =>
         Promise.resolve(this.showAiToolSelector(sessionId, sessionName)),
+      splitTmuxPane: (direction) => this.splitTmuxPane(direction),
+      killTmuxPane: () => this.killTmuxPane(),
+      getSelectedTmuxSessionId: () => this.getSelectedTmuxSessionId(),
     };
 
     this.messageRouter = new MessageRouter(
@@ -266,6 +263,18 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     await this.sessionRuntime.killTmuxSession(sessionId);
   }
 
+  public async splitTmuxPane(direction: "h" | "v"): Promise<void> {
+    await this.sessionRuntime.splitTmuxPane(direction);
+  }
+
+  public getSelectedTmuxSessionId(): string | undefined {
+    return this.sessionRuntime.getSelectedTmuxSessionId();
+  }
+
+  public async killTmuxPane(): Promise<void> {
+    await this.sessionRuntime.killTmuxPane();
+  }
+
   public async sendPrompt(prompt: string): Promise<void> {
     const apiClient = this.sessionRuntime.getApiClient();
     if (apiClient && this.sessionRuntime.isHttpAvailable()) {
@@ -305,9 +314,8 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const instanceId = this.sessionRuntime.resolveInstanceIdFromSessionId(
-      sessionId,
-    );
+    const instanceId =
+      this.sessionRuntime.resolveInstanceIdFromSessionId(sessionId);
     this.sessionRuntime.rememberSelectedTool(tool.name, instanceId);
 
     try {
@@ -331,25 +339,25 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     this.messageRouter.handleMessage(message);
   }
 
-  /**
-   * Shows the AI tool selector in the terminal webview.
-   */
   public showAiToolSelector(sessionId: string, sessionName: string): void {
     const config = vscode.workspace.getConfiguration("opencodeTui");
-    const instanceId = this.sessionRuntime.resolveInstanceIdFromSessionId(
-      sessionId,
-    );
-    const defaultToolName =
+    const instanceId =
+      this.sessionRuntime.resolveInstanceIdFromSessionId(sessionId);
+    const savedTool =
       this.instanceStore?.get(instanceId)?.config.selectedAiTool ??
-      config.get<string>("defaultAiTool", "opencode");
+      config.get<string>("defaultAiTool", "");
     const tools: AiToolConfig[] = resolveAiToolConfigs(
       config.get("aiTools", []),
     );
+    if (savedTool) {
+      void this.launchAiTool(sessionId, savedTool, false);
+      return;
+    }
     this.postWebviewMessage({
       type: "showAiToolSelector",
       sessionId,
       sessionName,
-      defaultTool: defaultToolName,
+      defaultTool: undefined,
       tools,
     });
   }

@@ -256,9 +256,9 @@ describe("TerminalProvider", () => {
       runtime: { terminalKey: "workspace-codex", tmuxSessionId: "tmux-codex" },
       state: "connected",
     });
-    const listPanes = vi.fn().mockResolvedValue([
-      { paneId: "%1", isActive: true },
-    ]);
+    const listPanes = vi
+      .fn()
+      .mockResolvedValue([{ paneId: "%1", isActive: true }]);
     const sendTextToPane = vi.fn().mockResolvedValue(undefined);
     const tmuxSessionManager = {
       listPanes,
@@ -582,7 +582,7 @@ describe("TerminalProvider", () => {
     expect(lastCall?.[6]).toBe("workspace-z-instance");
   });
 
-  it("switches to native shell with opencode when user picks opencode from dialog", async () => {
+  it("switches to native shell without showing a dialog", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     const ensureSession = vi.fn();
     const discoverSessions = vi.fn().mockResolvedValue([]);
@@ -595,24 +595,17 @@ describe("TerminalProvider", () => {
     const createTerminalSpy = vi.spyOn(terminalManager, "createTerminal");
     resolveProvider(provider);
 
-    vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({
-      label: "$(terminal) OpenCode",
-      description: "Launch OpenCode in the terminal",
-    } as any);
-    vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
-      undefined,
-    );
-
     await provider.switchToNativeShell();
     await flushAsyncStartup();
 
+    expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
     const lastCall =
       createTerminalSpy.mock.calls[createTerminalSpy.mock.calls.length - 1];
-    expect(lastCall?.[1]).toBe("opencode -c");
+    expect(lastCall?.[1]).toBeUndefined();
     expect(ensureSession).not.toHaveBeenCalled();
   });
 
-  it("does not re-attach to tmux when switching to native shell with opencode in a workspace", async () => {
+  it("does not re-attach to tmux when switching to native shell in a workspace", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     const ensureSession = vi.fn();
     const discoverSessions = vi.fn().mockResolvedValue([]);
@@ -629,24 +622,17 @@ describe("TerminalProvider", () => {
     const createTerminalSpy = vi.spyOn(terminalManager, "createTerminal");
     resolveProvider(provider);
 
-    vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({
-      label: "$(terminal) OpenCode",
-      description: "Launch OpenCode in the terminal",
-    } as any);
-    vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
-      undefined,
-    );
-
     await provider.switchToNativeShell();
     await flushAsyncStartup();
 
+    expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
     const lastCall =
       createTerminalSpy.mock.calls[createTerminalSpy.mock.calls.length - 1];
-    expect(lastCall?.[1]).toBe("opencode -c");
+    expect(lastCall?.[1]).toBeUndefined();
     expect(ensureSession).not.toHaveBeenCalled();
   });
 
-  it("switches to native shell with default zsh when user picks shell from dialog", async () => {
+  it("switches to native shell with default zsh (no AI tool command)", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     const tmuxSessionManager = {
       ensureSession: vi.fn(),
@@ -657,23 +643,16 @@ describe("TerminalProvider", () => {
     const createTerminalSpy = vi.spyOn(terminalManager, "createTerminal");
     resolveProvider(provider);
 
-    vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({
-      label: "$(shell) Default Shell (zsh)",
-      description: "Launch default shell without OpenCode",
-    } as any);
-    vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
-      undefined,
-    );
-
     await provider.switchToNativeShell();
     await flushAsyncStartup();
 
+    expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
     const lastCall =
       createTerminalSpy.mock.calls[createTerminalSpy.mock.calls.length - 1];
     expect(lastCall?.[1]).toBeUndefined();
   });
 
-  it("cancels native shell switch when user dismisses the dialog", async () => {
+  it("always proceeds with native shell switch regardless of any prior dialog state", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     const tmuxSessionManager = {
       ensureSession: vi.fn(),
@@ -684,19 +663,18 @@ describe("TerminalProvider", () => {
     const createTerminalSpy = vi.spyOn(terminalManager, "createTerminal");
     resolveProvider(provider);
 
-    vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce(undefined);
-
     await provider.switchToNativeShell();
     await flushAsyncStartup();
 
-    expect(createTerminalSpy).not.toHaveBeenCalled();
+    expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
+    expect(createTerminalSpy).toHaveBeenCalled();
   });
 
-  it("skips dialog when nativeShellDefault is persisted to opencode", async () => {
+  it("switches to native shell without a dialog even when defaultAiTool is set", async () => {
     mockConfiguration({
       autoStartOnOpen: false,
       enableHttpApi: false,
-      nativeShellDefault: "opencode",
+      defaultAiTool: "opencode",
     });
     const tmuxSessionManager = {
       ensureSession: vi.fn(),
@@ -713,10 +691,10 @@ describe("TerminalProvider", () => {
     expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
     const lastCall =
       createTerminalSpy.mock.calls[createTerminalSpy.mock.calls.length - 1];
-    expect(lastCall?.[1]).toBe("opencode -c");
+    expect(lastCall?.[1]).toBeUndefined();
   });
 
-  it("persists native shell choice when user clicks 'Yes, remember'", async () => {
+  it("switches to native shell without showing a QuickPick or persisting any choice", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     const tmuxSessionManager = {
       ensureSession: vi.fn(),
@@ -726,31 +704,14 @@ describe("TerminalProvider", () => {
     provider = createProvider({ tmuxSessionManager });
     resolveProvider(provider);
 
-    vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce({
-      label: "$(shell) Default Shell (zsh)",
-      description: "Launch default shell without OpenCode",
-    } as any);
-    vi.mocked(vscode.window.showInformationMessage).mockResolvedValueOnce(
-      "Yes, remember",
-    );
-
     await provider.switchToNativeShell();
     await flushAsyncStartup();
 
-    expect(vscode.workspace.getConfiguration).toHaveBeenCalledWith(
-      "opencodeTui",
-    );
-    const mockConfig = vi.mocked(
-      (vscode.workspace.getConfiguration as Function)("opencodeTui"),
-    );
-    expect(mockConfig.update).toHaveBeenCalledWith(
-      "nativeShellDefault",
-      "shell",
-      vscode.ConfigurationTarget.Global,
-    );
+    expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
+    expect(vscode.window.showInformationMessage).not.toHaveBeenCalled();
   });
 
-  it("creates a new tmux session and asks what to launch via dialog", async () => {
+  it("creates a new tmux session and attaches the terminal immediately", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     const discoverSessions = vi.fn().mockResolvedValue([
       { id: "repo-a", name: "repo-a", workspace: "repo-a", isActive: false },
@@ -780,23 +741,17 @@ describe("TerminalProvider", () => {
       },
     ] as any;
 
-    vi.mocked(vscode.window.showQuickPick).mockResolvedValue({
-      label: "$(shell) Default Shell (zsh)",
-      description: "Launch default shell without OpenCode",
-    } as any);
-    vi.mocked(vscode.window.showInformationMessage).mockResolvedValue(
-      undefined,
-    );
-
-    await provider.createTmuxSession();
+    const result = await provider.createTmuxSession();
     await flushAsyncStartup();
 
     expect(vscode.window.showErrorMessage).not.toHaveBeenCalled();
+    expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
     expect(createSession).toHaveBeenCalledWith(
       "repo-a-3",
       "/workspaces/repo-a",
     );
-    expect(createTerminalSpy).not.toHaveBeenCalled();
+    expect(result).toBe("repo-a-3");
+    expect(createTerminalSpy).toHaveBeenCalled();
   });
 
   it("creates a new tmux session and launches opencode when user picks opencode", async () => {
@@ -846,7 +801,7 @@ describe("TerminalProvider", () => {
     expect(createTerminalSpy).toHaveBeenCalled();
   });
 
-  it("cancels tmux session creation when user dismisses the dialog", async () => {
+  it("always creates the tmux session without showing a dialog", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     const discoverSessions = vi.fn().mockResolvedValue([]);
     const createSession = vi.fn().mockResolvedValue(undefined);
@@ -867,12 +822,11 @@ describe("TerminalProvider", () => {
       },
     ] as any;
 
-    vi.mocked(vscode.window.showQuickPick).mockResolvedValueOnce(undefined);
-
     const result = await provider.createTmuxSession();
 
-    expect(result).toBeUndefined();
-    expect(createSession).not.toHaveBeenCalled();
+    expect(result).toBe("repo-b");
+    expect(createSession).toHaveBeenCalledWith("repo-b", "/workspaces/repo-b");
+    expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
   });
 
   it("switches active instances without respawning when a terminal already exists", async () => {

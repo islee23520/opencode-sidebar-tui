@@ -71,6 +71,66 @@ html {
   visibility: hidden;
 }
 
+.pane-controls {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.85));
+  border: 1px solid var(--vscode-panel-border, #474747);
+  border-radius: 4px;
+  padding: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.pane-controls.hidden {
+  display: none;
+}
+
+#terminal-container:hover .pane-controls:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pane-controls:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pane-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground, #cccccc);
+  padding: 3px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  line-height: 1;
+}
+
+.pane-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+  opacity: 1;
+}
+
+.pane-btn:active {
+  background: var(--vscode-toolbar-activeBackground, rgba(255, 255, 255, 0.14));
+}
+
+.pane-btn--danger:hover {
+  background: rgba(220, 60, 60, 0.25);
+  color: var(--vscode-errorForeground, #f48771);
+  opacity: 1;
+}
+
 /* AI Tool Selector Overlay */
 .ai-selector-backdrop {
   display: none;

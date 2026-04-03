@@ -44,7 +44,6 @@ Option B: Via VS Code UI
    - You should see the OpenCode TUI interface
 
 3. **Test commands**
-   - Try: `OpenCode TUI: Restart OpenCode`
    - Try: `OpenCode TUI: Clear Terminal`
 
 4. **Test terminal interaction**
@@ -82,7 +81,7 @@ For rapid testing during development:
 
 **Terminal not starting?**
 
-   - Check if `omo` command is in PATH
+- Check if `omo` command is in PATH
 - Try configuring custom command: `"opencodeTui.command": "opencode"`
 
 **Rendering issues?**

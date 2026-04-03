@@ -432,6 +432,9 @@ function initTerminal(): void {
   // Setup tmux toolbar buttons
   setupTmuxToolbar(vscode);
 
+  // Setup pane control overlay buttons
+  setupPaneControls(vscode);
+
   container.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -705,6 +708,22 @@ function setupTmuxToolbar(vscode: any): void {
   });
 }
 
+function setupPaneControls(vscode: any): void {
+  const btnSplitV = document.getElementById("btn-split-v");
+  const btnSplitH = document.getElementById("btn-split-h");
+  const btnKillPane = document.getElementById("btn-kill-pane");
+
+  btnSplitV?.addEventListener("click", () => {
+    vscode.postMessage({ type: "splitTmuxPane", direction: "v" });
+  });
+  btnSplitH?.addEventListener("click", () => {
+    vscode.postMessage({ type: "splitTmuxPane", direction: "h" });
+  });
+  btnKillPane?.addEventListener("click", () => {
+    vscode.postMessage({ type: "killTmuxPane" });
+  });
+}
+
 function setupDragAndDrop(_vscode: any): void {
   const terminalElement = document.getElementById("terminal-container");
   if (!terminalElement) return;
@@ -793,6 +812,7 @@ window.addEventListener("message", (event) => {
     case "activeSession": {
       const toolbar = document.getElementById("tmux-toolbar");
       const label = document.getElementById("tmux-session-label");
+      const paneControls = document.getElementById("pane-controls");
       if ("sessionName" in message && message.sessionName) {
         if (toolbar) {
           toolbar.classList.remove("hidden");
@@ -800,8 +820,12 @@ window.addEventListener("message", (event) => {
         if (label) {
           label.textContent = message.sessionName;
         }
+        if (paneControls) {
+          paneControls.classList.remove("hidden");
+        }
       } else {
         if (toolbar) toolbar.classList.add("hidden");
+        if (paneControls) paneControls.classList.add("hidden");
       }
       break;
     }

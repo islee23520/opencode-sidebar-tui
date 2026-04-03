@@ -9,11 +9,7 @@ import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { OutputChannelService } from "../services/OutputChannelService";
 import { TerminalManager } from "../terminals/TerminalManager";
-import {
-  ALLOWED_IMAGE_TYPES,
-  MAX_IMAGE_SIZE,
-  WebviewMessage,
-} from "../types";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, WebviewMessage } from "../types";
 
 export interface MessageRouterProviderBridge {
   startOpenCode(): Promise<void>;
@@ -43,6 +39,9 @@ export interface MessageRouterProviderBridge {
     savePreference: boolean,
   ): Promise<void>;
   showAiToolSelector(sessionId: string, sessionName: string): Promise<void>;
+  splitTmuxPane(direction: "h" | "v"): Promise<void>;
+  killTmuxPane(): Promise<void>;
+  getSelectedTmuxSessionId(): string | undefined;
 }
 
 export class MessageRouter {
@@ -137,7 +136,12 @@ export class MessageRouter {
         void this.provider.createTmuxSession();
         break;
       case "createTmuxWindow":
-        void this.provider.createTmuxWindow();
+        void this.provider.createTmuxWindow().then(() => {
+          const sessionId = this.provider.getSelectedTmuxSessionId();
+          if (sessionId) {
+            void this.provider.showAiToolSelector(sessionId, sessionId);
+          }
+        });
         break;
       case "navigateTmuxWindow":
         if (message.direction === "next" || message.direction === "prev") {
@@ -158,6 +162,19 @@ export class MessageRouter {
           message.tool,
           message.savePreference,
         );
+        break;
+      case "splitTmuxPane":
+        if (message.direction === "h" || message.direction === "v") {
+          void this.provider.splitTmuxPane(message.direction).then(() => {
+            const sessionId = this.provider.getSelectedTmuxSessionId();
+            if (sessionId) {
+              void this.provider.showAiToolSelector(sessionId, sessionId);
+            }
+          });
+        }
+        break;
+      case "killTmuxPane":
+        void this.provider.killTmuxPane();
         break;
       default:
         break;

@@ -115,7 +115,6 @@ export function registerTmuxSessionCommands(
 
         const config = vscode.workspace.getConfiguration("opencodeTui");
         const configuredCommand = config.get<string>("command", "opencode -c");
-        const defaultAiTool = config.get<string>("defaultAiTool", "opencode");
 
         const newId = `${Date.now()}`;
         const newRecord = {
@@ -124,7 +123,6 @@ export function registerTmuxSessionCommands(
             workspaceUri,
             label: `OpenCode (${vscode.workspace.name || "Workspace"})`,
             command: configuredCommand,
-            selectedAiTool: defaultAiTool,
           },
           runtime: {},
           state: "disconnected" as const,
