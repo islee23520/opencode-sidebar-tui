@@ -56,11 +56,13 @@ describe("TerminalDashboardProvider", () => {
       discoverSessions,
       listPanes,
       listWindows,
+      selectPane: vi.fn().mockResolvedValue(undefined),
       onPaneChanged: onPaneChangedEvent.event,
     } as unknown as TmuxSessionManager;
 
     return {
       discoverSessions,
+      tmuxSessionManager,
       provider: new TerminalDashboardProvider(
         context as never,
         tmuxSessionManager,
@@ -104,31 +106,47 @@ describe("TerminalDashboardProvider", () => {
     const { view } = resolveProvider(provider);
     await flushPromises();
 
-    expect(view.webview.postMessage).toHaveBeenCalledWith({
-      type: "updateTmuxSessions",
-      workspace: "repo-a",
-      sessions: [
-        {
-          id: "repo-a",
-          name: "repo-a",
-          workspace: "repo-a",
-          isActive: true,
-          paneCount: 0,
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "updateTmuxSessions",
+        workspace: "repo-a",
+        sessions: [
+          {
+            id: "repo-a",
+            name: "repo-a",
+            workspace: "repo-a",
+            isActive: true,
+            paneCount: 0,
+          },
+        ],
+        nativeShells: [],
+        panes: {
+          "repo-a": [],
         },
-      ],
-      nativeShells: [],
-      panes: {
-        "repo-a": [],
-      },
-      windows: {
-        "repo-a": [],
-      },
-      tools: [
-        { name: "opencode", label: "OpenCode", path: "", args: ["-c"] },
-        { name: "claude", label: "Claude", path: "", args: [] },
-        { name: "codex", label: "Codex", path: "", args: [] },
-      ],
-    });
+        windows: {
+          "repo-a": [],
+        },
+      }),
+    );
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            name: "opencode",
+            label: "OpenCode",
+            args: ["-c"],
+          }),
+          expect.objectContaining({
+            name: "claude-code",
+            label: "Claude Code",
+          }),
+          expect.objectContaining({
+            name: "codex",
+            label: "Codex",
+          }),
+        ]),
+      }),
+    );
   });
 
   /**
@@ -166,31 +184,28 @@ describe("TerminalDashboardProvider", () => {
       "opencodeTui.switchNativeShell",
     );
     expect(discoverSessions).toHaveBeenCalledTimes(4);
-    expect(view.webview.postMessage).toHaveBeenCalledWith({
-      type: "updateTmuxSessions",
-      workspace: "repo-a",
-      sessions: [
-        {
-          id: "repo-a",
-          name: "repo-a",
-          workspace: "repo-a",
-          isActive: false,
-          paneCount: 0,
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "updateTmuxSessions",
+        workspace: "repo-a",
+        sessions: [
+          {
+            id: "repo-a",
+            name: "repo-a",
+            workspace: "repo-a",
+            isActive: false,
+            paneCount: 0,
+          },
+        ],
+        nativeShells: [],
+        panes: {
+          "repo-a": [],
         },
-      ],
-      nativeShells: [],
-      panes: {
-        "repo-a": [],
-      },
-      windows: {
-        "repo-a": [],
-      },
-      tools: [
-        { name: "opencode", label: "OpenCode", path: "", args: ["-c"] },
-        { name: "claude", label: "Claude", path: "", args: [] },
-        { name: "codex", label: "Codex", path: "", args: [] },
-      ],
-    });
+        windows: {
+          "repo-a": [],
+        },
+      }),
+    );
   });
 
   /**
@@ -206,5 +221,30 @@ describe("TerminalDashboardProvider", () => {
 
     expect(discoverSessions).toHaveBeenCalledTimes(2);
     expect(view.webview.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the pane window id when switching panes from another window", async () => {
+    const { provider, tmuxSessionManager } = createProvider(
+      vi.fn().mockResolvedValue([
+        {
+          id: "repo-a",
+          name: "repo-a",
+          workspace: "repo-a",
+          isActive: true,
+        },
+      ]),
+    );
+    const selectPane = vi.mocked(tmuxSessionManager.selectPane);
+    const { messageHandler } = resolveProvider(provider);
+    await flushPromises();
+
+    await messageHandler({
+      action: "switchPane",
+      sessionId: "repo-a",
+      paneId: "%3",
+      windowId: "@2",
+    });
+
+    expect(selectPane).toHaveBeenCalledWith("%3", "@2");
   });
 });

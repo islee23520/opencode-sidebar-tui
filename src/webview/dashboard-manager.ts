@@ -9,12 +9,8 @@ declare function acquireVsCodeApi(): {
 
 const vscode = acquireVsCodeApi();
 
-interface AiToolConfig {
-  name: string;
-  label: string;
-  path: string;
-  args: string[];
-}
+import * as AiTool from "./ai-tool-selector";
+type AiToolConfig = AiTool.AiToolConfig;
 
 interface TmuxDashboardSessionDto {
   id: string;
@@ -60,14 +56,15 @@ interface NativeShellDto {
 const expandedSessions = new Set<string>();
 let lastPayload: DashboardPayload = { sessions: [], workspace: "" };
 
-let aiSelectorVisible = false;
-let aiSelectorFocusedIndex = 0;
-let aiSelectorSessionId: string | null = null;
-let aiSelectorTools: AiToolConfig[] = [];
+// Local reference to AI tools for badge detection in session cards
+let aiTools: AiToolConfig[] = [];
+
+// Callbacks for shared AI tool selector
+const aiCallbacks = { postMessage: (msg: unknown) => vscode.postMessage(msg) };
 
 function detectToolIcon(currentCommand: string | undefined): string {
-  if (!currentCommand || aiSelectorTools.length === 0) return "";
-  for (const t of aiSelectorTools) {
+  if (!currentCommand || aiTools.length === 0) return "";
+  for (const t of aiTools) {
     const patterns = [t.name, t.name + ".exe"];
     if (t.path) {
       const basename = t.path
@@ -162,6 +159,7 @@ function render(payload: DashboardPayload): void {
         `<strong>${escapeHtml(s.label || "Shell")}</strong>`,
         `<div class="status">${statusText}</div>`,
         "</div>",
+        `<button class="danger" data-action="killNativeShell" data-native-shell-id="${escapeHtml(s.id)}" title="Close Shell">✕</button>`,
         "</div>",
         '<div class="meta-grid">',
         `<div class="meta">native shell · ${escapeHtml(stateLabel)}</div>`,
@@ -190,7 +188,7 @@ function render(payload: DashboardPayload): void {
               const panesHtml = w.panes
                 .map((p) => {
                   const pActive = p.isActive ? " active" : "";
-                  return `<div class="pane-item${pActive}" data-session-id="${escapeHtml(s.id)}" data-pane-id="${escapeHtml(p.paneId)}"><span class="pane-name">${detectToolIcon(p.currentCommand)}${p.title || "Pane " + p.index}</span><button class="danger pane-kill-btn" data-action="killPane" data-session-id="${escapeHtml(s.id)}" data-pane-id="${escapeHtml(p.paneId)}" title="Kill Pane">✕</button></div>`;
+                  return `<div class="pane-item${pActive}" data-session-id="${escapeHtml(s.id)}" data-pane-id="${escapeHtml(p.paneId)}" data-window-id="${escapeHtml(w.windowId)}"><span class="pane-name">${detectToolIcon(p.currentCommand)}${p.title || "Pane " + p.index}</span><button class="danger pane-kill-btn" data-action="killPane" data-session-id="${escapeHtml(s.id)}" data-pane-id="${escapeHtml(p.paneId)}" title="Kill Pane">✕</button></div>`;
                 })
                 .join("");
 
@@ -231,86 +229,7 @@ function render(payload: DashboardPayload): void {
   list.innerHTML = nativeShellCardsHtml + tmuxCardsHtml;
 }
 
-function showAiToolSelector(
-  sessionId: string,
-  sessionName: string,
-  defaultTool?: string,
-  tools?: AiToolConfig[],
-): void {
-  if (tools && tools.length > 0) {
-    aiSelectorTools = tools;
-  }
-  aiSelectorSessionId = sessionId;
-  aiSelectorVisible = true;
-  aiSelectorFocusedIndex = defaultTool
-    ? aiSelectorTools.findIndex((t) => t.name === defaultTool)
-    : 0;
-  if (aiSelectorFocusedIndex < 0) {
-    aiSelectorFocusedIndex = 0;
-  }
-
-  const optionsContainer = document.getElementById("ai-tool-options");
-  const subtitleEl = document.getElementById("ai-selector-session");
-  if (subtitleEl) {
-    subtitleEl.textContent = "Session: " + sessionName;
-  }
-
-  if (optionsContainer) {
-    optionsContainer.innerHTML = aiSelectorTools
-      .map((t, idx) => {
-        const focusedClass = idx === aiSelectorFocusedIndex ? " focused" : "";
-        return `<div class="ai-tool-option${focusedClass}" data-tool-id="${escapeHtml(t.name)}" data-tool-command="${escapeHtml(t.path || t.name)}"><div class="ai-tool-icon ${escapeHtml(t.name)}">${escapeHtml(t.label.charAt(0))}</div><span class="ai-tool-label">${escapeHtml(t.label)}</span><span class="ai-tool-command">${escapeHtml(t.path || t.name)}</span></div>`;
-      })
-      .join("");
-  }
-
-  const saveCheckbox = document.getElementById("ai-save-default");
-  if (saveCheckbox) {
-    (saveCheckbox as HTMLInputElement).checked = false;
-  }
-
-  const backdrop = document.getElementById("ai-selector");
-  if (backdrop) {
-    backdrop.style.display = "flex";
-  }
-}
-
-function hideAiToolSelector(): void {
-  aiSelectorVisible = false;
-  aiSelectorSessionId = null;
-  const backdrop = document.getElementById("ai-selector");
-  if (backdrop) {
-    backdrop.style.display = "none";
-  }
-}
-
-function updateAiSelectorFocus(): void {
-  const options = document.querySelectorAll(".ai-tool-option");
-  options.forEach((el, idx) => {
-    if (idx === aiSelectorFocusedIndex) {
-      el.classList.add("focused");
-      el.scrollIntoView({ block: "nearest" });
-    } else {
-      el.classList.remove("focused");
-    }
-  });
-}
-
-function selectAiTool(toolId: string): void {
-  if (!aiSelectorSessionId) return;
-  const tool = aiSelectorTools.find((t) => t.name === toolId);
-  if (!tool) return;
-  const saveCheckbox = document.getElementById("ai-save-default");
-  const savePref = (saveCheckbox as HTMLInputElement).checked;
-  vscode.postMessage({
-    action: "launchAiTool",
-    sessionId: aiSelectorSessionId,
-    tool: tool.name,
-    savePreference: savePref,
-  });
-  hideAiToolSelector();
-}
-
+// AI tool selector: click handling (delegates to shared module)
 document.addEventListener("click", (event) => {
   const target = event
     .composedPath()
@@ -339,6 +258,7 @@ document.addEventListener("click", (event) => {
     target.closest(".session-card") &&
     !target.closest(".pane-header") &&
     !target.closest('[data-action="killSession"]') &&
+    !target.closest('[data-action="killNativeShell"]') &&
     !target.closest('[data-action="killWindow"]') &&
     !target.closest('[data-action="killPane"]') &&
     !target.closest('[data-action="selectWindow"]') &&
@@ -432,6 +352,7 @@ document.addEventListener("click", (event) => {
         action: "switchPane",
         sessionId: item.dataset.sessionId,
         paneId: item.dataset.paneId,
+        windowId: item.dataset.windowId,
       });
     }
     return;
@@ -456,15 +377,23 @@ document.addEventListener("click", (event) => {
   }
 
   if (target.closest(".ai-tool-option")) {
-    const toolOption = target.closest(".ai-tool-option");
-    if (toolOption instanceof HTMLElement) {
-      selectAiTool(toolOption.dataset.toolId!);
-    }
+    AiTool.handleClick(target, aiCallbacks);
     return;
   }
 
   if (target.id === "ai-selector" && !target.closest(".ai-selector-card")) {
-    hideAiToolSelector();
+    AiTool.hide();
+    return;
+  }
+
+  if (target.closest('[data-action="killNativeShell"]')) {
+    const button = target.closest('[data-action="killNativeShell"]');
+    if (button instanceof HTMLButtonElement) {
+      const instanceId = button.dataset.nativeShellId;
+      if (instanceId) {
+        vscode.postMessage({ action: "killNativeShell", instanceId });
+      }
+    }
     return;
   }
 
@@ -526,12 +455,13 @@ window.addEventListener("message", (event) => {
   const message = event.data as HostMessage;
   if (message && message.type === "updateTmuxSessions") {
     if (message.tools && message.tools.length > 0) {
-      aiSelectorTools = message.tools;
+      aiTools = message.tools;
+      AiTool.setTools(message.tools);
     }
     render(message as DashboardPayload);
   }
   if (message && message.type === "showAiToolSelector") {
-    showAiToolSelector(
+    AiTool.show(
       message.sessionId!,
       message.sessionName!,
       message.defaultTool,
@@ -541,36 +471,7 @@ window.addEventListener("message", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (!aiSelectorVisible) {
-    return;
-  }
-
-  if (event.key === "ArrowDown") {
-    event.preventDefault();
-    aiSelectorFocusedIndex =
-      (aiSelectorFocusedIndex + 1) % aiSelectorTools.length;
-    updateAiSelectorFocus();
-    return;
-  }
-  if (event.key === "ArrowUp") {
-    event.preventDefault();
-    aiSelectorFocusedIndex =
-      (aiSelectorFocusedIndex - 1 + aiSelectorTools.length) %
-      aiSelectorTools.length;
-    updateAiSelectorFocus();
-    return;
-  }
-  if (event.key === "Enter") {
-    event.preventDefault();
-    const tool = aiSelectorTools[aiSelectorFocusedIndex];
-    if (tool) {
-      selectAiTool(tool.name);
-    }
-    return;
-  }
-  if (event.key === "Escape") {
-    event.preventDefault();
-    hideAiToolSelector();
+  if (AiTool.handleKeydown(event, aiCallbacks)) {
     return;
   }
 });

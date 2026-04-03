@@ -3,6 +3,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { TmuxSessionManager } from "../services/TmuxSessionManager";
 import { InstanceStore } from "../services/InstanceStore";
+import type { TerminalProvider } from "./TerminalProvider";
 import {
   TmuxDashboardActionMessage,
   TmuxDashboardHostMessage,
@@ -13,8 +14,6 @@ import {
   AiTool,
   AiToolConfig,
   resolveAiToolConfigs,
-  getToolLaunchCommand,
-  getToolDetectionPatterns,
 } from "../types";
 
 /**
@@ -43,6 +42,7 @@ export class TerminalDashboardProvider
     private readonly tmuxSessionManager: TmuxSessionManager,
     private readonly outputChannel?: vscode.OutputChannel,
     private readonly instanceStore?: InstanceStore,
+    private readonly terminalProvider?: TerminalProvider,
   ) {}
 
   /**
@@ -331,7 +331,10 @@ export class TerminalDashboardProvider
         await this.postSessionsToWebview();
         return;
       case "switchPane":
-        await this.tmuxSessionManager.selectPane(message.paneId);
+        await this.tmuxSessionManager.selectPane(
+          message.paneId,
+          message.windowId,
+        );
         await this.postSessionsToWebview();
         return;
       case "splitPane":
@@ -386,6 +389,14 @@ export class TerminalDashboardProvider
         );
         await this.postSessionsToWebview();
         return;
+      case "killNativeShell": {
+        await vscode.commands.executeCommand(
+          "opencodeTui.killNativeShell",
+          message.instanceId,
+        );
+        await this.postSessionsToWebview();
+        return;
+      }
       case "killSession": {
         const sessionsBefore = await this.tmuxSessionManager.discoverSessions();
         const killedSession = sessionsBefore.find(
@@ -466,12 +477,25 @@ export class TerminalDashboardProvider
     sessionId: string,
     sessionName: string,
   ): Promise<void> {
+    // Prefer showing the selector in the terminal webview
+    if (this.terminalProvider) {
+      this.terminalProvider.showAiToolSelector(sessionId, sessionName);
+      return;
+    }
+
+    // Fallback: show in dashboard webview
     if (!this.view) {
       return;
     }
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
-    const defaultToolName = config.get<AiTool>("defaultAiTool", "opencode");
+    const instanceId = this.instanceStore
+      ?.getAll()
+      .find((record) => record.runtime.tmuxSessionId === sessionId)?.config.id;
+    const defaultToolName =
+      (instanceId
+        ? this.instanceStore?.get(instanceId)?.config.selectedAiTool
+        : undefined) ?? config.get<AiTool>("defaultAiTool", "opencode");
     const tools: AiToolConfig[] = resolveAiToolConfigs(
       config.get("aiTools", []),
     );
@@ -496,37 +520,16 @@ export class TerminalDashboardProvider
     toolName: string,
     savePreference: boolean,
   ): Promise<void> {
-    if (savePreference) {
-      const config = vscode.workspace.getConfiguration("opencodeTui");
-      await config.update(
-        "defaultAiTool",
-        toolName,
-        vscode.ConfigurationTarget.Global,
-      );
-    }
-
-    const config = vscode.workspace.getConfiguration("opencodeTui");
-    const tools: AiToolConfig[] = resolveAiToolConfigs(
-      config.get("aiTools", []),
-    );
-    const toolInfo = tools.find(
-      (t) =>
-        t.name === toolName ||
-        getToolDetectionPatterns(t).some((pattern) => pattern === toolName),
-    );
-    if (!toolInfo) {
+    if (!this.terminalProvider) {
       return;
     }
 
     try {
-      const panes = await this.tmuxSessionManager.listPanes(sessionId);
-      const targetPane = panes.find((p) => p.isActive) ?? panes[0];
-      if (targetPane) {
-        await this.tmuxSessionManager.sendTextToPane(
-          targetPane.paneId,
-          getToolLaunchCommand(toolInfo),
-        );
-      }
+      await this.terminalProvider.launchAiTool(
+        sessionId,
+        toolName,
+        savePreference,
+      );
     } catch (error) {
       this.outputChannel?.appendLine(
         `[TerminalDashboardProvider] Failed to launch AI tool: ${error instanceof Error ? error.message : String(error)}`,
