@@ -23,3 +23,6 @@ nul
 # screenshots / test artifacts
 *.png
 .remember/
+
+# synapse
+.synapse/

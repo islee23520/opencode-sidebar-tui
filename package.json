@@ -308,7 +308,7 @@
         "opencodeTui.command": {
           "type": "string",
           "default": "opencode",
-          "description": "Command to launch OpenCode with arguments"
+          "description": "Legacy command override for OpenCode startup. Prefer opencodeTui.aiTools for multi-tool configuration."
         },
         "opencodeTui.fontSize": {
           "type": "number",
@@ -454,6 +454,17 @@
                   "type": "string"
                 },
                 "description": "Default arguments to pass when launching this tool"
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Additional names that should resolve to this tool"
+              },
+              "operator": {
+                "type": "string",
+                "description": "Optional operator id used to apply tool-specific launch and routing behavior"
               }
             },
             "required": [
@@ -466,22 +477,30 @@
               "name": "opencode",
               "label": "OpenCode",
               "path": "",
-              "args": []
+              "args": [
+                "-c"
+              ],
+              "operator": "opencode"
             },
             {
-              "name": "claude",
-              "label": "Claude",
+              "name": "claude-code",
+              "label": "Claude Code",
               "path": "",
-              "args": []
+              "args": [],
+              "aliases": [
+                "claude"
+              ],
+              "operator": "claude-code"
             },
             {
               "name": "codex",
               "label": "Codex",
               "path": "",
-              "args": []
+              "args": [],
+              "operator": "codex"
             }
           ],
-          "description": "Configure AI coding tools with custom paths and arguments"
+          "description": "Configure AI coding tools with custom paths, arguments, aliases, and operator ids"
         },
         "opencodeTui.defaultAiTool": {
           "type": "string",
@@ -491,22 +510,12 @@
         "opencodeTui.nativeShellDefault": {
           "type": "string",
           "default": "",
-          "enum": [
-            "",
-            "opencode",
-            "shell"
-          ],
-          "description": "Default behavior when switching to native shell. Empty = ask every time, 'opencode' = always launch OpenCode, 'shell' = always launch default shell (zsh)"
+          "description": "Default behavior when switching to native shell. Empty = ask every time, 'shell' = default shell, or set any configured AI tool name such as 'opencode', 'claude-code', or 'codex'"
         },
         "opencodeTui.tmuxSessionDefault": {
           "type": "string",
           "default": "",
-          "enum": [
-            "",
-            "opencode",
-            "shell"
-          ],
-          "description": "Default behavior when creating a new tmux session. Empty = ask every time, 'opencode' = always launch OpenCode, 'shell' = always launch default shell (zsh)"
+          "description": "Default behavior when creating a new tmux session. Empty = ask every time, 'shell' = create without launching a tool, or set any configured AI tool name"
         }
       }
     }

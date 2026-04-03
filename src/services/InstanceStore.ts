@@ -18,6 +18,7 @@ export interface InstanceConfig {
   label?: string;
   command?: string;
   args?: string[];
+  selectedAiTool?: string;
   preferredPort?: number;
   enableHttpApi?: boolean;
 }

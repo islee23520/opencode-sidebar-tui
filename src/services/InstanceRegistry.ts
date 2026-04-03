@@ -252,6 +252,10 @@ export class InstanceRegistry implements vscode.Disposable {
       args: Array.isArray(candidate.args)
         ? candidate.args.filter((arg): arg is string => typeof arg === "string")
         : undefined,
+      selectedAiTool:
+        typeof candidate.selectedAiTool === "string"
+          ? candidate.selectedAiTool
+          : undefined,
       preferredPort:
         typeof candidate.preferredPort === "number"
           ? candidate.preferredPort
@@ -280,6 +284,10 @@ export class InstanceRegistry implements vscode.Disposable {
       args: Array.isArray(candidate.args)
         ? candidate.args.filter((arg): arg is string => typeof arg === "string")
         : undefined,
+      selectedAiTool:
+        typeof candidate.selectedAiTool === "string"
+          ? candidate.selectedAiTool
+          : undefined,
       preferredPort:
         typeof candidate.preferredPort === "number"
           ? candidate.preferredPort
@@ -295,6 +303,7 @@ export class InstanceRegistry implements vscode.Disposable {
       config.label !== undefined ||
       config.command !== undefined ||
       config.args !== undefined ||
+      config.selectedAiTool !== undefined ||
       config.preferredPort !== undefined ||
       config.enableHttpApi !== undefined;
 
