@@ -8,29 +8,18 @@ export function setupAiToolButton(): void {
 }
 
 export function setupTmuxToolbar(): void {
-  const prevSession = document.getElementById("btn-prev-session");
-  const nextSession = document.getElementById("btn-next-session");
-  const prevWindow = document.getElementById("btn-prev-window");
-  const nextWindow = document.getElementById("btn-next-window");
-
-  prevSession?.addEventListener("click", () => {
-    postMessage({ type: "navigateTmuxSession", direction: "prev" });
-  });
-  nextSession?.addEventListener("click", () => {
-    postMessage({ type: "navigateTmuxSession", direction: "next" });
-  });
-  prevWindow?.addEventListener("click", () => {
-    postMessage({ type: "navigateTmuxWindow", direction: "prev" });
-  });
-  nextWindow?.addEventListener("click", () => {
-    postMessage({ type: "navigateTmuxWindow", direction: "next" });
-  });
+  document
+    .getElementById("btn-open-dashboard")
+    ?.addEventListener("click", () => {
+      postMessage({ type: "toggleDashboard" });
+    });
 }
 
 export function setupPaneControls(): void {
   const btnSplitV = document.getElementById("btn-split-v");
   const btnSplitH = document.getElementById("btn-split-h");
   const btnNewWindow = document.getElementById("btn-new-window");
+  const btnNextWindow = document.getElementById("btn-next-window");
   const btnZoomPane = document.getElementById("btn-zoom-pane");
   const btnKillPane = document.getElementById("btn-kill-pane");
 
@@ -42,6 +31,9 @@ export function setupPaneControls(): void {
   });
   btnNewWindow?.addEventListener("click", () => {
     postMessage({ type: "createTmuxWindow" });
+  });
+  btnNextWindow?.addEventListener("click", () => {
+    postMessage({ type: "navigateTmuxWindow", direction: "next" });
   });
   btnZoomPane?.addEventListener("click", () => {
     postMessage({ type: "zoomTmuxPane" });

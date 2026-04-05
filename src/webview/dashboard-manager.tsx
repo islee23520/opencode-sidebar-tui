@@ -85,7 +85,6 @@ function renderDashboard(): void {
   render(
     h(App, {
       payload: lastPayload,
-      aiTools,
       onAction: handleAction,
     }),
     sessionList,

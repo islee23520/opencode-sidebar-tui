@@ -195,6 +195,62 @@ describe("TerminalProvider", () => {
     expect(launchSpy).toHaveBeenCalledWith("tmux-a", "codex", true, undefined);
   });
 
+  it("opens the AI tool selector for explicit manual requests", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    const { messageHandler } = resolveProvider(provider);
+    const showSpy = vi
+      .spyOn(provider, "showAiToolSelector")
+      .mockResolvedValue(undefined);
+
+    messageHandler({ type: "requestAiToolSelector" });
+    await Promise.resolve();
+
+    expect(showSpy).toHaveBeenCalledWith(
+      "opencode-main",
+      "opencode-main",
+      true,
+      undefined,
+    );
+  });
+
+  it("does not auto-open the AI tool selector after tmux window creation", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    const { messageHandler } = resolveProvider(provider);
+    vi.spyOn(provider, "createTmuxWindow").mockResolvedValue({
+      windowId: "@1",
+      paneId: "%8",
+    });
+    vi.spyOn(provider, "getSelectedTmuxSessionId").mockReturnValue("tmux-a");
+    const showSpy = vi
+      .spyOn(provider, "showAiToolSelector")
+      .mockResolvedValue(undefined);
+
+    messageHandler({ type: "createTmuxWindow" });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(showSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not auto-open the AI tool selector after tmux pane split", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    const { messageHandler } = resolveProvider(provider);
+    vi.spyOn(provider, "splitTmuxPane").mockResolvedValue("%8");
+    vi.spyOn(provider, "getSelectedTmuxSessionId").mockReturnValue("tmux-a");
+    const showSpy = vi
+      .spyOn(provider, "showAiToolSelector")
+      .mockResolvedValue(undefined);
+
+    messageHandler({ type: "splitTmuxPane", direction: "h" });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(showSpy).not.toHaveBeenCalled();
+  });
+
   it("routes zoomTmuxPane messages through the provider zoom path", async () => {
     mockConfiguration();
     provider = createProvider();

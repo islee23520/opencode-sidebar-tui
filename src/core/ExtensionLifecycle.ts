@@ -5,6 +5,7 @@ import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { ContextSharingService } from "../services/ContextSharingService";
 import { ContextManager } from "../services/ContextManager";
+import type { ILogger } from "../services/ILogger";
 import { OutputChannelService } from "../services/OutputChannelService";
 import { InstanceDiscoveryService } from "../services/InstanceDiscoveryService";
 import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
@@ -97,7 +98,7 @@ export class ExtensionLifecycle {
       // Initialize multi-instance support
       this.instanceStore = new InstanceStore();
       this.portManager = new PortManager(this.instanceStore);
-      const tmuxSessionManager = new TmuxSessionManager();
+      const tmuxSessionManager = new TmuxSessionManager(logger);
       if (await tmuxSessionManager.isAvailable()) {
         this.tmuxSessionManager = tmuxSessionManager;
       } else {
@@ -120,12 +121,14 @@ export class ExtensionLifecycle {
       const connectionResolver = new ConnectionResolver(
         this.instanceStore,
         this.instanceDiscoveryService,
+        undefined,
+        logger,
       );
       this.instanceController = new InstanceController(
         this.terminalManager,
         this.instanceStore,
         this.portManager,
-        logger.getChannel(),
+        logger,
         connectionResolver,
       );
 
@@ -162,7 +165,7 @@ export class ExtensionLifecycle {
         this.terminalDashboardProvider = new TerminalDashboardProvider(
           context,
           this.tmuxSessionManager,
-          logger.getChannel(),
+          logger,
           this.instanceStore,
           this.tuiProvider,
         );

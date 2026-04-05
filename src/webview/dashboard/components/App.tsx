@@ -1,24 +1,18 @@
 import { h, FunctionComponent, Fragment } from "preact";
-import { useState } from "preact/hooks";
 
-import * as AiTool from "../../ai-tool-selector";
 import { DashboardPayload } from "../types";
 import { EmptyState } from "./EmptyState";
 import { NativeShellCard } from "./NativeShellCard";
 import { ReturnBanner } from "./ReturnBanner";
 import { SessionCard } from "./SessionCard";
 
-type AiToolConfig = AiTool.AiToolConfig;
-
 export interface AppProps {
   payload: DashboardPayload;
-  aiTools: AiToolConfig[];
   onAction: (action: Record<string, unknown>) => void;
 }
 
 export const App: FunctionComponent<AppProps> = ({
   payload,
-  aiTools,
   onAction,
 }) => {
   const sessions = Array.isArray(payload.sessions) ? payload.sessions : [];
@@ -29,38 +23,7 @@ export const App: FunctionComponent<AppProps> = ({
     (session) => session.isActive && session.workspace !== payload.workspace,
   );
 
-  const [isAiSelectorVisible, setAiSelectorVisible] = useState<boolean>(() =>
-    AiTool.isVisible(),
-  );
-
   const handleAction = (action: Record<string, unknown>): void => {
-    const actionName =
-      typeof action.action === "string" ? action.action : undefined;
-
-    if (actionName === "showAiToolSelector") {
-      const sessionId =
-        typeof action.sessionId === "string" ? action.sessionId : "";
-      const sessionName =
-        typeof action.sessionName === "string" ? action.sessionName : "";
-      const defaultTool =
-        typeof action.defaultTool === "string" ? action.defaultTool : undefined;
-      const tools = Array.isArray(action.tools)
-        ? (action.tools as AiToolConfig[])
-        : aiTools;
-
-      AiTool.show(sessionId, sessionName, defaultTool, tools);
-      setAiSelectorVisible(true);
-      return;
-    }
-
-    if (actionName === "hideAiToolSelector" || isAiSelectorVisible) {
-      if (actionName === "hideAiToolSelector") {
-        AiTool.hide();
-        setAiSelectorVisible(false);
-        return;
-      }
-    }
-
     onAction(action);
   };
 
@@ -105,8 +68,12 @@ export const App: FunctionComponent<AppProps> = ({
       h(SessionCard, {
         key: session.id,
         session,
+        windows: payload.windows?.[session.id],
         onActivate: (sessionId): void => {
           handleAction({ action: "activate", sessionId });
+        },
+        onShowAiToolSelector: (sessionId, sessionName): void => {
+          handleAction({ action: "showAiToolSelector", sessionId, sessionName });
         },
         onKill: (sessionId): void => {
           handleAction({ action: "killSession", sessionId });

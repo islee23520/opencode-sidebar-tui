@@ -1,18 +1,22 @@
 import { h, FunctionComponent } from "preact";
 
-import { TmuxDashboardSessionDto } from "../types";
+import { TmuxDashboardSessionDto, TmuxDashboardWindowDto } from "../types";
 import { escapeHtml } from "../utils";
-import { SessionPreview } from "./SessionPreview";
+import { SessionMinimap } from "./SessionPreview";
 
 export interface SessionCardProps {
   session: TmuxDashboardSessionDto;
+  windows?: TmuxDashboardWindowDto[];
   onActivate: (sessionId: string) => void;
+  onShowAiToolSelector: (sessionId: string, sessionName: string) => void;
   onKill: (sessionId: string) => void;
 }
 
 export const SessionCard: FunctionComponent<SessionCardProps> = ({
   session,
+  windows,
   onActivate,
+  onShowAiToolSelector,
   onKill,
 }) => {
   const activeClass = session.isActive ? " active" : "";
@@ -42,19 +46,37 @@ export const SessionCard: FunctionComponent<SessionCardProps> = ({
         }),
       ),
       h(
-        "button",
-        {
-          type: "button",
-          class: "danger",
-          "data-action": "killSession",
-          "data-session-id": session.id,
-          title: "Kill Session",
-          onClick: (event: MouseEvent): void => {
-            event.stopPropagation();
-            onKill(session.id);
+        "div",
+        { class: "row", style: "gap: 8px;" },
+        h(
+          "button",
+          {
+            type: "button",
+            "data-action": "showAiToolSelector",
+            "data-session-id": session.id,
+            title: "Launch AI Tool",
+            onClick: (event: MouseEvent): void => {
+              event.stopPropagation();
+              onShowAiToolSelector(session.id, session.name);
+            },
           },
-        },
-        "✕",
+          "AI",
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            class: "danger",
+            "data-action": "killSession",
+            "data-session-id": session.id,
+            title: "Kill Session",
+            onClick: (event: MouseEvent): void => {
+              event.stopPropagation();
+              onKill(session.id);
+            },
+          },
+          "✕",
+        ),
       ),
     ),
     h(
@@ -73,6 +95,6 @@ export const SessionCard: FunctionComponent<SessionCardProps> = ({
         },
       }),
     ),
-    session.preview ? h(SessionPreview, { preview: session.preview }) : null,
+    windows && windows.length > 0 ? h(SessionMinimap, { windows }) : null,
   );
 };

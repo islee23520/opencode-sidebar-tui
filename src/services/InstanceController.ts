@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ILogger } from "./ILogger";
 import { PortManager } from "./PortManager";
 import { InstanceId, InstanceRecord, InstanceStore } from "./InstanceStore";
 import { ConnectionResolver } from "./ConnectionResolver";
@@ -16,7 +17,7 @@ export class InstanceController implements vscode.Disposable {
     private readonly terminalManager: TerminalManager,
     private readonly instanceStore: InstanceStore,
     private readonly portManager: PortManager,
-    private readonly outputChannel?: vscode.OutputChannel,
+    private readonly logger?: ILogger,
     private readonly connectionResolver?: ConnectionResolver,
   ) {}
 
@@ -232,7 +233,7 @@ export class InstanceController implements vscode.Disposable {
       } catch (error) {
         const latest = this.instanceStore.get(instanceId) ?? current;
         const message = error instanceof Error ? error.message : String(error);
-        this.outputChannel?.appendLine(
+        this.logger?.error(
           `[InstanceController] Failed to resolve '${instanceId}': ${message}`,
         );
         this.upsertRecord({
@@ -329,7 +330,7 @@ export class InstanceController implements vscode.Disposable {
     overrides?: Partial<InstanceRecord>,
   ): void {
     const message = error instanceof Error ? error.message : String(error);
-    this.outputChannel?.appendLine(
+    this.logger?.error(
       `[InstanceController] Failed to ${operation} '${current.config.id}': ${message}`,
     );
 

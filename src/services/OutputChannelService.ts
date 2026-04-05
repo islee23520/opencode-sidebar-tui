@@ -1,11 +1,12 @@
 import * as vscode from "vscode";
+import type { ILogger } from "./ILogger";
 
 /**
  * Service for managing the VS Code: Output Channel for logging.
  * Follows the singleton pattern to ensure all parts of the extension
  * log to the same channel.
  */
-export class OutputChannelService {
+export class OutputChannelService implements ILogger {
   private static instance: OutputChannelService | undefined;
   private channel: vscode.LogOutputChannel;
 

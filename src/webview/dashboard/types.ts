@@ -19,6 +19,10 @@ export interface TmuxDashboardPaneDto {
   currentCommand?: string;
   windowId?: string;
   currentPath?: string;
+  paneLeft?: number;
+  paneTop?: number;
+  paneWidth?: number;
+  paneHeight?: number;
 }
 
 export interface TmuxDashboardWindowDto {

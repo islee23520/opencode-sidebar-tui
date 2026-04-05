@@ -517,14 +517,24 @@ describe("TmuxSessionManager", () => {
     it("lists panes for only the active window when requested", async () => {
       mockExecSequence([
         {
-          stdout: "%0\t0\tbash\t1\tbash\t@0\t/workspaces/repo-a",
+          stdout: "@1\t1\tmain\t1",
+        },
+        {
+          stdout: "%0\t0\tbash\t1\tbash\t@1\t/workspaces/repo-a",
         },
       ]);
       await manager.listPanes("test-session", { activeWindowOnly: true });
       expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
-        "list-panes",
+        "list-windows",
         "-t",
         "test-session",
+        "-F",
+        "#{window_id}\t#{window_index}\t#{window_name}\t#{window_active}",
+      ]);
+      expect(vi.mocked(execFile).mock.calls[1]?.[1]).toEqual([
+        "list-panes",
+        "-t",
+        "test-session:@1",
         "-F",
         "#{pane_id}\t#{pane_index}\t#{pane_title}\t#{pane_active}\t#{pane_current_command}\t#{window_id}\t#{pane_current_path}",
       ]);

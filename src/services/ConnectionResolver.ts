@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { ILogger } from "./ILogger";
 import {
   InstanceDiscoveryService,
   OpenCodeInstance,
@@ -14,7 +15,7 @@ export class ConnectionResolver {
     private readonly instanceStore: InstanceStore,
     private readonly discoveryService: InstanceDiscoveryService = new InstanceDiscoveryService(),
     private readonly controller?: InstanceController,
-    private readonly outputChannel?: vscode.OutputChannel,
+    private readonly logger?: ILogger,
   ) {}
 
   /** Resolves a healthy port for an instance, or undefined when unavailable. */
@@ -253,6 +254,6 @@ export class ConnectionResolver {
   }
 
   private log(message: string): void {
-    this.outputChannel?.appendLine(`[ConnectionResolver] ${message}`);
+    this.logger?.debug(`[ConnectionResolver] ${message}`);
   }
 }

@@ -19,6 +19,7 @@ export interface MessageRouterProviderBridge {
   createTmuxWindow(): Promise<void>;
   navigateTmuxWindow(direction: "next" | "prev"): Promise<void>;
   navigateTmuxSession(direction: "next" | "prev"): Promise<void>;
+  toggleDashboard(): void;
   switchToNativeShell(): Promise<void>;
   pasteText(text: string): void;
   getActiveInstanceId(): InstanceId;
@@ -143,12 +144,7 @@ export class MessageRouter {
         void this.provider.createTmuxSession();
         break;
       case "createTmuxWindow":
-        void this.provider.createTmuxWindow().then(() => {
-          const sessionId = this.provider.getSelectedTmuxSessionId();
-          if (sessionId) {
-            void this.provider.showAiToolSelector(sessionId, sessionId, true);
-          }
-        });
+        void this.provider.createTmuxWindow();
         break;
       case "navigateTmuxWindow":
         if (message.direction === "next" || message.direction === "prev") {
@@ -173,19 +169,7 @@ export class MessageRouter {
         break;
       case "splitTmuxPane":
         if (message.direction === "h" || message.direction === "v") {
-          void this.provider
-            .splitTmuxPane(message.direction)
-            .then((newPaneId) => {
-              const sessionId = this.provider.getSelectedTmuxSessionId();
-              if (sessionId) {
-                void this.provider.showAiToolSelector(
-                  sessionId,
-                  sessionId,
-                  true,
-                  newPaneId,
-                );
-              }
-            });
+          void this.provider.splitTmuxPane(message.direction);
         }
         break;
       case "zoomTmuxPane":
@@ -208,6 +192,9 @@ export class MessageRouter {
         void this.provider.showAiToolSelector(sessionId, sessionId, true);
         break;
       }
+      case "toggleDashboard":
+        this.provider.toggleDashboard();
+        break;
       default:
         break;
     }

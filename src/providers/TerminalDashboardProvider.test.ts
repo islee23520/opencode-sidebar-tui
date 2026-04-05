@@ -56,6 +56,7 @@ describe("TerminalDashboardProvider", () => {
       discoverSessions,
       listPanes,
       listWindows,
+      listWindowPaneGeometry: vi.fn().mockResolvedValue([]),
       selectPane: vi.fn().mockResolvedValue(undefined),
       splitPane: vi.fn().mockResolvedValue("%8"),
       createWindow: vi.fn().mockResolvedValue({ windowId: "@1", paneId: "%8" }),
@@ -130,7 +131,6 @@ describe("TerminalDashboardProvider", () => {
             workspace: "repo-a",
             isActive: true,
             paneCount: 0,
-            preview: "",
           },
         ],
         nativeShells: [],
@@ -209,7 +209,6 @@ describe("TerminalDashboardProvider", () => {
             workspace: "repo-a",
             isActive: false,
             paneCount: 0,
-            preview: "",
           },
         ],
         nativeShells: [],
@@ -303,6 +302,78 @@ describe("TerminalDashboardProvider", () => {
     });
   });
 
+  it("opens the AI tool selector only when the dashboard sends an explicit action", async () => {
+    const { provider } = createProvider(
+      vi.fn().mockResolvedValue([
+        { id: "repo-a", name: "Repo A", workspace: "repo-a", isActive: true },
+      ]),
+    );
+    const showSpy = vi.spyOn(provider, "showAiToolSelector");
+
+    const { view, messageHandler } = resolveProvider(provider);
+    await flushPromises();
+    vi.mocked(view.webview.postMessage).mockClear();
+
+    await messageHandler({
+      action: "showAiToolSelector",
+      sessionId: "repo-a",
+      sessionName: "Repo A",
+    });
+
+    expect(showSpy).toHaveBeenCalledWith("repo-a", "Repo A", true);
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "showAiToolSelector",
+        sessionId: "repo-a",
+      }),
+    );
+  });
+
+  it("does not auto-open the AI tool selector after dashboard create, createWindow, or splitPane actions", async () => {
+    const discoverSessions = vi.fn().mockResolvedValue([
+      { id: "repo-a", name: "repo-a", workspace: "repo-a", isActive: true },
+    ]);
+    const listPanes = vi.fn().mockResolvedValue([
+      {
+        paneId: "%7",
+        index: 0,
+        title: "shell",
+        isActive: true,
+        currentPath: "/workspaces/repo-a/packages/app",
+      },
+    ]);
+    const { provider, tmuxSessionManager } = createProvider(
+      discoverSessions,
+      listPanes,
+      vi.fn().mockResolvedValue([]),
+    );
+
+    const { view, messageHandler } = resolveProvider(provider);
+    await flushPromises();
+    vi.mocked(view.webview.postMessage).mockClear();
+
+    await messageHandler({ action: "create" });
+    await flushPromises();
+    await messageHandler({ action: "createWindow", sessionId: "repo-a" });
+    await flushPromises();
+    await messageHandler({ action: "splitPane", sessionId: "repo-a", direction: "h" });
+    await flushPromises();
+
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "opencodeTui.createTmuxSession",
+    );
+    expect(vi.mocked(tmuxSessionManager.createWindow)).toHaveBeenCalledWith(
+      "repo-a",
+      "/workspaces/repo-a/packages/app",
+    );
+    expect(vi.mocked(tmuxSessionManager.splitPane)).toHaveBeenCalledWith("%7", "h", {
+      workingDirectory: "/workspaces/repo-a/packages/app",
+    });
+    expect(view.webview.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "showAiToolSelector" }),
+    );
+  });
+
   it("opens the dashboard as a webview panel and reveals existing panel", async () => {
     const { provider } = createProvider();
 
@@ -361,7 +432,6 @@ describe("TerminalDashboardProvider", () => {
             workspace: "repo-a",
             isActive: true,
             paneCount: 0,
-            preview: "",
           },
         ],
       }),

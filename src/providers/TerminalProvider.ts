@@ -66,6 +66,7 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
       createTmuxWindow: () => this.createTmuxWindow(),
       navigateTmuxWindow: (direction) => this.navigateTmuxWindow(direction),
       navigateTmuxSession: (direction) => this.navigateTmuxSession(direction),
+      toggleDashboard: () => this.toggleDashboard(),
       switchToNativeShell: () => this.switchToNativeShell(),
       pasteText: (text) => this.pasteText(text),
       getActiveInstanceId: () => this.getActiveInstanceId(),

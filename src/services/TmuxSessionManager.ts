@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { basename, resolve } from "node:path";
 import * as vscode from "vscode";
 import { TmuxDashboardPaneDto, TmuxSession, TreeSnapshot } from "../types";
+import { ILogger } from "./ILogger";
 
 const TMUX_LIST_FORMAT =
   "#{session_name}\t#{session_attached}\t#{session_path}";
@@ -72,6 +73,7 @@ export class TmuxSessionManager {
   public readonly onExternalPaneChange = this._onExternalPaneChange.event;
 
   constructor(
+    private readonly logger?: ILogger,
     private readonly runExecFile: ExecFileLike = (file, args, callback) => {
       execFile(file, args, callback as never);
     },
@@ -287,6 +289,14 @@ export class TmuxSessionManager {
         "after-new-window",
         this.buildHookCommand(signalPid),
       ]);
+      await this.runTmux([
+        "set-hook",
+        "-g",
+        "-t",
+        sessionId,
+        "after-select-window",
+        this.buildHookCommand(signalPid),
+      ]);
     } catch (error) {
       try {
         if (this.isTmuxUnavailable(error)) {
@@ -295,7 +305,7 @@ export class TmuxSessionManager {
 
         throw error;
       } catch (hookError) {
-        console.warn(
+        this.logger?.warn(
           `[TmuxSessionManager] Failed to register session hooks for "${sessionId}": ${hookError instanceof Error ? hookError.message : String(hookError)}`,
         );
       }
@@ -320,6 +330,14 @@ export class TmuxSessionManager {
         sessionId,
         "after-new-window",
       ]);
+      await this.runTmux([
+        "set-hook",
+        "-u",
+        "-g",
+        "-t",
+        sessionId,
+        "after-select-window",
+      ]);
     } catch (error) {
       try {
         if (this.isTmuxUnavailable(error)) {
@@ -328,7 +346,7 @@ export class TmuxSessionManager {
 
         throw error;
       } catch (hookError) {
-        console.warn(
+        this.logger?.warn(
           `[TmuxSessionManager] Failed to unregister session hooks for "${sessionId}": ${hookError instanceof Error ? hookError.message : String(hookError)}`,
         );
       }
@@ -435,16 +453,16 @@ export class TmuxSessionManager {
       if (options?.command) {
         args.push(options.command);
       }
-      console.log(
+      this.logger?.debug(
         `[DIAG:splitPane] targetPaneId="${targetPaneId}" direction="${direction}" command="${options?.command ?? "none"}" args=${JSON.stringify(args)}`,
       );
       const stdout = await this.runTmux(args);
       const newPaneId = stdout.trim();
-      console.log(`[DIAG:splitPane] SUCCESS newPaneId="${newPaneId}"`);
+      this.logger?.debug(`[DIAG:splitPane] SUCCESS newPaneId="${newPaneId}"`);
       this._onPaneChanged.fire();
       return newPaneId;
     } catch (error) {
-      console.log(
+      this.logger?.error(
         `[DIAG:splitPane] FAILED targetPaneId="${targetPaneId}" error=${error instanceof Error ? error.message : String(error)}`,
       );
       if (this.isTmuxUnavailable(error)) {
@@ -456,12 +474,12 @@ export class TmuxSessionManager {
 
   public async killPane(paneId: string): Promise<void> {
     try {
-      console.log(`[DIAG:killPane] paneId="${paneId}"`);
+      this.logger?.debug(`[DIAG:killPane] paneId="${paneId}"`);
       await this.runTmux(["kill-pane", "-t", paneId]);
-      console.log(`[DIAG:killPane] SUCCESS paneId="${paneId}"`);
+      this.logger?.debug(`[DIAG:killPane] SUCCESS paneId="${paneId}"`);
       this._onPaneChanged.fire();
     } catch (error) {
-      console.log(
+      this.logger?.error(
         `[DIAG:killPane] FAILED paneId="${paneId}" error=${error instanceof Error ? error.message : String(error)}`,
       );
       if (this.isTmuxUnavailable(error)) {
@@ -485,19 +503,19 @@ export class TmuxSessionManager {
 
   public async selectPane(paneId: string, windowId?: string): Promise<void> {
     try {
-      console.log(
+      this.logger?.debug(
         `[DIAG:selectPane] paneId="${paneId}" windowId="${windowId ?? "none"}"`,
       );
       if (windowId) {
         await this.runTmux(["select-window", "-t", windowId]);
       }
       await this.runTmux(["select-pane", "-t", paneId]);
-      console.log(
+      this.logger?.debug(
         `[DIAG:selectPane] SUCCESS paneId="${paneId}" windowId="${windowId ?? "none"}"`,
       );
       this._onPaneChanged.fire();
     } catch (error) {
-      console.log(
+      this.logger?.error(
         `[DIAG:selectPane] FAILED paneId="${paneId}" windowId="${windowId ?? "none"}" error=${error instanceof Error ? error.message : String(error)}`,
       );
       if (this.isTmuxUnavailable(error)) {
@@ -561,7 +579,7 @@ export class TmuxSessionManager {
   ): Promise<void> {
     try {
       const submit = options?.submit !== false;
-      console.log(
+      this.logger?.debug(
         `[DIAG:sendTextToPane] paneId="${paneId}" textLength=${text.length} submit=${submit}`,
       );
       const args: string[] = ["send-keys", "-t", paneId];
@@ -571,9 +589,9 @@ export class TmuxSessionManager {
         args.push("-l", text);
       }
       await this.runTmux(args);
-      console.log(`[DIAG:sendTextToPane] SUCCESS paneId="${paneId}"`);
+      this.logger?.debug(`[DIAG:sendTextToPane] SUCCESS paneId="${paneId}"`);
     } catch (error) {
-      console.log(
+      this.logger?.error(
         `[DIAG:sendTextToPane] FAILED paneId="${paneId}" error=${error instanceof Error ? error.message : String(error)}`,
       );
       if (this.isTmuxUnavailable(error)) {
@@ -626,10 +644,17 @@ export class TmuxSessionManager {
       const format =
         "#{pane_id}\t#{pane_index}\t#{pane_title}\t#{pane_active}\t#{pane_current_command}\t#{window_id}\t#{pane_current_path}";
       const args = ["list-panes"];
-      if (!options?.activeWindowOnly) {
-        args.push("-s");
+      if (options?.activeWindowOnly) {
+        const windows = await this.listWindows(sessionId);
+        const activeWindow = windows.find((w) => w.isActive);
+        if (!activeWindow) {
+          return [];
+        }
+        args.push("-t", `${sessionId}:${activeWindow.windowId}`);
+      } else {
+        args.push("-s", "-t", sessionId);
       }
-      args.push("-t", sessionId, "-F", format);
+      args.push("-F", format);
       const stdout = await this.runTmux(args);
       return stdout
         .split(/\r?\n/)
@@ -723,6 +748,73 @@ export class TmuxSessionManager {
       ...(p.windowId !== undefined ? { windowId: p.windowId } : {}),
       ...(p.currentPath !== undefined ? { currentPath: p.currentPath } : {}),
     }));
+  }
+
+  /**
+   * Lists panes with geometry for a specific window in a session.
+   * @param sessionId The session ID
+   * @param windowId The window ID
+   * @returns Array of pane DTOs with geometry fields populated
+   */
+  public async listWindowPaneGeometry(
+    sessionId: string,
+    windowId: string,
+  ): Promise<TmuxDashboardPaneDto[]> {
+    try {
+      const format =
+        "#{pane_id}\t#{pane_index}\t#{pane_title}\t#{pane_active}\t#{pane_current_command}\t#{window_id}\t#{pane_current_path}\t#{pane_left}\t#{pane_top}\t#{pane_width}\t#{pane_height}";
+      const stdout = await this.runTmux([
+        "list-panes",
+        "-t",
+        `${sessionId}:${windowId}`,
+        "-F",
+        format,
+      ]);
+      return stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => {
+          const [
+            paneId,
+            index,
+            title,
+            active,
+            currentCommand,
+            wid,
+            currentPath,
+            paneLeft,
+            paneTop,
+            paneWidth,
+            paneHeight,
+          ] = line.split("\t");
+          return {
+            paneId: paneId ?? "",
+            index: Number(index),
+            title: title ?? "",
+            isActive: active === "1",
+            ...(currentCommand !== undefined && currentCommand !== ""
+              ? { currentCommand }
+              : {}),
+            ...(wid !== undefined && wid !== "" ? { windowId: wid } : {}),
+            ...(currentPath !== undefined && currentPath !== ""
+              ? { currentPath }
+              : {}),
+            paneLeft: Number(paneLeft),
+            paneTop: Number(paneTop),
+            paneWidth: Number(paneWidth),
+            paneHeight: Number(paneHeight),
+          };
+        });
+    } catch (error) {
+      if (this.isNoSessionsError(error)) {
+        return [];
+      }
+      if (this.isTmuxUnavailable(error)) {
+        throw new TmuxUnavailableError();
+      }
+      throw error;
+    }
   }
 
   /**

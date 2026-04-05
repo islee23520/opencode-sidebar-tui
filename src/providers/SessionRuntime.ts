@@ -55,6 +55,8 @@ export class SessionRuntime {
   private sigusr2Handler?: () => void;
   private knownPaneIds: Map<string, Set<string>> = new Map();
   private knownPaneCommands: Map<string, string> = new Map();
+  private knownActiveWindowId?: string;
+  private _lastPaneHasAiTool?: boolean;
   private sigusr2FiredSinceLastCheck = false;
   private externalChangeListener?: vscode.Disposable;
   private paneMonitorInterval?: ReturnType<typeof setInterval>;
@@ -761,18 +763,26 @@ export class SessionRuntime {
   public async createTmuxWindow(): Promise<
     { windowId: string; paneId: string } | undefined
   > {
-    if (!this.tmuxSessionManager || !this.selectedTmuxSessionId) {
+    if (!this.tmuxSessionManager) {
       return undefined;
     }
-    const panes = await this.tmuxSessionManager.listPanes(
-      this.selectedTmuxSessionId,
-      { activeWindowOnly: true },
-    );
+    const sessionId =
+      this.selectedTmuxSessionId ??
+      this.resolveTmuxSessionIdForInstance(this.activeInstanceId) ??
+      (await this.resolveFallbackTmuxSessionId());
+    if (!sessionId) {
+      return undefined;
+    }
+    const panes = await this.tmuxSessionManager.listPanes(sessionId, {
+      activeWindowOnly: true,
+    });
     const activePane = panes.find((p) => p.isActive) ?? panes[0];
-    return await this.tmuxSessionManager.createWindow(
-      this.selectedTmuxSessionId,
+    const result = await this.tmuxSessionManager.createWindow(
+      sessionId,
       activePane?.currentPath ?? this.resolveWorkspacePathForTmuxFallback(),
     );
+    await this.tmuxSessionManager.selectWindow(result.windowId);
+    return result;
   }
 
   private async getActivePaneInSelectedWindow(
@@ -785,13 +795,20 @@ export class SessionRuntime {
   }
 
   public async navigateTmuxWindow(direction: "next" | "prev"): Promise<void> {
-    if (!this.tmuxSessionManager || !this.selectedTmuxSessionId) {
+    if (!this.tmuxSessionManager) {
+      return;
+    }
+    const sessionId =
+      this.selectedTmuxSessionId ??
+      this.resolveTmuxSessionIdForInstance(this.activeInstanceId) ??
+      (await this.resolveFallbackTmuxSessionId());
+    if (!sessionId) {
       return;
     }
     if (direction === "next") {
-      await this.tmuxSessionManager.nextWindow(this.selectedTmuxSessionId);
+      await this.tmuxSessionManager.nextWindow(sessionId);
     } else {
-      await this.tmuxSessionManager.prevWindow(this.selectedTmuxSessionId);
+      await this.tmuxSessionManager.prevWindow(sessionId);
     }
   }
 
@@ -808,7 +825,9 @@ export class SessionRuntime {
     if (!sessionId) {
       return undefined;
     }
-    const panes = await this.tmuxSessionManager.listPanes(sessionId);
+    const panes = await this.tmuxSessionManager.listPanes(sessionId, {
+      activeWindowOnly: true,
+    });
     const activePane = panes.find((p) => p.isActive) ?? panes[0];
     if (activePane) {
       return await this.tmuxSessionManager.splitPane(
@@ -1211,49 +1230,11 @@ export class SessionRuntime {
       const currentPaneIds = new Set(panes.map((p) => p.paneId));
       const previousPaneIds = this.knownPaneIds.get(activeSessionId);
 
-      // If a tmux event occurred since last check, something changed — always check
-      // If not, rely on state comparison (catches polling-only cases)
       if (this.sigusr2FiredSinceLastCheck) {
         this.sigusr2FiredSinceLastCheck = false;
-        const activePane = panes.find((p) => p.isActive);
-        if (activePane && this.isPlainShell(activePane.currentCommand ?? "")) {
-          this.callbacks.showAiToolSelector(
-            activeSessionId,
-            activeSessionId,
-            true,
-          );
-        }
-        return;
       }
-      let shouldShowSelector = false;
 
-      if (previousPaneIds) {
-        for (const pane of panes) {
-          const key = `${activeSessionId}:${pane.paneId}`;
-          const prevCmd = this.knownPaneCommands.get(key);
-          const curCmd = pane.currentCommand ?? "";
-          const isNewPane = !previousPaneIds.has(pane.paneId);
-
-          // Case 1: Brand new pane ID (split, new window, fresh create)
-          if (isNewPane) {
-            shouldShowSelector = true;
-            break;
-          }
-
-          // Case 2: Existing pane ID but tool is gone
-          // Covers: kill+recreate with same ID, tool exit/crash
-          // Only trigger if a non-shell tool was previously running
-          if (
-            prevCmd !== undefined &&
-            prevCmd !== curCmd &&
-            !this.isPlainShell(prevCmd) &&
-            (curCmd === "" || this.isPlainShell(curCmd))
-          ) {
-            shouldShowSelector = true;
-            break;
-          }
-        }
-      }
+      void previousPaneIds;
 
       // Always update tracking state
       this.knownPaneIds.set(activeSessionId, currentPaneIds);
@@ -1262,12 +1243,31 @@ export class SessionRuntime {
         this.knownPaneCommands.set(key, pane.currentCommand ?? "");
       }
 
-      if (shouldShowSelector) {
-        this.callbacks.showAiToolSelector(
-          activeSessionId,
-          activeSessionId,
-          true,
-        );
+      const windows =
+        await this.tmuxSessionManager.listWindows(activeSessionId);
+      const activeWindow = windows.find((w) => w.isActive);
+      const windowChanged =
+        activeWindow && activeWindow.windowId !== this.knownActiveWindowId;
+
+      const activePane = panes.find((p) => p.isActive);
+      const paneCommand = activePane?.currentCommand ?? "";
+      const paneHasAiTool =
+        paneCommand !== "" && !this.isPlainShell(paneCommand);
+
+      if (windowChanged) {
+        this.knownActiveWindowId = activeWindow.windowId;
+      }
+
+      if (windowChanged || paneHasAiTool !== this._lastPaneHasAiTool) {
+        this._lastPaneHasAiTool = paneHasAiTool;
+        this.callbacks.postMessage({
+          type: "activeSession",
+          sessionName: activeSessionId,
+          sessionId: activeSessionId,
+          windowIndex: activeWindow?.index,
+          windowName: activeWindow?.name,
+          paneHasAiTool,
+        });
       }
     } catch {
       // Silently ignore — polling is best-effort

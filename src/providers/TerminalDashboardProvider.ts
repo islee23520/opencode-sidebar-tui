@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import type { ILogger } from "../services/ILogger";
 import { TmuxSessionManager } from "../services/TmuxSessionManager";
 import { InstanceStore } from "../services/InstanceStore";
 import type { TerminalProvider } from "./TerminalProvider";
@@ -33,15 +34,10 @@ export class TerminalDashboardProvider
   private static readonly HTML_VERSION = 16;
   private showAllSessions = false;
 
-  /**
-   * @param context Extension context
-   * @param tmuxSessionManager Tmux session manager service
-   * @param outputChannel Optional output channel for logging
-   */
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly tmuxSessionManager: TmuxSessionManager,
-    private readonly outputChannel?: vscode.OutputChannel,
+    private readonly logger?: ILogger,
     private readonly instanceStore?: InstanceStore,
     private readonly terminalProvider?: TerminalProvider,
   ) {}
@@ -141,11 +137,11 @@ export class TerminalDashboardProvider
         ? path.basename(workspacePath)
         : undefined;
 
-      this.outputChannel?.appendLine(
+      this.logger?.debug(
         `[TerminalDashboard] Discovered ${sessions.length} sessions, workspaceName=${workspaceName}, workspacePath=${workspacePath}`,
       );
       for (const s of sessions) {
-        this.outputChannel?.appendLine(
+        this.logger?.debug(
           `[TerminalDashboard]   session: id=${s.id}, workspace=${s.workspace}, isActive=${s.isActive}`,
         );
       }
@@ -158,33 +154,35 @@ export class TerminalDashboardProvider
         filtered = sessions;
       }
 
-      this.outputChannel?.appendLine(
+      this.logger?.debug(
         `[TerminalDashboard] Filtered to ${filtered.length} sessions${this.showAllSessions ? " (global)" : ""}`,
       );
 
       const panesMap: Record<string, TmuxDashboardPaneDto[]> = {};
       const windowsMap: Record<string, TmuxDashboardWindowDto[]> = {};
-      const previewMap: Record<string, string> = {};
       for (const session of filtered) {
         try {
-          const [panes, windows, preview] = await Promise.all([
-            this.listPanesForSession(session.id),
-            this.tmuxSessionManager.listWindows(session.id),
-            this.tmuxSessionManager.captureSessionPreview(session.id),
-          ]);
-          panesMap[session.id] = panes;
-          previewMap[session.id] = preview;
-          windowsMap[session.id] = windows.map((w) => ({
+          const windows = await this.tmuxSessionManager.listWindows(session.id);
+          const windowPanes = await Promise.all(
+            windows.map((w) =>
+              this.tmuxSessionManager.listWindowPaneGeometry(
+                session.id,
+                w.windowId,
+              ),
+            ),
+          );
+          const allPanes = windowPanes.flat();
+          panesMap[session.id] = allPanes;
+          windowsMap[session.id] = windows.map((w, i) => ({
             windowId: w.windowId,
             index: w.index,
             name: w.name,
             isActive: w.isActive,
-            panes: panes.filter((p) => p.windowId === w.windowId),
+            panes: windowPanes[i] ?? [],
           }));
         } catch {
           panesMap[session.id] = [];
           windowsMap[session.id] = [];
-          previewMap[session.id] = "";
         }
       }
 
@@ -194,7 +192,6 @@ export class TerminalDashboardProvider
         workspace: session.workspace,
         isActive: session.isActive,
         paneCount: panesMap[session.id]?.length ?? 0,
-        preview: previewMap[session.id],
       }));
 
       const config = vscode.workspace.getConfiguration("opencodeTui");
@@ -219,13 +216,13 @@ export class TerminalDashboardProvider
 
       const posted = await webview.postMessage(message);
       if (!posted) {
-        this.outputChannel?.appendLine(
+        this.logger?.warn(
           `[TerminalDashboard] postMessage returned false (webview not visible), queuing retry`,
         );
         this.scheduleRetryPost(message);
       }
     } catch (error) {
-      this.outputChannel?.appendLine(
+      this.logger?.error(
         `[TerminalDashboardProvider] Failed to load tmux sessions: ${error instanceof Error ? error.message : String(error)}`,
       );
       const fallbackMessage: TmuxDashboardHostMessage = {
@@ -266,15 +263,8 @@ export class TerminalDashboardProvider
         await this.postSessionsToWebview();
         return;
       case "create":
-        {
-          const newSessionId = (await vscode.commands.executeCommand(
-            "opencodeTui.createTmuxSession",
-          )) as string | undefined;
-          await this.postSessionsToWebview();
-          if (newSessionId) {
-            await this.showAiToolSelector(newSessionId, newSessionId, true);
-          }
-        }
+        await vscode.commands.executeCommand("opencodeTui.createTmuxSession");
+        await this.postSessionsToWebview();
         return;
       case "switchNativeShell":
         await vscode.commands.executeCommand("opencodeTui.switchNativeShell");
@@ -322,6 +312,13 @@ export class TerminalDashboardProvider
         }
         await this.postSessionsToWebview();
         return;
+      case "showAiToolSelector":
+        await this.showAiToolSelector(
+          message.sessionId,
+          message.sessionName,
+          true,
+        );
+        return;
       case "expandPanes":
         await this.postSessionsToWebview();
         return;
@@ -336,17 +333,11 @@ export class TerminalDashboardProvider
           const activePane = panes.find((pane) => pane.isActive) ?? panes[0];
           const workspacePath =
             vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-          const { paneId } = await this.tmuxSessionManager.createWindow(
+          await this.tmuxSessionManager.createWindow(
             message.sessionId,
             activePane?.currentPath ?? workspacePath,
           );
           await this.postSessionsToWebview();
-          await this.showAiToolSelector(
-            message.sessionId,
-            message.sessionId,
-            true,
-            paneId,
-          );
         }
         return;
       case "nextWindow":
@@ -362,7 +353,7 @@ export class TerminalDashboardProvider
         await this.postSessionsToWebview();
         return;
       case "selectWindow":
-        this.outputChannel?.appendLine(
+        this.logger?.debug(
           `[TerminalDashboard] selectWindow: sessionId=${message.sessionId}, windowId=${message.windowId}`,
         );
         await this.tmuxSessionManager.selectWindow(message.windowId);
@@ -386,7 +377,7 @@ export class TerminalDashboardProvider
             panes[0];
           const targetPaneId =
             activePane?.paneId ?? message.paneId ?? message.sessionId;
-          const newPaneId = await this.tmuxSessionManager.splitPane(
+          await this.tmuxSessionManager.splitPane(
             targetPaneId,
             message.direction,
             {
@@ -394,12 +385,6 @@ export class TerminalDashboardProvider
             },
           );
           await this.postSessionsToWebview();
-          await this.showAiToolSelector(
-            message.sessionId,
-            message.sessionId,
-            true,
-            newPaneId,
-          );
         }
         return;
       case "splitPaneWithCommand":
@@ -604,7 +589,7 @@ export class TerminalDashboardProvider
         targetPaneId,
       );
     } catch (error) {
-      this.outputChannel?.appendLine(
+      this.logger?.error(
         `[TerminalDashboardProvider] Failed to launch AI tool: ${error instanceof Error ? error.message : String(error)}`,
       );
     }

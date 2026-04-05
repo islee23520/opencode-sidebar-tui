@@ -166,6 +166,7 @@ export type TmuxDashboardActionMessage =
   | { action: "activateNativeShell"; instanceId: string }
   | { action: "killNativeShell"; instanceId: string }
   | { action: "activate"; sessionId: string }
+  | { action: "showAiToolSelector"; sessionId: string; sessionName: string }
   | { action: "expandPanes"; sessionId: string }
   | { action: "createWindow"; sessionId: string }
   | { action: "nextWindow"; sessionId: string }
@@ -230,6 +231,10 @@ export type TmuxDashboardPaneDto = {
   currentCommand?: string;
   windowId?: string;
   currentPath?: string;
+  paneLeft?: number;
+  paneTop?: number;
+  paneWidth?: number;
+  paneHeight?: number;
 };
 
 export type TmuxDashboardWindowDto = {
@@ -303,6 +308,9 @@ export type HostMessage =
       type: "activeSession";
       sessionName: string;
       sessionId: string;
+      windowIndex?: number;
+      windowName?: string;
+      paneHasAiTool?: boolean;
     }
   | { type: "activeSession" }
   | {

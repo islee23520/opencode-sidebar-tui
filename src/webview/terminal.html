@@ -18,18 +18,14 @@
       >ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&amp;*()_+-=[]{}|;':&quot;,./&lt;&gt;?`~</span
     >
     <div id="tmux-toolbar" class="tmux-toolbar hidden">
-      <button type="button" id="btn-prev-session" class="tmux-btn">
-        &#9668;&#9668;
-      </button>
-      <button type="button" id="btn-prev-window" class="tmux-btn">
-        &#9668;
-      </button>
       <span id="tmux-session-label" class="tmux-session-label"></span>
-      <button type="button" id="btn-next-window" class="tmux-btn">
-        &#9658;
-      </button>
-      <button type="button" id="btn-next-session" class="tmux-btn">
-        &#9658;&#9658;
+      <button
+        type="button"
+        id="btn-open-dashboard"
+        class="tmux-btn"
+        aria-label="Open Terminal Manager"
+      >
+        &#9776;
       </button>
     </div>
     <div
@@ -116,6 +112,14 @@
           aria-label="New tmux window"
         >
           +
+        </button>
+        <button
+          type="button"
+          id="btn-next-window"
+          class="pane-btn"
+          aria-label="Next tmux window"
+        >
+          &#9658;
         </button>
         <button
           type="button"

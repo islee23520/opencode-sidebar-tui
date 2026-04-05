@@ -22,13 +22,24 @@ const callbacks: MessageHandlerCallbacks = {
     const toolbar = document.getElementById("tmux-toolbar");
     const label = document.getElementById("tmux-session-label");
     const paneControls = document.getElementById("pane-controls");
+    const aiToolBtn = document.getElementById("btn-ai-tool");
     if ("sessionName" in message && message.sessionName) {
       if (toolbar) toolbar.classList.remove("hidden");
-      if (label) label.textContent = message.sessionName;
+      if (label) {
+        const windowSuffix =
+          message.windowIndex !== undefined
+            ? ` [${message.windowIndex}]${message.windowName ? ` ${message.windowName}` : ""}`
+            : "";
+        label.textContent = message.sessionName + windowSuffix;
+      }
       if (paneControls) paneControls.classList.remove("hidden");
+      if (aiToolBtn) {
+        aiToolBtn.style.display = message.paneHasAiTool ? "none" : "";
+      }
     } else {
       if (toolbar) toolbar.classList.add("hidden");
       if (paneControls) paneControls.classList.add("hidden");
+      if (aiToolBtn) aiToolBtn.style.display = "none";
     }
   },
 
