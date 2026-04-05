@@ -17,6 +17,9 @@ export interface MessageHandlerCallbacks {
   onUpdateDashboard: (
     message: Extract<HostMessage, { type: "updateDashboard" }>,
   ) => void;
+  onShowTmuxPrompt: (
+    message: Extract<HostMessage, { type: "showTmuxPrompt" }>,
+  ) => void;
 }
 
 export interface MessageHandler {
@@ -119,6 +122,10 @@ export function createMessageHandler(
 
         case "updateDashboard":
           callbacks.onUpdateDashboard(message);
+          break;
+
+        case "showTmuxPrompt":
+          callbacks.onShowTmuxPrompt(message);
           break;
       }
     },

@@ -1,10 +1,15 @@
 import "@xterm/xterm/css/xterm.css";
 import * as AiSelector from "./ai-tool-selector";
+import * as TmuxPrompt from "./tmux-prompt";
 import { HostMessage } from "../types";
 import { postMessage } from "./shared/vscode-api";
 import { initTerminal } from "./terminal";
 import { createMessageHandler, type MessageHandlerCallbacks } from "./messages";
-import { setupTmuxToolbar, setupPaneControls } from "./toolbar";
+import {
+  setupTmuxToolbar,
+  setupPaneControls,
+  setupAiToolButton,
+} from "./toolbar";
 import {
   createDashboardRenderer,
   setupDashboardEventListeners,
@@ -45,6 +50,10 @@ const callbacks: MessageHandlerCallbacks = {
     dashboard.updateWorkspace(message.workspace ?? "");
     dashboard.updateShowingAll(message.showingAll ?? false);
   },
+
+  onShowTmuxPrompt(message) {
+    TmuxPrompt.show(message.workspaceName);
+  },
 };
 
 const messageHandler = createMessageHandler(callbacks);
@@ -69,6 +78,7 @@ function initApp(): void {
 
   setupTmuxToolbar();
   setupPaneControls();
+  setupAiToolButton();
   setupDashboardEventListeners(() => dashboard.toggle());
 
   window.addEventListener("message", (event: MessageEvent) => {
@@ -92,6 +102,18 @@ const aiCallbacks = {
   },
 };
 
+const tmuxPromptCallbacks = {
+  postMessage: (msg: unknown) => {
+    const m = msg as Record<string, unknown>;
+    if (m && m.type === "sendTmuxPromptChoice") {
+      postMessage({
+        type: "sendTmuxPromptChoice",
+        choice: String(m.choice) as "tmux" | "shell",
+      });
+    }
+  },
+};
+
 function setupAiToolSelectorEvents(): void {
   document.addEventListener("keydown", (event) => {
     if (AiSelector.isVisible()) {
@@ -100,12 +122,17 @@ function setupAiToolSelectorEvents(): void {
   });
 
   document.addEventListener("click", (event) => {
-    if (!AiSelector.isVisible()) return;
     const target = event
       .composedPath()
       .find((el): el is Element => el instanceof Element);
-    if (target) {
+    if (!target) return;
+
+    if (AiSelector.isVisible()) {
       AiSelector.handleClick(target, aiCallbacks);
+    }
+
+    if (TmuxPrompt.isVisible()) {
+      TmuxPrompt.handleClick(target, tmuxPromptCallbacks);
     }
   });
 }

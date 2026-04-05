@@ -1,5 +1,12 @@
 import { postMessage } from "../shared/vscode-api";
 
+export function setupAiToolButton(): void {
+  const btnAiTool = document.getElementById("btn-ai-tool");
+  btnAiTool?.addEventListener("click", () => {
+    postMessage({ type: "requestAiToolSelector" });
+  });
+}
+
 export function setupTmuxToolbar(): void {
   const prevSession = document.getElementById("btn-prev-session");
   const nextSession = document.getElementById("btn-next-session");

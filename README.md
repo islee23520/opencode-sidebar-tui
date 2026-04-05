@@ -387,6 +387,16 @@ Based on the excellent [vscode-sidebar-terminal](https://github.com/s-hiraoku/vs
 - **Communication**: HTTP API + WebView messaging
 - **Port Management**: Ephemeral port allocation (16384-65535)
 
+## Star History
+
+<a href="https://star-history.com/#islee23520/opencode-sidebar-tui&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=islee23520/opencode-sidebar-tui&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=islee23520/opencode-sidebar-tui&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=islee23520/opencode-sidebar-tui&type=Date" />
+ </picture>
+</a>
+
 ## License
 
 MIT

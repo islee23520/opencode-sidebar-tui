@@ -654,7 +654,9 @@ export class TmuxSessionManager {
               ? { currentCommand: currentCommand ?? "" }
               : {}),
             ...(windowId !== undefined ? { windowId: windowId ?? "" } : {}),
-            ...(currentPath !== undefined ? { currentPath: currentPath ?? "" } : {}),
+            ...(currentPath !== undefined
+              ? { currentPath: currentPath ?? "" }
+              : {}),
           };
         });
     } catch (error) {
@@ -958,6 +960,8 @@ export class TmuxSessionManager {
     return (
       message.includes("no server running") ||
       message.includes("failed to connect to server") ||
+      message.includes("error connecting to") ||
+      message.includes("no such file or directory") ||
       message.includes("no sessions")
     );
   }

@@ -54,7 +54,9 @@ export type WebviewMessage =
       paneId?: string;
       direction?: string;
     }
-  | { type: "openDashboardInEditor" };
+  | { type: "openDashboardInEditor" }
+  | { type: "sendTmuxPromptChoice"; choice: "tmux" | "shell" }
+  | { type: "requestAiToolSelector" };
 
 export type AiTool = string;
 
@@ -317,7 +319,11 @@ export type HostMessage =
       workspace: string;
       showingAll?: boolean;
     }
-  | { type: "toggleDashboard"; visible: boolean };
+  | { type: "toggleDashboard"; visible: boolean }
+  | {
+      type: "showTmuxPrompt";
+      workspaceName: string;
+    };
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type DiagnosticSeverity = "error" | "warning" | "information" | "hint";

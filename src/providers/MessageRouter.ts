@@ -194,6 +194,20 @@ export class MessageRouter {
       case "killTmuxPane":
         void this.provider.killTmuxPane();
         break;
+      case "sendTmuxPromptChoice":
+        if (message.choice === "tmux") {
+          void this.provider.createTmuxSession();
+        } else if (message.choice === "shell") {
+          void this.provider.switchToNativeShell();
+        }
+        break;
+      case "requestAiToolSelector": {
+        const sessionId =
+          this.provider.getSelectedTmuxSessionId() ??
+          this.provider.getActiveInstanceId();
+        void this.provider.showAiToolSelector(sessionId, sessionId, true);
+        break;
+      }
       default:
         break;
     }
