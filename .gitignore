@@ -15,6 +15,7 @@ build/
 # claude
 .claude/
 .omc/
+.omx/
 
 # test coverage
 coverage/
@@ -26,4 +27,7 @@ nul
 
 # synapse
 .synapse/
-docs/superpowers/
+
+// generated docs
+docs/
+memories/
