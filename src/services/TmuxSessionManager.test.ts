@@ -489,7 +489,7 @@ describe("TmuxSessionManager", () => {
       mockExecSequence([
         {
           stdout:
-            "%0\t0\tbash\t1\tbash\t@0\t/workspaces/repo-a\n%1\t1\tvim\t0\tvim\t@0\t/workspaces/repo-a/packages/app",
+            "%0\t0\tbash\t1\tbash\t48210\t@0\t/workspaces/repo-a\n%1\t1\tvim\t0\tvim\t48211\t@0\t/workspaces/repo-a/packages/app",
         },
       ]);
       const panes = await manager.listPanes("test-session");
@@ -521,7 +521,7 @@ describe("TmuxSessionManager", () => {
           stdout: "@1\t1\tmain\t1",
         },
         {
-          stdout: "%0\t0\tbash\t1\tbash\t@1\t/workspaces/repo-a",
+          stdout: "%0\t0\tbash\t1\tbash\t48210\t@1\t/workspaces/repo-a",
         },
       ]);
       await manager.listPanes("test-session", { activeWindowOnly: true });
@@ -565,7 +565,7 @@ describe("TmuxSessionManager", () => {
       mockExecSequence([
         {
           stdout:
-            "%0\t0\tbash\t0\tbash\t@0\t/workspaces/repo-a\n%2\t1\thtop\t1\thtop\t@0\t/workspaces/repo-a/tools",
+            "%0\t0\tbash\t0\tbash\t48210\t@0\t/workspaces/repo-a\n%2\t1\thtop\t1\thtop\t48212\t@0\t/workspaces/repo-a/tools",
         },
       ]);
       const dtos = await manager.listPaneDtos("test-session");

@@ -673,6 +673,7 @@ export class TmuxSessionManager {
             title,
             active,
             currentCommand,
+            _panePid,
             windowId,
             currentPath,
           ] = line.split("\t");
