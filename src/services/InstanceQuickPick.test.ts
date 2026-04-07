@@ -231,7 +231,7 @@ describe("InstanceQuickPick", () => {
     await acceptHandlers[0]();
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opencodeTui.start",
+      "opensidebarterm.start",
     );
     expect(quickPick.dispose).toHaveBeenCalledOnce();
   });

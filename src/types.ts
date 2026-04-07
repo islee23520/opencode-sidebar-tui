@@ -84,7 +84,7 @@ export const DEFAULT_AI_TOOLS: readonly AiToolConfig[] = [
     label: "Claude Code",
     path: "",
     args: [],
-    aliases: ["claude-code"],
+    aliases: ["claude"],
     operator: "claude",
   },
   {

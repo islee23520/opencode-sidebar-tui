@@ -29,7 +29,7 @@ describe("OutputChannelService", () => {
 
   it("should create an output channel with the correct name", () => {
     expect(vscode.window.createOutputChannel).toHaveBeenCalledWith(
-      "OpenCode Sidebar TUI",
+      "Open Sidebar TUI",
       { log: true },
     );
   });

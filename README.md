@@ -1,10 +1,10 @@
-# OpenCode Sidebar TUI
+# Open Sidebar TUI
 
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/islee23520.opencode-sidebar-tui?logo=visual-studio-code&label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=islee23520.opencode-sidebar-tui)
 [![Open VSX](https://img.shields.io/open-vsx/v/islee23520/opencode-sidebar-tui?logo=open-vsx&label=Open%20VSX)](https://open-vsx.org/extension/islee23520/opencode-sidebar-tui)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-pink?logo=githubsponsors)](https://github.com/sponsors/islee23520)
 
-Automatically render Open AI Sidebar Terminal in VS Code sidebar with full terminal support.
+Automatically render Open Sidebar Terminal in VS Code sidebar with full terminal support.
 
 If this project helps your workflow, you can [support it on GitHub Sponsors](https://github.com/sponsors/islee23520).
 
@@ -55,7 +55,7 @@ The extension uses a hybrid communication approach:
 
 1. Open VS Code
 2. Go to Extensions (`Cmd+Shift+X` / `Ctrl+Shift+X`)
-3. Search for "OpenCode Sidebar TUI"
+3. Search for "Open Sidebar TUI"
 4. Click **Install**
 
 ### From OpenVSX Registry
@@ -63,7 +63,7 @@ The extension uses a hybrid communication approach:
 For VSCodium, Gitpod, Eclipse Theia, and other VS Code-compatible IDEs:
 
 1. Open your IDE's extension view
-2. Search for "OpenCode Sidebar TUI"
+2. Search for "Open Sidebar TUI"
 3. Click **Install**
 
 Or visit the [OpenVSX page](https://open-vsx.org/extension/islee23520/opencode-sidebar-tui).
@@ -105,16 +105,16 @@ npx @vscode/vsce package
 ## Usage
 
 1. Click the OpenCode icon in the Activity Bar (sidebar) to open Terminal Managers
-2. The Open AI Sidebar Terminal terminal is available in the secondary sidebar
-3. Open AI Sidebar Terminal automatically starts when the terminal view is activated
+2. The Open Sidebar Terminal terminal is available in the secondary sidebar
+3. Open Sidebar Terminal automatically starts when the terminal view is activated
 4. Interact with OpenCode directly in the sidebar
 
 ## Commands
 
 ### Basic Commands
 
-- **Open AI Sidebar Terminal: Start OpenCode** - Manually start OpenCode
-- **Open AI Sidebar Terminal: Paste** - Paste text into the terminal
+- **Open Sidebar Terminal: Start OpenCode** - Manually start OpenCode
+- **Open Sidebar Terminal: Paste** - Paste text into the terminal
 
 ### File Reference Commands
 
@@ -209,9 +209,9 @@ The extension communicates with OpenCode CLI via an HTTP API for reliable bidire
 
 ```json
 {
-  "opencodeTui.enableHttpApi": true,
-  "opencodeTui.httpTimeout": 5000,
-  "opencodeTui.autoShareContext": true
+  "opensidebarterm.enableHttpApi": true,
+  "opensidebarterm.httpTimeout": 5000,
+  "opensidebarterm.autoShareContext": true
 }
 ```
 
@@ -233,17 +233,17 @@ Available settings in VS Code settings (`Cmd+,` / `Ctrl+,`):
 
 | Setting                       | Type    | Default           | Description                                             |
 | ----------------------------- | ------- | ----------------- | ------------------------------------------------------- |
-| `opencodeTui.autoStart`       | boolean | `true`            | Automatically start OpenCode when the view is activated |
-| `opencodeTui.autoStartOnOpen` | boolean | `true`            | Automatically start OpenCode when sidebar is opened     |
-| `opencodeTui.command`         | string  | `"opencode"`      | Command to launch OpenCode with arguments               |
-| `opencodeTui.fontSize`        | number  | `14`              | Terminal font size in pixels (6-25)                     |
-| `opencodeTui.fontFamily`      | string  | Nerd Font stack\* | Terminal font family                                    |
-| `opencodeTui.cursorBlink`     | boolean | `true`            | Enable cursor blinking                                  |
-| `opencodeTui.cursorStyle`     | string  | `"block"`         | Cursor style: `block`, `underline`, or `bar`            |
-| `opencodeTui.scrollback`      | number  | `10000`           | Maximum lines in scrollback buffer (0-100000)           |
-| `opencodeTui.autoFocusOnSend` | boolean | `true`            | Auto-focus sidebar after sending file references        |
-| `opencodeTui.shellPath`       | string  | `""`              | Custom shell path (empty = VS Code default)             |
-| `opencodeTui.shellArgs`       | array   | `[]`              | Custom shell arguments                                  |
+| `opensidebarterm.autoStart`       | boolean | `true`            | Automatically start OpenCode when the view is activated |
+| `opensidebarterm.autoStartOnOpen` | boolean | `true`            | Automatically start OpenCode when sidebar is opened     |
+| `opensidebarterm.command`         | string  | `"opencode"`      | Command to launch OpenCode with arguments               |
+| `opensidebarterm.fontSize`        | number  | `14`              | Terminal font size in pixels (6-25)                     |
+| `opensidebarterm.fontFamily`      | string  | Nerd Font stack\* | Terminal font family                                    |
+| `opensidebarterm.cursorBlink`     | boolean | `true`            | Enable cursor blinking                                  |
+| `opensidebarterm.cursorStyle`     | string  | `"block"`         | Cursor style: `block`, `underline`, or `bar`            |
+| `opensidebarterm.scrollback`      | number  | `10000`           | Maximum lines in scrollback buffer (0-100000)           |
+| `opensidebarterm.autoFocusOnSend` | boolean | `true`            | Auto-focus sidebar after sending file references        |
+| `opensidebarterm.shellPath`       | string  | `""`              | Custom shell path (empty = VS Code default)             |
+| `opensidebarterm.shellArgs`       | array   | `[]`              | Custom shell arguments                                  |
 
 \* Default: `'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'CascadiaCode NF', Menlo, monospace`
 
@@ -251,49 +251,49 @@ Available settings in VS Code settings (`Cmd+,` / `Ctrl+,`):
 
 | Setting                         | Type    | Default | Description                                      |
 | ------------------------------- | ------- | ------- | ------------------------------------------------ |
-| `opencodeTui.enableHttpApi`     | boolean | `true`  | Enable HTTP API for OpenCode communication       |
-| `opencodeTui.httpTimeout`       | number  | `5000`  | HTTP API request timeout in ms (1000-30000)      |
-| `opencodeTui.autoShareContext`  | boolean | `true`  | Auto-share editor context with OpenCode          |
-| `opencodeTui.contextDebounceMs` | number  | `500`   | Debounce delay for context updates (100-5000 ms) |
+| `opensidebarterm.enableHttpApi`     | boolean | `true`  | Enable HTTP API for OpenCode communication       |
+| `opensidebarterm.httpTimeout`       | number  | `5000`  | HTTP API request timeout in ms (1000-30000)      |
+| `opensidebarterm.autoShareContext`  | boolean | `true`  | Auto-share editor context with OpenCode          |
+| `opensidebarterm.contextDebounceMs` | number  | `500`   | Debounce delay for context updates (100-5000 ms) |
 
 ### AI Tool Settings
 
 | Setting                       | Type    | Default                       | Description                                               |
 | ----------------------------- | ------- | ----------------------------- | --------------------------------------------------------- |
-| `opencodeTui.aiTools`         | array   | `[{opencode, claude, codex}]` | Configure AI coding tools with custom paths and arguments |
-| `opencodeTui.defaultAiTool`   | string  | `"opencode"`                  | Default AI tool for new tmux sessions                     |
-| `opencodeTui.enableAutoSpawn` | boolean | `true`                        | Auto-spawn OpenCode if not running                        |
+| `opensidebarterm.aiTools`         | array   | `[{opencode, claude, codex}]` | Configure AI coding tools with custom paths and arguments |
+| `opensidebarterm.defaultAiTool`   | string  | `"opencode"`                  | Default AI tool for new tmux sessions                     |
+| `opensidebarterm.enableAutoSpawn` | boolean | `true`                        | Auto-spawn OpenCode if not running                        |
 
 ### Tmux Settings
 
 | Setting                          | Type   | Default | Description                                                              |
 | -------------------------------- | ------ | ------- | ------------------------------------------------------------------------ |
-| `opencodeTui.nativeShellDefault` | string | `""`    | Default behavior for native shell switch (`""`, `"opencode"`, `"shell"`) |
-| `opencodeTui.tmuxSessionDefault` | string | `""`    | Default behavior for new tmux sessions (`""`, `"opencode"`, `"shell"`)   |
+| `opensidebarterm.nativeShellDefault` | string | `""`    | Default behavior for native shell switch (`""`, `"opencode"`, `"shell"`) |
+| `opensidebarterm.tmuxSessionDefault` | string | `""`    | Default behavior for new tmux sessions (`""`, `"opencode"`, `"shell"`)   |
 
 ### Advanced Settings
 
 | Setting                            | Type   | Default                | Description                                      |
 | ---------------------------------- | ------ | ---------------------- | ------------------------------------------------ |
-| `opencodeTui.logLevel`             | string | `"info"`               | Log level: `debug`, `info`, `warn`, `error`      |
-| `opencodeTui.maxDiagnosticLength`  | number | `500`                  | Maximum length of diagnostic messages (100-2000) |
-| `opencodeTui.codeActionSeverities` | array  | `["error", "warning"]` | Diagnostic severities that trigger code actions  |
+| `opensidebarterm.logLevel`             | string | `"info"`               | Log level: `debug`, `info`, `warn`, `error`      |
+| `opensidebarterm.maxDiagnosticLength`  | number | `500`                  | Maximum length of diagnostic messages (100-2000) |
+| `opensidebarterm.codeActionSeverities` | array  | `["error", "warning"]` | Diagnostic severities that trigger code actions  |
 
 ### Example Configuration
 
 ```json
 {
-  "opencodeTui.autoStart": true,
-  "opencodeTui.command": "opencode",
-  "opencodeTui.fontSize": 14,
-  "opencodeTui.fontFamily": "'JetBrainsMono Nerd Font', monospace",
-  "opencodeTui.cursorBlink": true,
-  "opencodeTui.cursorStyle": "block",
-  "opencodeTui.scrollback": 10000,
-  "opencodeTui.enableHttpApi": true,
-  "opencodeTui.httpTimeout": 5000,
-  "opencodeTui.autoShareContext": true,
-  "opencodeTui.defaultAiTool": "opencode"
+  "opensidebarterm.autoStart": true,
+  "opensidebarterm.command": "opencode",
+  "opensidebarterm.fontSize": 14,
+  "opensidebarterm.fontFamily": "'JetBrainsMono Nerd Font', monospace",
+  "opensidebarterm.cursorBlink": true,
+  "opensidebarterm.cursorStyle": "block",
+  "opensidebarterm.scrollback": 10000,
+  "opensidebarterm.enableHttpApi": true,
+  "opensidebarterm.httpTimeout": 5000,
+  "opensidebarterm.autoShareContext": true,
+  "opensidebarterm.defaultAiTool": "opencode"
 }
 ```
 
@@ -379,7 +379,7 @@ src/
 
 ## Implementation Details
 
-Based on the excellent [vscode-sidebar-terminal](https://github.com/s-hiraoku/vscode-sidebar-terminal) extension, streamlined specifically for Open AI Sidebar Terminal:
+Based on the excellent [vscode-sidebar-terminal](https://github.com/s-hiraoku/vscode-sidebar-terminal) extension, streamlined specifically for Open Sidebar Terminal:
 
 - **Terminal Backend**: node-pty for PTY support
 - **Terminal Frontend**: xterm.js with WebGL rendering

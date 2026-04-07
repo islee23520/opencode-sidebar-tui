@@ -37,13 +37,13 @@ describe("AiToolOperatorRegistry", () => {
       label: "Claude Code",
       path: "",
       args: [],
-      aliases: ["claude-code"],
+      aliases: ["claude"],
       operator: "claude",
     };
 
     expect(registry.getForConfig(tool).id).toBe("claude");
     expect(registry.matchesName(tool, "claude")).toBe(true);
-    expect(registry.matchesName(tool, "claude-code")).toBe(true);
+    expect(registry.matchesName(tool, "claude")).toBe(true);
     expect(registry.matchesName(tool, "missing")).toBe(false);
   });
 
@@ -53,7 +53,7 @@ describe("AiToolOperatorRegistry", () => {
     expect(registry.getByToolName("opencode")).toBeInstanceOf(
       OpenCodeToolOperator,
     );
-    expect(registry.getByToolName("claude-code")).toBeInstanceOf(
+    expect(registry.getByToolName("claude")).toBeInstanceOf(
       ClaudeCodeToolOperator,
     );
     expect(registry.getByToolName("codex")).toBeInstanceOf(CodexToolOperator);
@@ -118,7 +118,7 @@ describe("AiToolOperatorRegistry", () => {
         label: "Assistant",
         path: "/opt/assistant",
         args: [],
-        aliases: ["claude-code"],
+        aliases: ["claude"],
         operator: "claude",
       },
     ];
@@ -127,7 +127,7 @@ describe("AiToolOperatorRegistry", () => {
       "Custom OpenCode",
     );
     expect(registry.resolveTool(userTools, "claude")?.name).toBe("assistant");
-    expect(registry.resolveTool(userTools, "claude-code")?.name).toBe(
+    expect(registry.resolveTool(userTools, "claude")?.name).toBe(
       "assistant",
     );
     expect(registry.resolveTool(userTools, "missing")).toBeUndefined();

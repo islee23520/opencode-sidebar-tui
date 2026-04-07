@@ -553,7 +553,7 @@ export class MessageRouter {
     terminal: vscode.Terminal,
     command: string,
   ): Promise<void> {
-    const configKey = "opencodeTui.allowTerminalCommands";
+    const configKey = "opensidebarterm.allowTerminalCommands";
     const allowed = this.context.globalState.get<boolean>(configKey);
 
     if (allowed) {
@@ -602,7 +602,7 @@ export class MessageRouter {
     const entries: Array<{ name: string; cwd: string }> = [];
 
     for (const terminal of vscode.window.terminals) {
-      if (terminal.name === "Open AI Sidebar Terminal") {
+      if (terminal.name === "Open Sidebar Terminal") {
         continue;
       }
 

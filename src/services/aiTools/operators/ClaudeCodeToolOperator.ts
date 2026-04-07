@@ -3,7 +3,7 @@ import { AiToolConfig, getToolLaunchCommand } from "../../../types";
 
 export class ClaudeCodeToolOperator implements AiToolOperator {
   public readonly id = "claude";
-  public readonly aliases = ["claude-code"] as const;
+  public readonly aliases = ["claude"] as const;
 
   public matches(tool: AiToolConfig): boolean {
     const names = new Set([

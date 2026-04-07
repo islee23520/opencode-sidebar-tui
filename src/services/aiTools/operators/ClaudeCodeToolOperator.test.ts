@@ -10,7 +10,7 @@ describe("ClaudeCodeToolOperator", () => {
     label: "Claude Code",
     path: "",
     args: [],
-    aliases: ["claude-code"],
+    aliases: ["claude"],
     operator: "claude",
     ...overrides,
   });
@@ -25,7 +25,7 @@ describe("ClaudeCodeToolOperator", () => {
         createTool({
           name: "custom",
           operator: "custom",
-          aliases: ["claude-code"],
+          aliases: ["claude"],
         }),
       ),
     ).toBe(true);

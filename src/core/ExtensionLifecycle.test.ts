@@ -105,7 +105,7 @@ describe("ExtensionLifecycle", () => {
       await lifecycle.activate(mockContext);
 
       expect(vscode.window.createOutputChannel).toHaveBeenCalledWith(
-        "OpenCode Sidebar TUI",
+        "Open Sidebar TUI",
         { log: true },
       );
     });
@@ -269,7 +269,7 @@ describe("ExtensionLifecycle", () => {
         Reflect.get(lifecycle, "terminalDashboardProvider"),
       ).toBeUndefined();
       expect(logger.info).toHaveBeenLastCalledWith(
-        "OpenCode Sidebar TUI deactivated",
+        "Open Sidebar TUI deactivated",
       );
     });
   });

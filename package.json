@@ -1,7 +1,7 @@
 {
-  "name": "opencode-sidebar-tui",
-  "displayName": "Open AI Sidebar Terminal",
-  "description": "Automatically render Open AI Sidebar Terminal in VS Code sidebar with full terminal support",
+  "name": "open-sidebar-terminal",
+  "displayName": "Open Sidebar Terminal",
+  "description": "Automatically render Open Sidebar Terminal in VS Code sidebar with full terminal support",
   "version": "1.5.1",
   "publisher": "islee23520",
   "icon": "icon.png",
@@ -33,7 +33,7 @@
       "secondarySidebar": [
         {
           "id": "opencodeTuiContainer",
-          "title": "Open AI Sidebar Terminal",
+          "title": "Open Sidebar Terminal",
           "icon": "resources/opencode-activity-bar.svg"
         }
       ]
@@ -51,182 +51,182 @@
     },
     "commands": [
       {
-        "command": "opencodeTui.start",
+        "command": "opensidebarterm.start",
         "title": "Start OpenCode",
-        "category": "Open AI Sidebar Terminal"
+        "category": "Open Sidebar Terminal"
       },
       {
-        "command": "opencodeTui.sendToTerminal",
+        "command": "opensidebarterm.sendToTerminal",
         "title": "Send to Active Terminal",
-        "category": "Open AI Sidebar Terminal"
+        "category": "Open Sidebar Terminal"
       },
       {
-        "command": "opencodeTui.sendAtMention",
+        "command": "opensidebarterm.sendAtMention",
         "title": "Send File Reference (@file)",
-        "category": "Open AI Sidebar Terminal"
+        "category": "Open Sidebar Terminal"
       },
       {
-        "command": "opencodeTui.sendAllOpenFiles",
+        "command": "opensidebarterm.sendAllOpenFiles",
         "title": "Send All Open File References",
-        "category": "Open AI Sidebar Terminal"
+        "category": "Open Sidebar Terminal"
       },
       {
-        "command": "opencodeTui.sendFileToTerminal",
+        "command": "opensidebarterm.sendFileToTerminal",
         "title": "Send to OpenCode",
-        "category": "Open AI Sidebar Terminal"
+        "category": "Open Sidebar Terminal"
       },
       {
-        "command": "opencodeTui.paste",
+        "command": "opensidebarterm.paste",
         "title": "Paste",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(clippy)"
       },
       {
         "command": "opencode.openInNewWindow",
         "title": "Open Tmux Session in New Window",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(empty-window)"
       },
       {
         "command": "opencode.spawnForWorkspace",
         "title": "Spawn Tmux Session for Workspace",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(add)"
       },
       {
-        "command": "opencodeTui.selectInstance",
+        "command": "opensidebarterm.selectInstance",
         "title": "Select OpenCode Tmux Session",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(server-environment)"
       },
       {
-        "command": "opencodeTui.switchTmuxSession",
+        "command": "opensidebarterm.switchTmuxSession",
         "title": "Switch Tmux Session",
-        "category": "Open AI Sidebar Terminal"
+        "category": "Open Sidebar Terminal"
       },
       {
-        "command": "opencodeTui.browseTmuxSessions",
+        "command": "opensidebarterm.browseTmuxSessions",
         "title": "Browse Tmux Sessions",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(server-environment)"
       },
       {
-        "command": "opencodeTui.switchNativeShell",
+        "command": "opensidebarterm.switchNativeShell",
         "title": "Switch to Native Shell",
-        "category": "Open AI Sidebar Terminal"
+        "category": "Open Sidebar Terminal"
       },
       {
-        "command": "opencodeTui.openTerminalManager",
+        "command": "opensidebarterm.openTerminalManager",
         "title": "Open Terminal Manager",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(server)"
       },
       {
-        "command": "opencodeTui.toggleDashboard",
+        "command": "opensidebarterm.toggleDashboard",
         "title": "Toggle Session Dashboard",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(dashboard)"
       },
       {
-        "command": "opencodeTui.openDashboardInEditor",
+        "command": "opensidebarterm.openDashboardInEditor",
         "title": "Open Dashboard in Editor",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(editor-layout)"
       },
       {
-        "command": "opencodeTui.openTerminalInEditor",
+        "command": "opensidebarterm.openTerminalInEditor",
         "title": "Open Terminal in Editor",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(terminal-bash)"
       },
       {
-        "command": "opencodeTui.tmuxSwitchPane",
+        "command": "opensidebarterm.tmuxSwitchPane",
         "title": "Switch to Pane",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(check)"
       },
       {
-        "command": "opencodeTui.tmuxSplitPaneH",
+        "command": "opensidebarterm.tmuxSplitPaneH",
         "title": "Split Pane Horizontal",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(split-horizontal)"
       },
       {
-        "command": "opencodeTui.tmuxSplitPaneV",
+        "command": "opensidebarterm.tmuxSplitPaneV",
         "title": "Split Pane Vertical",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(split-vertical)"
       },
       {
-        "command": "opencodeTui.tmuxSplitPaneWithCommand",
+        "command": "opensidebarterm.tmuxSplitPaneWithCommand",
         "title": "Split Pane with Command",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(terminal)"
       },
       {
-        "command": "opencodeTui.tmuxSendTextToPane",
+        "command": "opensidebarterm.tmuxSendTextToPane",
         "title": "Send Text to Pane",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(file-symlink-file)"
       },
       {
-        "command": "opencodeTui.tmuxResizePane",
+        "command": "opensidebarterm.tmuxResizePane",
         "title": "Resize Pane",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(move)"
       },
       {
-        "command": "opencodeTui.tmuxSwapPane",
+        "command": "opensidebarterm.tmuxSwapPane",
         "title": "Swap Panes",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(arrow-swap)"
       },
       {
-        "command": "opencodeTui.tmuxKillPane",
+        "command": "opensidebarterm.tmuxKillPane",
         "title": "Kill Pane",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(trash)"
       },
       {
-        "command": "opencodeTui.tmuxNextWindow",
+        "command": "opensidebarterm.tmuxNextWindow",
         "title": "Next Window",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(chevron-right)"
       },
       {
-        "command": "opencodeTui.tmuxPrevWindow",
+        "command": "opensidebarterm.tmuxPrevWindow",
         "title": "Previous Window",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(chevron-left)"
       },
       {
-        "command": "opencodeTui.tmuxCreateWindow",
+        "command": "opensidebarterm.tmuxCreateWindow",
         "title": "Create Window",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(add)"
       },
       {
-        "command": "opencodeTui.tmuxKillWindow",
+        "command": "opensidebarterm.tmuxKillWindow",
         "title": "Kill Window",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(trash)"
       },
       {
-        "command": "opencodeTui.tmuxSelectWindow",
+        "command": "opensidebarterm.tmuxSelectWindow",
         "title": "Select Window",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(list-selection)"
       },
       {
-        "command": "opencodeTui.tmuxKillSession",
+        "command": "opensidebarterm.tmuxKillSession",
         "title": "Kill Session",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(trash)"
       },
       {
-        "command": "opencodeTui.tmuxRefresh",
+        "command": "opensidebarterm.tmuxRefresh",
         "title": "Refresh Terminal Manager",
-        "category": "Open AI Sidebar Terminal",
+        "category": "Open Sidebar Terminal",
         "icon": "$(refresh)"
       }
     ],
@@ -234,38 +234,38 @@
       "view/title": [],
       "explorer/context": [
         {
-          "command": "opencodeTui.sendFileToTerminal",
+          "command": "opensidebarterm.sendFileToTerminal",
           "group": "2_workspace",
           "when": "!explorerResourceIsFolder"
         },
         {
-          "command": "opencodeTui.sendFileToTerminal",
+          "command": "opensidebarterm.sendFileToTerminal",
           "group": "2_workspace",
           "when": "explorerResourceIsFolder"
         }
       ],
       "editor/context": [
         {
-          "command": "opencodeTui.sendAtMention",
+          "command": "opensidebarterm.sendAtMention",
           "group": "navigation"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "opencodeTui.sendAtMention",
+        "command": "opensidebarterm.sendAtMention",
         "key": "ctrl+alt+l",
         "mac": "cmd+alt+l",
         "when": "editorTextFocus || terminalFocus"
       },
       {
-        "command": "opencodeTui.sendAllOpenFiles",
+        "command": "opensidebarterm.sendAllOpenFiles",
         "key": "ctrl+alt+a",
         "mac": "cmd+alt+a",
         "when": "editorTextFocus || terminalFocus"
       },
       {
-        "command": "opencodeTui.browseTmuxSessions",
+        "command": "opensidebarterm.browseTmuxSessions",
         "key": "ctrl+alt+t",
         "mac": "cmd+alt+t",
         "when": "focusedView == 'opencodeTui'"
@@ -281,39 +281,39 @@
         "when": "inFilesPicker && inQuickOpen"
       },
       {
-        "command": "opencodeTui.paste",
+        "command": "opensidebarterm.paste",
         "key": "ctrl+v",
         "mac": "cmd+v",
         "when": "focusedView == 'opencodeTui'"
       },
       {
-        "command": "opencodeTui.toggleDashboard",
+        "command": "opensidebarterm.toggleDashboard",
         "key": "ctrl+alt+d",
         "mac": "cmd+alt+d",
         "when": "focusedView == 'opencodeTui'"
       }
     ],
     "configuration": {
-      "title": "OpenCode Sidebar TUI",
+      "title": "Open Sidebar TUI",
       "properties": {
-        "opencodeTui.fontSize": {
+        "opensidebarterm.fontSize": {
           "type": "number",
           "default": 14,
           "minimum": 6,
           "maximum": 25,
           "description": "Terminal font size in pixels"
         },
-        "opencodeTui.fontFamily": {
+        "opensidebarterm.fontFamily": {
           "type": "string",
           "default": "'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'CascadiaCode NF', Menlo, monospace",
           "description": "Terminal font family (Nerd Font recommended for Powerline/glyph support)"
         },
-        "opencodeTui.cursorBlink": {
+        "opensidebarterm.cursorBlink": {
           "type": "boolean",
           "default": true,
           "description": "Enable cursor blinking"
         },
-        "opencodeTui.cursorStyle": {
+        "opensidebarterm.cursorStyle": {
           "type": "string",
           "default": "block",
           "enum": [
@@ -323,29 +323,29 @@
           ],
           "description": "Cursor style"
         },
-        "opencodeTui.scrollback": {
+        "opensidebarterm.scrollback": {
           "type": "number",
           "default": 10000,
           "minimum": 0,
           "maximum": 100000,
           "description": "Maximum number of lines in scrollback buffer"
         },
-        "opencodeTui.autoFocusOnSend": {
+        "opensidebarterm.autoFocusOnSend": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically focus the OpenCode sidebar after sending file references or text"
+          "description": "Automatically focus the Open Sidebar after sending file references or text"
         },
-        "opencodeTui.autoStartOnOpen": {
+        "opensidebarterm.autoStartOnOpen": {
           "type": "boolean",
           "default": true,
           "description": "Automatically start OpenCode when the sidebar is opened (only when visible, not on VS Code reload)"
         },
-        "opencodeTui.shellPath": {
+        "opensidebarterm.shellPath": {
           "type": "string",
           "default": "",
           "description": "Custom shell path to use for the terminal. Leave empty to use VS Code's default shell. Useful for specifying PowerShell, Git Bash, or other shells on Windows."
         },
-        "opencodeTui.shellArgs": {
+        "opensidebarterm.shellArgs": {
           "type": "array",
           "items": {
             "type": "string"
@@ -353,24 +353,24 @@
           "default": [],
           "description": "Custom arguments to pass to the shell. Leave empty for automatic detection. Example: [\"/c\"] for cmd.exe or [\"-Command\"] for PowerShell."
         },
-        "opencodeTui.autoShareContext": {
+        "opensidebarterm.autoShareContext": {
           "type": "boolean",
           "default": true,
           "description": "Automatically share editor context (open files, selections) with OpenCode"
         },
-        "opencodeTui.httpTimeout": {
+        "opensidebarterm.httpTimeout": {
           "type": "number",
           "default": 5000,
           "minimum": 1000,
           "maximum": 30000,
           "description": "HTTP API request timeout in milliseconds for communication with OpenCode"
         },
-        "opencodeTui.enableHttpApi": {
+        "opensidebarterm.enableHttpApi": {
           "type": "boolean",
           "default": true,
           "description": "Enable HTTP API for bidirectional communication between VS Code and OpenCode"
         },
-        "opencodeTui.logLevel": {
+        "opensidebarterm.logLevel": {
           "type": "string",
           "enum": [
             "debug",
@@ -379,28 +379,33 @@
             "error"
           ],
           "default": "info",
-          "description": "Log output level for Open AI Sidebar Terminal"
+          "description": "Log output level for Open Sidebar Terminal"
         },
-        "opencodeTui.contextDebounceMs": {
+        "opensidebarterm.contextDebounceMs": {
           "type": "number",
           "default": 500,
           "minimum": 100,
           "maximum": 5000,
           "description": "Debounce delay for context updates (ms)"
         },
-        "opencodeTui.maxDiagnosticLength": {
+        "opensidebarterm.maxDiagnosticLength": {
           "type": "number",
           "default": 500,
           "minimum": 100,
           "maximum": 2000,
           "description": "Maximum length of diagnostic messages"
         },
-        "opencodeTui.enableAutoSpawn": {
+        "opensidebarterm.enableAutoSpawn": {
           "type": "boolean",
           "default": true,
           "description": "Auto-spawn OpenCode if not running"
         },
-        "opencodeTui.codeActionSeverities": {
+        "opensidebarterm.enableTmux": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable tmux session management. Disable to use the extension with a plain terminal shell (no tmux required)."
+        },
+        "opensidebarterm.codeActionSeverities": {
           "type": "array",
           "items": {
             "type": "string",
@@ -417,7 +422,7 @@
           ],
           "description": "Diagnostic severities that trigger code actions"
         },
-        "opencodeTui.aiTools": {
+        "opensidebarterm.aiTools": {
           "type": "array",
           "items": {
             "type": "object",
@@ -437,7 +442,7 @@
             "properties": {
               "name": {
                 "type": "string",
-                "description": "Unique identifier (e.g. 'opencode', 'claude-code')"
+                "description": "Unique identifier (e.g. 'opencode', 'claude')"
               },
               "label": {
                 "type": "string",
@@ -477,11 +482,11 @@
             },
             {
               "name": "claude",
-              "label": "Claude Code",
+              "label": "Claude",
               "path": "",
               "args": [],
               "aliases": [
-                "claude-code"
+                "claude"
               ],
               "operator": "claude"
             },
@@ -495,17 +500,17 @@
           ],
           "description": "Configure AI coding tools. Use Add Item to add new tools, Edit to modify, Delete to remove."
         },
-        "opencodeTui.defaultAiTool": {
+        "opensidebarterm.defaultAiTool": {
           "type": "string",
           "default": "",
           "description": "Name of the default AI tool to launch when creating a new tmux session"
         },
-        "opencodeTui.nativeShellDefault": {
+        "opensidebarterm.nativeShellDefault": {
           "type": "string",
           "default": "",
-          "description": "Default behavior when switching to native shell. Empty = ask every time, 'shell' = default shell, or set any configured AI tool name such as 'opencode', 'claude-code', or 'codex'"
+          "description": "Default behavior when switching to native shell. Empty = ask every time, 'shell' = default shell, or set any configured AI tool name such as 'opencode', 'claude', or 'codex'"
         },
-        "opencodeTui.tmuxSessionDefault": {
+        "opensidebarterm.tmuxSessionDefault": {
           "type": "string",
           "default": "",
           "description": "Default behavior when creating a new tmux session. Empty = ask every time, 'shell' = create without launching a tool, or set any configured AI tool name"

@@ -211,7 +211,7 @@ describe("OpenCodeCodeActionProvider", () => {
     );
 
     expect(fixAction).toBeDefined();
-    expect(fixAction?.command?.command).toBe("opencodeTui.explainAndFix");
+    expect(fixAction?.command?.command).toBe("opensidebarterm.explainAndFix");
   });
 
   it("command handler formats and sends prompt", async () => {
@@ -232,7 +232,7 @@ describe("OpenCodeCodeActionProvider", () => {
 
     const registerCalls = vi.mocked(vscode.commands.registerCommand).mock.calls;
     const explainAndFixRegistration = registerCalls.find(
-      (call) => call[0] === "opencodeTui.explainAndFix",
+      (call) => call[0] === "opensidebarterm.explainAndFix",
     );
 
     expect(explainAndFixRegistration).toBeDefined();
@@ -266,7 +266,7 @@ describe("OpenCodeCodeActionProvider", () => {
     provider.registerCommand();
     const registerCalls = vi.mocked(vscode.commands.registerCommand).mock.calls;
     const explainAndFixRegistration = registerCalls.find(
-      (call) => call[0] === "opencodeTui.explainAndFix",
+      (call) => call[0] === "opensidebarterm.explainAndFix",
     );
     const handler = explainAndFixRegistration?.[1] as () => Promise<void>;
 
@@ -293,7 +293,7 @@ describe("OpenCodeCodeActionProvider", () => {
     provider.registerCommand();
     const registerCalls = vi.mocked(vscode.commands.registerCommand).mock.calls;
     const explainAndFixRegistration = registerCalls.find(
-      (call) => call[0] === "opencodeTui.explainAndFix",
+      (call) => call[0] === "opensidebarterm.explainAndFix",
     );
     const handler = explainAndFixRegistration?.[1] as (
       args: unknown,
@@ -333,7 +333,7 @@ describe("OpenCodeCodeActionProvider", () => {
     provider.registerCommand();
     const registerCalls = vi.mocked(vscode.commands.registerCommand).mock.calls;
     const explainAndFixRegistration = registerCalls.find(
-      (call) => call[0] === "opencodeTui.explainAndFix",
+      (call) => call[0] === "opensidebarterm.explainAndFix",
     );
 
     const handler = explainAndFixRegistration?.[1] as (

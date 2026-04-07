@@ -41,10 +41,10 @@ Option B: Via VS Code UI
 
 2. **Verify auto-start**
    - OpenCode should start automatically
-   - You should see the Open AI Sidebar Terminal interface
+   - You should see the Open Sidebar Terminal interface
 
 3. **Test commands**
-   - Try: `Open AI Sidebar Terminal: Clear Terminal`
+   - Try: `Open Sidebar Terminal: Clear Terminal`
 
 4. **Test terminal interaction**
    - Type commands in the terminal
@@ -70,7 +70,7 @@ For rapid testing during development:
 
 ### Expected Behavior
 
-✅ OpenCode sidebar appears in activity bar
+✅ Open Sidebar appears in activity bar
 ✅ Terminal automatically starts with OpenCode
 ✅ Full TUI interaction works (keyboard, mouse)
 ✅ Terminal renders correctly (colors, formatting)
@@ -82,7 +82,7 @@ For rapid testing during development:
 **Terminal not starting?**
 
 - Check if `omo` command is in PATH
-- Try configuring custom command: `"opencodeTui.command": "opencode"`
+- Try configuring custom command: `"opensidebarterm.command": "opencode"`
 
 **Rendering issues?**
 

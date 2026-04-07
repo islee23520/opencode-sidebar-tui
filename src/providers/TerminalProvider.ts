@@ -199,8 +199,8 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "opencodeTui.terminalEditor",
-      "Open AI Sidebar Terminal",
+      "opensidebarterm.terminalEditor",
+      "Open Sidebar Terminal",
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
@@ -546,7 +546,7 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
   }
 
   public toggleDashboard(): void {
-    void vscode.commands.executeCommand("opencodeTui.openTerminalManager");
+    void vscode.commands.executeCommand("opensidebarterm.openTerminalManager");
   }
 
   public dispose(): void {

@@ -276,8 +276,8 @@ describe("TerminalProvider", () => {
     provider.openInEditorTab();
 
     expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
-      "opencodeTui.terminalEditor",
-      "Open AI Sidebar Terminal",
+      "opensidebarterm.terminalEditor",
+      "Open Sidebar Terminal",
       vscode.ViewColumn.Beside,
       expect.objectContaining({
         enableScripts: true,
@@ -1341,7 +1341,7 @@ describe("TerminalProvider", () => {
     provider.toggleDashboard();
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opencodeTui.openTerminalManager",
+      "opensidebarterm.openTerminalManager",
     );
   });
 

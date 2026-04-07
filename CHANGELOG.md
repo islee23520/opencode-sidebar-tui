@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the "OpenCode Sidebar TUI" extension will be documented in this file.
+All notable changes to the "Open Sidebar TUI" extension will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Shares all open files on terminal startup
   - Includes line numbers for active selections
   - Format: `@path/to/file#L10-L20`
-  - Configurable via `opencodeTui.autoShareContext` setting
+  - Configurable via `opensidebarterm.autoShareContext` setting
 
 - **Port Management Service**: Ephemeral port allocation for HTTP communication
   - Port range: 16384-65535 (standard ephemeral range)
@@ -61,9 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports `@file`, `@file#L10`, `@file#L10-L20` formats
 
 - **New Configuration Options**:
-  - `opencodeTui.enableHttpApi`: Enable/disable HTTP API (default: `true`)
-  - `opencodeTui.httpTimeout`: HTTP request timeout in milliseconds (default: `5000`, range: 1000-30000)
-  - `opencodeTui.autoShareContext`: Auto-share editor context on terminal open (default: `true`)
+  - `opensidebarterm.enableHttpApi`: Enable/disable HTTP API (default: `true`)
+  - `opensidebarterm.httpTimeout`: HTTP request timeout in milliseconds (default: `5000`, range: 1000-30000)
+  - `opensidebarterm.autoShareContext`: Auto-share editor context on terminal open (default: `true`)
 
 ### Changed
 

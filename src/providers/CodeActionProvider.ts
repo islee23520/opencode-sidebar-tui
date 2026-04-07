@@ -28,7 +28,7 @@ export class OpenCodeCodeActionProvider implements vscode.CodeActionProvider {
 
   public registerCommand(): vscode.Disposable {
     return vscode.commands.registerCommand(
-      "opencodeTui.explainAndFix",
+      "opensidebarterm.explainAndFix",
       async (args?: ExplainAndFixCommandArgs) => {
         if (!args?.diagnostic || !args.documentUri) {
           vscode.window.showWarningMessage(
@@ -94,7 +94,7 @@ export class OpenCodeCodeActionProvider implements vscode.CodeActionProvider {
       isPreferred: true,
       command: {
         title: "Explain and Fix (OpenCode)",
-        command: "opencodeTui.explainAndFix",
+        command: "opensidebarterm.explainAndFix",
         arguments: [
           {
             diagnostic,

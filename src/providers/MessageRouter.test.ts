@@ -461,7 +461,7 @@ describe("MessageRouter", () => {
     const integratedTerminal = createMockTerminal("External A", "/workspace/a");
     const hiddenCwdTerminal = createMockTerminal("External B");
     const sidebarTerminal = createMockTerminal(
-      "Open AI Sidebar Terminal",
+      "Open Sidebar Terminal",
       "/workspace/sidebar",
     );
     Object.defineProperty(hiddenCwdTerminal, "shellIntegration", {
@@ -517,7 +517,7 @@ describe("MessageRouter", () => {
     expect(terminal.sendText).toHaveBeenNthCalledWith(2, "npm lint");
     expect(terminal.sendText).toHaveBeenNthCalledWith(3, "npm build");
     expect(context.globalState.update).toHaveBeenCalledWith(
-      "opencodeTui.allowTerminalCommands",
+      "opensidebarterm.allowTerminalCommands",
       true,
     );
     expect(terminal.sendText).toHaveBeenCalledTimes(3);

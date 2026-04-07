@@ -5,7 +5,7 @@
 
 ## OVERVIEW
 
-VS Code extension — embeds Open AI Sidebar Terminal in the sidebar. PTY + HTTP communication + tmux session management.
+VS Code extension — embeds Open Sidebar Terminal in the sidebar. PTY + HTTP communication + tmux session management.
 
 ## STRUCTURE
 
