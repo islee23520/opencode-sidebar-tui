@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { execFile } from "node:child_process";
 import { TmuxSessionManager, TmuxUnavailableError } from "./TmuxSessionManager";
 import { DEFAULT_AI_TOOLS } from "../types";
+import type { ILogger } from "./ILogger";
 
 vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
@@ -35,6 +36,15 @@ describe("TmuxSessionManager", () => {
       callback(step.error ?? null, step.stdout ?? "", step.stderr ?? "");
       return {} as any;
     }) as any);
+  }
+
+  function createLogger(): ILogger {
+    return {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
   }
 
   it("parses discovered tmux sessions into sidebar entries", async () => {
@@ -153,6 +163,51 @@ describe("TmuxSessionManager", () => {
     expect(execFile).toHaveBeenCalledTimes(1);
   });
 
+  it("prefers the requested session name when multiple sessions share a workspace", async () => {
+    mockExecSequence([
+      {
+        stdout: [
+          "repo-a-main\t1\t/workspaces/repo-a",
+          "repo-a-debug\t0\t/workspaces/repo-a",
+        ].join("\n"),
+      },
+    ]);
+
+    await expect(
+      manager.findSessionForWorkspace("/workspaces/repo-a", "repo-a-debug"),
+    ).resolves.toEqual({
+      id: "repo-a-debug",
+      name: "repo-a-debug",
+      workspace: "repo-a",
+      isActive: false,
+    });
+  });
+
+  it("keeps workspace matching case-sensitive on linux platforms", async () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", {
+      value: "linux",
+      configurable: true,
+    });
+
+    try {
+      mockExecSequence([
+        {
+          stdout: "Repo-A\t0\t/Workspaces/Repo-A",
+        },
+      ]);
+
+      await expect(
+        manager.findSessionForWorkspace("/workspaces/repo-a", "Repo-A"),
+      ).resolves.toBeUndefined();
+    } finally {
+      Object.defineProperty(process, "platform", {
+        value: originalPlatform,
+        configurable: true,
+      });
+    }
+  });
+
   it("avoids wrong-session attachment on name collision by preferring workspace path", async () => {
     mockExecSequence([
       {
@@ -265,6 +320,184 @@ describe("TmuxSessionManager", () => {
       "kill-session",
       "-t",
       "repo-k",
+    ]);
+  });
+
+  it("notifies external pane change listeners and dispose stops future notifications", () => {
+    const listener = vi.fn();
+    manager.onExternalPaneChange(listener);
+
+    manager.notifyExternalChange("repo-a");
+    manager.dispose();
+    manager.notifyExternalChange("repo-b");
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith("repo-a");
+  });
+
+  it("attaches to an existing tmux session", async () => {
+    mockExecSequence([{ stdout: "" }]);
+
+    await expect(manager.attachSession("repo-a")).resolves.toBeUndefined();
+    expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+      "attach-session",
+      "-t",
+      "repo-a",
+    ]);
+  });
+
+  it("throws TmuxUnavailableError for attachSession when tmux is missing", async () => {
+    const err = Object.assign(new Error("spawn tmux ENOENT"), {
+      code: "ENOENT",
+    });
+    mockExecSequence([{ error: err }]);
+
+    await expect(manager.attachSession("repo-a")).rejects.toBeInstanceOf(
+      TmuxUnavailableError,
+    );
+  });
+
+  it("creates a tmux session and enables mouse support", async () => {
+    mockExecSequence([{ stdout: "" }, { stdout: "" }]);
+
+    await expect(
+      manager.createSession("repo-a", "/workspaces/repo-a"),
+    ).resolves.toBeUndefined();
+    expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+      "new-session",
+      "-d",
+      "-s",
+      "repo-a",
+      "-c",
+      "/workspaces/repo-a",
+    ]);
+    expect(vi.mocked(execFile).mock.calls[1]?.[1]).toEqual([
+      "set-option",
+      "-t",
+      "repo-a",
+      "mouse",
+      "on",
+    ]);
+  });
+
+  it("throws TmuxUnavailableError for createSession when tmux is missing", async () => {
+    const err = Object.assign(new Error("spawn tmux ENOENT"), {
+      code: "ENOENT",
+    });
+    mockExecSequence([{ error: err }]);
+
+    await expect(
+      manager.createSession("repo-a", "/workspaces/repo-a"),
+    ).rejects.toBeInstanceOf(TmuxUnavailableError);
+  });
+
+  it("returns tmux buffer contents and falls back to empty string on failure", async () => {
+    mockExecSequence([{ stdout: "copied text" }, { error: new Error("boom") }]);
+
+    await expect(manager.showBuffer()).resolves.toBe("copied text");
+    await expect(manager.showBuffer()).resolves.toBe("");
+  });
+
+  it("sets mouse mode for a session", async () => {
+    mockExecSequence([{ stdout: "" }]);
+
+    await expect(manager.setMouseOn("repo-a")).resolves.toBeUndefined();
+    expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+      "set-option",
+      "-t",
+      "repo-a",
+      "mouse",
+      "on",
+    ]);
+  });
+
+  it("throws TmuxUnavailableError for setMouseOn when tmux is missing", async () => {
+    const err = Object.assign(new Error("spawn tmux ENOENT"), {
+      code: "ENOENT",
+    });
+    mockExecSequence([{ error: err }]);
+
+    await expect(manager.setMouseOn("repo-a")).rejects.toBeInstanceOf(
+      TmuxUnavailableError,
+    );
+  });
+
+  it("warns when registering session hooks fails", async () => {
+    const logger = createLogger();
+    manager = new TmuxSessionManager(logger);
+    mockExecSequence([{ error: new Error("hook failure") }]);
+
+    await expect(
+      manager.registerSessionHooks("repo-a", 42),
+    ).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Failed to register session hooks for "repo-a": hook failure',
+      ),
+    );
+  });
+
+  it("warns when unregistering session hooks fails", async () => {
+    const logger = createLogger();
+    manager = new TmuxSessionManager(logger);
+    mockExecSequence([{ error: new Error("hook cleanup failure") }]);
+
+    await expect(
+      manager.unregisterSessionHooks("repo-a"),
+    ).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Failed to unregister session hooks for "repo-a": hook cleanup failure',
+      ),
+    );
+  });
+
+  it("warns when registering session hooks fails because tmux is unavailable", async () => {
+    const logger = createLogger();
+    const err = Object.assign(new Error("spawn tmux ENOENT"), {
+      code: "ENOENT",
+    });
+    manager = new TmuxSessionManager(logger);
+    mockExecSequence([{ error: err }]);
+
+    await expect(
+      manager.registerSessionHooks("repo-a", 42),
+    ).resolves.toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Failed to register session hooks for "repo-a": tmux is not installed',
+      ),
+    );
+  });
+
+  it("registers and unregisters all session hooks when commands succeed", async () => {
+    mockExecSequence([
+      { stdout: "" },
+      { stdout: "" },
+      { stdout: "" },
+      { stdout: "" },
+      { stdout: "" },
+      { stdout: "" },
+    ]);
+
+    await manager.registerSessionHooks("repo-a", 99);
+    await manager.unregisterSessionHooks("repo-a");
+
+    expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+      "set-hook",
+      "-g",
+      "-t",
+      "repo-a",
+      "after-split-window",
+      'run-shell "kill -USR2 99 2>/dev/null || true"',
+    ]);
+    expect(vi.mocked(execFile).mock.calls[5]?.[1]).toEqual([
+      "set-hook",
+      "-u",
+      "-g",
+      "-t",
+      "repo-a",
+      "after-select-window",
     ]);
   });
 
@@ -405,6 +638,32 @@ describe("TmuxSessionManager", () => {
       ]);
     });
 
+    it("creates a new window with a working directory", async () => {
+      mockExecSequence([{ stdout: "@2:%9" }]);
+
+      await expect(
+        manager.createWindow("test-session", "/workspaces/repo-a"),
+      ).resolves.toEqual({ windowId: "@2", paneId: "%9" });
+      expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+        "new-window",
+        "-t",
+        "test-session",
+        "-P",
+        "-F",
+        "#{window_id}:#{pane_id}",
+        "-c",
+        "/workspaces/repo-a",
+      ]);
+    });
+
+    it("throws when createWindow output does not include both IDs", async () => {
+      mockExecSequence([{ stdout: "@1" }]);
+
+      await expect(manager.createWindow("test-session")).rejects.toThrow(
+        "Failed to get window/pane ID from new-window output",
+      );
+    });
+
     it("throws TmuxUnavailableError for createWindow when tmux missing", async () => {
       const err = Object.assign(new Error("spawn tmux ENOENT"), {
         code: "ENOENT",
@@ -422,6 +681,38 @@ describe("TmuxSessionManager", () => {
         "kill-window",
         "-t",
         "@0",
+      ]);
+    });
+
+    it("rethrows non-tmux killWindow failures", async () => {
+      mockExecSequence([{ error: new Error("permission denied") }]);
+
+      await expect(manager.killWindow("@0")).rejects.toThrow(
+        "permission denied",
+      );
+    });
+
+    it("moves between windows and selects a specific window", async () => {
+      mockExecSequence([{ stdout: "" }, { stdout: "" }, { stdout: "" }]);
+
+      await manager.nextWindow("test-session");
+      await manager.prevWindow("test-session");
+      await manager.selectWindow("@4");
+
+      expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+        "next-window",
+        "-t",
+        "test-session",
+      ]);
+      expect(vi.mocked(execFile).mock.calls[1]?.[1]).toEqual([
+        "previous-window",
+        "-t",
+        "test-session",
+      ]);
+      expect(vi.mocked(execFile).mock.calls[2]?.[1]).toEqual([
+        "select-window",
+        "-t",
+        "@4",
       ]);
     });
 
@@ -515,6 +806,23 @@ describe("TmuxSessionManager", () => {
       ]);
     });
 
+    it("omits optional pane fields when tmux output does not include them", async () => {
+      mockExecSequence([
+        {
+          stdout: "%9\t0\tshell\t1",
+        },
+      ]);
+
+      await expect(manager.listPanes("test-session")).resolves.toEqual([
+        {
+          paneId: "%9",
+          index: 0,
+          title: "shell",
+          isActive: true,
+        },
+      ]);
+    });
+
     it("lists panes for only the active window when requested", async () => {
       mockExecSequence([
         {
@@ -537,8 +845,21 @@ describe("TmuxSessionManager", () => {
         "-t",
         "test-session:@1",
         "-F",
-        "#{pane_id}\t#{pane_index}\t#{pane_title}\t#{pane_active}\t#{pane_current_command}\t#{pane_pid}\t#{window_id}\t#{pane_current_path}"
+        "#{pane_id}\t#{pane_index}\t#{pane_title}\t#{pane_active}\t#{pane_current_command}\t#{pane_pid}\t#{window_id}\t#{pane_current_path}",
       ]);
+    });
+
+    it("returns no panes when active-window filtering finds no active window", async () => {
+      mockExecSequence([
+        {
+          stdout: ["@1\t0\tmain\t0", "@2\t1\tlogs\t0"].join("\n"),
+        },
+      ]);
+
+      await expect(
+        manager.listPanes("test-session", { activeWindowOnly: true }),
+      ).resolves.toEqual([]);
+      expect(execFile).toHaveBeenCalledTimes(1);
     });
 
     it("returns empty array when session has no panes (no server error)", async () => {
@@ -626,6 +947,30 @@ describe("TmuxSessionManager", () => {
       ]);
     });
 
+    it("omits empty optional geometry fields from pane DTOs", async () => {
+      mockExecSequence([
+        {
+          stdout: "%8\t0\tshell\t0\t\t\t\t\t10\t20\t30\t40",
+        },
+        { stdout: "" },
+      ]);
+
+      await expect(
+        manager.listWindowPaneGeometry("test-session", "@4"),
+      ).resolves.toEqual([
+        {
+          paneId: "%8",
+          index: 0,
+          title: "shell",
+          isActive: false,
+          paneLeft: 10,
+          paneTop: 20,
+          paneWidth: 30,
+          paneHeight: 40,
+        },
+      ]);
+    });
+
     it("resolves node-based pane tools from descendant process commands", async () => {
       mockExecSequence([
         {
@@ -686,6 +1031,46 @@ describe("TmuxSessionManager", () => {
       expect(vi.mocked(execFile).mock.calls[1]?.[0]).toBe("ps");
     });
 
+    it("keeps pane geometry results when process-tree lookup fails", async () => {
+      mockExecSequence([
+        {
+          stdout:
+            "%0\t0\tshell\t1\tbash\t4242\t@0\t/workspaces/repo-a\t0\t0\t80\t24",
+        },
+        { error: new Error("ps failed") },
+      ]);
+
+      await expect(
+        manager.listWindowPaneGeometry("test-session", "@0"),
+      ).resolves.toEqual([
+        {
+          paneId: "%0",
+          index: 0,
+          title: "shell",
+          isActive: true,
+          currentCommand: "bash",
+          panePid: 4242,
+          windowId: "@0",
+          currentPath: "/workspaces/repo-a",
+          paneLeft: 0,
+          paneTop: 0,
+          paneWidth: 80,
+          paneHeight: 24,
+        },
+      ]);
+    });
+
+    it("returns empty geometry when listWindowPaneGeometry hits a no-session error", async () => {
+      const err = Object.assign(new Error("no sessions"), {
+        stderr: "no sessions",
+      });
+      mockExecSequence([{ error: err }]);
+
+      await expect(
+        manager.listWindowPaneGeometry("test-session", "@0"),
+      ).resolves.toEqual([]);
+    });
+
     it("lists windows for a session", async () => {
       mockExecSequence([
         {
@@ -719,6 +1104,55 @@ describe("TmuxSessionManager", () => {
       );
     });
 
+    it("lists visible pane geometry for a session", async () => {
+      mockExecSequence([
+        {
+          stdout: ["%0\t0\t0\t100\t20", "%1\t100\t0\t100\t20"].join("\n"),
+        },
+      ]);
+
+      await expect(
+        manager.listVisiblePaneGeometry("test-session"),
+      ).resolves.toEqual([
+        {
+          paneId: "%0",
+          paneLeft: 0,
+          paneTop: 0,
+          paneWidth: 100,
+          paneHeight: 20,
+        },
+        {
+          paneId: "%1",
+          paneLeft: 100,
+          paneTop: 0,
+          paneWidth: 100,
+          paneHeight: 20,
+        },
+      ]);
+    });
+
+    it("returns empty visible pane geometry on no-session errors", async () => {
+      const err = Object.assign(new Error("failed to connect to server"), {
+        stderr: "failed to connect to server",
+      });
+      mockExecSequence([{ error: err }]);
+
+      await expect(
+        manager.listVisiblePaneGeometry("test-session"),
+      ).resolves.toEqual([]);
+    });
+
+    it("throws TmuxUnavailableError for listVisiblePaneGeometry when tmux is missing", async () => {
+      const err = Object.assign(new Error("spawn tmux ENOENT"), {
+        code: "ENOENT",
+      });
+      mockExecSequence([{ error: err }]);
+
+      await expect(
+        manager.listVisiblePaneGeometry("test-session"),
+      ).rejects.toBeInstanceOf(TmuxUnavailableError);
+    });
+
     it("sends text to a pane", async () => {
       mockExecSequence([{ stdout: "" }]);
       await manager.sendTextToPane("%0", "ls");
@@ -731,6 +1165,35 @@ describe("TmuxSessionManager", () => {
       ]);
     });
 
+    it("sends literal text to a pane without submitting", async () => {
+      mockExecSequence([{ stdout: "" }]);
+
+      await manager.sendTextToPane("%3", "npm test", { submit: false });
+
+      expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+        "send-keys",
+        "-t",
+        "%3",
+        "-l",
+        "npm test",
+      ]);
+    });
+
+    it("rethrows non-tmux sendTextToPane failures", async () => {
+      const logger = createLogger();
+      manager = new TmuxSessionManager(logger);
+      mockExecSequence([{ error: new Error("send failed") }]);
+
+      await expect(manager.sendTextToPane("%0", "ls")).rejects.toThrow(
+        "send failed",
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[DIAG:sendTextToPane] FAILED paneId="%0" error=send failed',
+        ),
+      );
+    });
+
     it("throws TmuxUnavailableError for sendTextToPane when tmux missing", async () => {
       const err = Object.assign(new Error("spawn tmux ENOENT"), {
         code: "ENOENT",
@@ -739,6 +1202,40 @@ describe("TmuxSessionManager", () => {
       await expect(manager.sendTextToPane("%0", "ls")).rejects.toBeInstanceOf(
         TmuxUnavailableError,
       );
+    });
+
+    it("captures pane content and session preview", async () => {
+      mockExecSequence([
+        { stdout: "pane output" },
+        { stdout: "%3\n" },
+        { stdout: "preview output" },
+      ]);
+
+      await expect(manager.capturePane("%0")).resolves.toBe("pane output");
+      await expect(manager.captureSessionPreview("test-session")).resolves.toBe(
+        "preview output",
+      );
+      expect(vi.mocked(execFile).mock.calls[1]?.[1]).toEqual([
+        "list-panes",
+        "-t",
+        "test-session",
+        "-f",
+        "#{pane_active}",
+        "-F",
+        "#{pane_id}",
+      ]);
+    });
+
+    it("returns empty capture results when no active session pane is found or capture fails", async () => {
+      mockExecSequence([
+        { stdout: "\n" },
+        { error: new Error("capture failed") },
+      ]);
+
+      await expect(manager.captureSessionPreview("test-session")).resolves.toBe(
+        "",
+      );
+      await expect(manager.capturePane("%0")).resolves.toBe("");
     });
   });
 
@@ -798,6 +1295,48 @@ describe("TmuxSessionManager", () => {
       sessions: [],
       activeSessionId: null,
       emptyState: "no-tmux",
+    });
+  });
+
+  it("uses the discovered active session when creating a populated tree snapshot", async () => {
+    mockExecSequence([
+      {
+        stdout: [
+          "repo-a\t0\t/workspaces/repo-a",
+          "repo-b\t1\t/workspaces/repo-b",
+        ].join("\n"),
+      },
+    ]);
+
+    await expect(manager.createTreeSnapshot()).resolves.toEqual({
+      type: "treeSnapshot",
+      sessions: [
+        { id: "repo-a", name: "repo-a", workspace: "repo-a", isActive: false },
+        { id: "repo-b", name: "repo-b", workspace: "repo-b", isActive: true },
+      ],
+      activeSessionId: "repo-b",
+      emptyState: undefined,
+    });
+  });
+
+  it("prefers the explicit active session ID when building a tree snapshot", async () => {
+    mockExecSequence([
+      {
+        stdout: [
+          "repo-a\t1\t/workspaces/repo-a",
+          "repo-b\t0\t/workspaces/repo-b",
+        ].join("\n"),
+      },
+    ]);
+
+    await expect(manager.createTreeSnapshot("repo-b")).resolves.toEqual({
+      type: "treeSnapshot",
+      sessions: [
+        { id: "repo-a", name: "repo-a", workspace: "repo-a", isActive: true },
+        { id: "repo-b", name: "repo-b", workspace: "repo-b", isActive: false },
+      ],
+      activeSessionId: "repo-b",
+      emptyState: undefined,
     });
   });
 });

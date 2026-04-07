@@ -20,6 +20,34 @@ export const window = {
   registerWebviewViewProvider: vi.fn(),
   registerTreeDataProvider: vi.fn(),
   showInputBox: vi.fn(),
+  createQuickPick: vi.fn(() => ({
+    items: [] as any[],
+    activeItems: [] as any[],
+    selectedItems: [] as any[],
+    placeholder: "",
+    title: "",
+    busy: false,
+    enabled: true,
+    matchOnDescription: false,
+    matchOnDetail: false,
+    value: "",
+    onDidAccept: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
+    onDidChangeSelection: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
+    onDidHide: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
+    onDidChangeValue: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
+  })),
+  createTerminal: vi.fn(() => ({
+    name: "test-terminal",
+    processId: Promise.resolve(1234),
+    sendText: vi.fn(),
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
+    exitStatus: undefined,
+  })),
   onDidChangeActiveTextEditor: vi.fn((listener: Function) => {
     void listener;
     return { dispose: vi.fn() };
@@ -130,12 +158,25 @@ export enum DiagnosticSeverity {
   Hint = 3,
 }
 
+export enum QuickPickItemKind {
+  Separator = -1,
+  Default = 0,
+}
+
 export const CodeActionKind = {
   QuickFix: "quickfix",
 };
 
 export class ThemeColor {
   constructor(public readonly id: string) {}
+}
+
+export class Position {
+  constructor(public readonly line: number, public readonly character: number) {}
+}
+
+export class TabInputText {
+  constructor(public readonly uri: any) {}
 }
 
 export const env = {
@@ -148,7 +189,7 @@ export const env = {
 };
 
 export const Uri = {
-  file: vi.fn((path: string) => ({ fsPath: path, path })),
+  file: vi.fn((path: string) => ({ fsPath: path, path, toString: () => `file://${path}` })),
   joinPath: vi.fn((base: any, ...paths: string[]) => ({
     fsPath: [base.fsPath || base.path, ...paths].join("/"),
     path: [base.path || base.fsPath, ...paths].join("/"),
@@ -366,8 +407,11 @@ export default {
   commands,
   ConfigurationTarget,
   DiagnosticSeverity,
+  QuickPickItemKind,
   CodeActionKind,
   ThemeColor,
+  Position,
+  TabInputText,
   env,
   Uri,
   Range,
@@ -380,4 +424,5 @@ export default {
   TextEditor,
   TextDocument,
   Disposable,
+  ViewColumn,
 };
