@@ -5,7 +5,7 @@ export interface DropdownCallbacks {
 }
 
 interface TmuxCommand {
-  action: string;
+  id: string;
   label: string;
   category: string;
   requiresSession: boolean;
@@ -20,81 +20,313 @@ let callbacks: DropdownCallbacks | null = null;
 
 const commands: TmuxCommand[] = [
   {
-    action: "refresh",
-    label: "Refresh",
-    category: "Dashboard",
-    requiresSession: false,
-    buildMessage: () => ({ action: "refresh" }),
-  },
-  {
-    action: "toggleScope",
-    label: "Toggle Workspace / Global",
-    category: "Dashboard",
-    requiresSession: false,
-    buildMessage: () => ({ action: "toggleScope" }),
-  },
-  {
-    action: "create",
-    label: "New Session",
+    id: "browse-sessions",
+    label: "Browse Sessions",
     category: "Session",
     requiresSession: false,
-    buildMessage: () => ({ action: "create" }),
-  },
-  {
-    action: "createNativeShell",
-    label: "New Shell",
-    category: "Shell",
-    requiresSession: false,
-    buildMessage: () => ({ action: "createNativeShell" }),
-  },
-  {
-    action: "switchNativeShell",
-    label: "Switch to Shell",
-    category: "Shell",
-    requiresSession: false,
-    buildMessage: () => ({ action: "switchNativeShell" }),
-  },
-  {
-    action: "createWindow",
-    label: "New Window",
-    category: "Window",
-    requiresSession: true,
-    buildMessage: (sid) => ({ action: "createWindow", sessionId: sid! }),
-  },
-  {
-    action: "nextWindow",
-    label: "Next Window",
-    category: "Window",
-    requiresSession: true,
-    buildMessage: (sid) => ({ action: "nextWindow", sessionId: sid! }),
-  },
-  {
-    action: "prevWindow",
-    label: "Previous Window",
-    category: "Window",
-    requiresSession: true,
-    buildMessage: (sid) => ({ action: "prevWindow", sessionId: sid! }),
-  },
-  {
-    action: "splitPane H",
-    label: "Split Horizontal",
-    category: "Pane",
-    requiresSession: true,
-    buildMessage: (sid) => ({
-      action: "splitPane",
-      sessionId: sid!,
-      direction: "h",
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.browseTmuxSessions",
     }),
   },
   {
-    action: "splitPane V",
+    id: "create-session",
+    label: "New Session",
+    category: "Session",
+    requiresSession: false,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.createTmuxSession",
+    }),
+  },
+  {
+    id: "kill-session",
+    label: "Kill Session",
+    category: "Session",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxKillSession",
+    }),
+  },
+  {
+    id: "create-window",
+    label: "New Window",
+    category: "Window",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxCreateWindow",
+    }),
+  },
+  {
+    id: "next-window",
+    label: "Next Window",
+    category: "Window",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxNextWindow",
+    }),
+  },
+  {
+    id: "previous-window",
+    label: "Previous Window",
+    category: "Window",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxPrevWindow",
+    }),
+  },
+  {
+    id: "select-window",
+    label: "Select Window",
+    category: "Window",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxSelectWindow",
+    }),
+  },
+  {
+    id: "kill-window",
+    label: "Kill Window",
+    category: "Window",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxKillWindow",
+    }),
+  },
+  {
+    id: "switch-pane",
+    label: "Switch Pane",
+    category: "Pane",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxSwitchPane",
+    }),
+  },
+  {
+    id: "split-pane-h",
+    label: "Split Horizontal",
+    category: "Pane",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxSplitPaneH",
+    }),
+  },
+  {
+    id: "split-pane-v",
     label: "Split Vertical",
     category: "Pane",
     requiresSession: true,
-    buildMessage: (sid) => ({
-      action: "splitPane",
-      sessionId: sid!,
-      direction: "v",
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxSplitPaneV",
+    }),
+  },
+  {
+    id: "split-pane-command",
+    label: "Split with Command",
+    category: "Pane",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxSplitPaneWithCommand",
+    }),
+  },
+  {
+    id: "send-text",
+    label: "Send Text to Pane",
+    category: "Pane",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxSendTextToPane",
+    }),
+  },
+  {
+    id: "resize-pane",
+    label: "Resize Pane",
+    category: "Pane",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxResizePane",
+    }),
+  },
+  {
+    id: "swap-pane",
+    label: "Swap Pane",
+    category: "Pane",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxSwapPane",
+    }),
+  },
+  {
+    id: "kill-pane",
+    label: "Kill Pane",
+    category: "Pane",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxKillPane",
+    }),
+  },
+  {
+    id: "refresh",
+    label: "Refresh Terminal Manager",
+    category: "Utility",
+    requiresSession: false,
+    buildMessage: () => ({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxRefresh",
+    }),
+  },
+  {
+    id: "rename-session",
+    label: "Rename Session",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "rename-session",
+    }),
+  },
+  {
+    id: "rename-window",
+    label: "Rename Window",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "rename-window",
+    }),
+  },
+  {
+    id: "last-window",
+    label: "Last Window",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "last-window",
+    }),
+  },
+  {
+    id: "last-pane",
+    label: "Last Pane",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "last-pane",
+    }),
+  },
+  {
+    id: "rotate-window",
+    label: "Rotate Window",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "rotate-window",
+    }),
+  },
+  {
+    id: "select-layout",
+    label: "Select Layout",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "select-layout",
+    }),
+  },
+  {
+    id: "display-panes",
+    label: "Display Panes",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "display-panes",
+    }),
+  },
+  {
+    id: "copy-mode",
+    label: "Copy Mode",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "copy-mode",
+    }),
+  },
+  {
+    id: "clear-history",
+    label: "Clear History",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "clear-history",
+    }),
+  },
+  {
+    id: "detach-client",
+    label: "Detach Client",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "detach-client",
+    }),
+  },
+  {
+    id: "move-window",
+    label: "Move Window",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "move-window",
+    }),
+  },
+  {
+    id: "move-pane",
+    label: "Move Pane",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "move-pane",
+    }),
+  },
+  {
+    id: "respawn-pane",
+    label: "Respawn Pane",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "respawn-pane",
+    }),
+  },
+  {
+    id: "choose-tree",
+    label: "Choose Tree",
+    category: "Native",
+    requiresSession: true,
+    buildMessage: () => ({
+      type: "executeTmuxRawCommand",
+      subcommand: "choose-tree",
     }),
   },
 ];

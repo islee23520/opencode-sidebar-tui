@@ -13,6 +13,25 @@ import { ILogger } from "./ILogger";
 const TMUX_LIST_FORMAT =
   "#{session_name}\t#{session_attached}\t#{session_path}";
 
+const TMUX_RAW_ALLOWED_SUBCOMMANDS = [
+  "rename-session",
+  "rename-window",
+  "last-window",
+  "last-pane",
+  "rotate-window",
+  "select-layout",
+  "display-panes",
+  "copy-mode",
+  "clear-history",
+  "detach-client",
+  "move-window",
+  "move-pane",
+  "respawn-pane",
+  "choose-tree",
+] as const;
+
+type TmuxRawAllowedSubcommand = (typeof TMUX_RAW_ALLOWED_SUBCOMMANDS)[number];
+
 interface ExecError extends Error {
   code?: number | string;
   stderr?: string;
@@ -245,6 +264,32 @@ export class TmuxSessionManager {
         workspacePath,
       ]);
       await this.runTmux(["set-option", "-t", sessionName, "mouse", "on"]);
+    } catch (error) {
+      if (this.isTmuxUnavailable(error)) {
+        throw new TmuxUnavailableError();
+      }
+
+      throw error;
+    }
+  }
+
+  public async executeRawCommand(
+    sessionId: string,
+    tmuxSubcommand: string,
+    args: string[] = [],
+  ): Promise<string> {
+    if (!this.isAllowedRawSubcommand(tmuxSubcommand)) {
+      throw new Error(`Unsupported tmux subcommand: ${tmuxSubcommand}`);
+    }
+
+    const tmuxArgs = this.buildRawTmuxCommandArgs(
+      sessionId,
+      tmuxSubcommand,
+      args,
+    );
+
+    try {
+      return await this.runTmux(tmuxArgs);
     } catch (error) {
       if (this.isTmuxUnavailable(error)) {
         throw new TmuxUnavailableError();
@@ -1114,6 +1159,45 @@ export class TmuxSessionManager {
 
   private buildHookCommand(signalPid: number): string {
     return `run-shell "kill -USR2 ${signalPid} 2>/dev/null || true"`;
+  }
+
+  private isAllowedRawSubcommand(
+    value: string,
+  ): value is TmuxRawAllowedSubcommand {
+    return TMUX_RAW_ALLOWED_SUBCOMMANDS.some((command) => command === value);
+  }
+
+  private buildRawTmuxCommandArgs(
+    sessionId: string,
+    tmuxSubcommand: TmuxRawAllowedSubcommand,
+    args: string[],
+  ): string[] {
+    switch (tmuxSubcommand) {
+      case "rename-session":
+      case "rename-window":
+      case "select-layout": {
+        const firstArg = args[0]?.trim();
+        if (!firstArg) {
+          throw new Error(`${tmuxSubcommand} requires an argument`);
+        }
+
+        return [tmuxSubcommand, "-t", sessionId, firstArg];
+      }
+      case "respawn-pane":
+        return [tmuxSubcommand, "-t", sessionId, "-k"];
+      case "move-window":
+      case "move-pane":
+        return [tmuxSubcommand, "-t", sessionId, ...args];
+      case "last-window":
+      case "last-pane":
+      case "rotate-window":
+      case "display-panes":
+      case "copy-mode":
+      case "clear-history":
+      case "detach-client":
+      case "choose-tree":
+        return [tmuxSubcommand, "-t", sessionId];
+    }
   }
 
   private runTmux(args: string[]): Promise<string> {

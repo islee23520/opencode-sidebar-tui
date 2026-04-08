@@ -285,7 +285,7 @@ describe("registerTmuxPaneCommands", () => {
     expect(horizontalHarness.splitPane).toHaveBeenNthCalledWith(1, "%2", "h");
     expect(horizontalHarness.splitPane).toHaveBeenNthCalledWith(
       2,
-      "session-2",
+      "%1",
       "h",
     );
 
@@ -303,7 +303,7 @@ describe("registerTmuxPaneCommands", () => {
       sessionId: "session-3",
     });
 
-    expect(verticalHarness.splitPane).toHaveBeenCalledWith("session-3", "v");
+    expect(verticalHarness.splitPane).toHaveBeenCalledWith("%1", "v");
     expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
       "Failed to split pane",
     );

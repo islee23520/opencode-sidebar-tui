@@ -1,5 +1,22 @@
 import { postMessage } from "../shared/vscode-api";
 
+import * as TmuxCmd from "../tmux-command-dropdown";
+import type { DropdownCallbacks } from "../tmux-command-dropdown";
+
+export function setupTmuxCommandButton(
+  getSessionId: () => string | null,
+  callbacks: DropdownCallbacks,
+): void {
+  const btnTmuxCommands = document.getElementById("btn-tmux-commands");
+  btnTmuxCommands?.addEventListener("click", () => {
+    if (TmuxCmd.isVisible()) {
+      TmuxCmd.hide();
+    } else {
+      TmuxCmd.show(getSessionId(), callbacks);
+    }
+  });
+}
+
 export function setupAiToolButton(): void {
   const btnAiTool = document.getElementById("btn-ai-tool");
   btnAiTool?.addEventListener("click", () => {
@@ -40,5 +57,11 @@ export function setupPaneControls(): void {
   });
   btnKillPane?.addEventListener("click", () => {
     postMessage({ type: "killTmuxPane" });
+  });
+}
+
+export function setupReloadButton(): void {
+  document.getElementById("btn-restart")?.addEventListener("click", () => {
+    postMessage({ type: "requestRestart" });
   });
 }

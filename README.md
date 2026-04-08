@@ -209,9 +209,9 @@ The extension communicates with OpenCode CLI via an HTTP API for reliable bidire
 
 ```json
 {
-  "opensidebarterm.enableHttpApi": true,
-  "opensidebarterm.httpTimeout": 5000,
-  "opensidebarterm.autoShareContext": true
+  "opencodeTui.enableHttpApi": true,
+  "opencodeTui.httpTimeout": 5000,
+  "opencodeTui.autoShareContext": true
 }
 ```
 
@@ -233,17 +233,17 @@ Available settings in VS Code settings (`Cmd+,` / `Ctrl+,`):
 
 | Setting                       | Type    | Default           | Description                                             |
 | ----------------------------- | ------- | ----------------- | ------------------------------------------------------- |
-| `opensidebarterm.autoStart`       | boolean | `true`            | Automatically start OpenCode when the view is activated |
-| `opensidebarterm.autoStartOnOpen` | boolean | `true`            | Automatically start OpenCode when sidebar is opened     |
-| `opensidebarterm.command`         | string  | `"opencode"`      | Command to launch OpenCode with arguments               |
-| `opensidebarterm.fontSize`        | number  | `14`              | Terminal font size in pixels (6-25)                     |
-| `opensidebarterm.fontFamily`      | string  | Nerd Font stack\* | Terminal font family                                    |
-| `opensidebarterm.cursorBlink`     | boolean | `true`            | Enable cursor blinking                                  |
-| `opensidebarterm.cursorStyle`     | string  | `"block"`         | Cursor style: `block`, `underline`, or `bar`            |
-| `opensidebarterm.scrollback`      | number  | `10000`           | Maximum lines in scrollback buffer (0-100000)           |
-| `opensidebarterm.autoFocusOnSend` | boolean | `true`            | Auto-focus sidebar after sending file references        |
-| `opensidebarterm.shellPath`       | string  | `""`              | Custom shell path (empty = VS Code default)             |
-| `opensidebarterm.shellArgs`       | array   | `[]`              | Custom shell arguments                                  |
+| `opencodeTui.autoStart`       | boolean | `true`            | Automatically start OpenCode when the view is activated |
+| `opencodeTui.autoStartOnOpen` | boolean | `true`            | Automatically start OpenCode when sidebar is opened     |
+| `opencodeTui.command`         | string  | `"opencode"`      | Command to launch OpenCode with arguments               |
+| `opencodeTui.fontSize`        | number  | `14`              | Terminal font size in pixels (6-25)                     |
+| `opencodeTui.fontFamily`      | string  | Nerd Font stack\* | Terminal font family                                    |
+| `opencodeTui.cursorBlink`     | boolean | `true`            | Enable cursor blinking                                  |
+| `opencodeTui.cursorStyle`     | string  | `"block"`         | Cursor style: `block`, `underline`, or `bar`            |
+| `opencodeTui.scrollback`      | number  | `10000`           | Maximum lines in scrollback buffer (0-100000)           |
+| `opencodeTui.autoFocusOnSend` | boolean | `true`            | Auto-focus sidebar after sending file references        |
+| `opencodeTui.shellPath`       | string  | `""`              | Custom shell path (empty = VS Code default)             |
+| `opencodeTui.shellArgs`       | array   | `[]`              | Custom shell arguments                                  |
 
 \* Default: `'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'CascadiaCode NF', Menlo, monospace`
 
@@ -251,49 +251,49 @@ Available settings in VS Code settings (`Cmd+,` / `Ctrl+,`):
 
 | Setting                         | Type    | Default | Description                                      |
 | ------------------------------- | ------- | ------- | ------------------------------------------------ |
-| `opensidebarterm.enableHttpApi`     | boolean | `true`  | Enable HTTP API for OpenCode communication       |
-| `opensidebarterm.httpTimeout`       | number  | `5000`  | HTTP API request timeout in ms (1000-30000)      |
-| `opensidebarterm.autoShareContext`  | boolean | `true`  | Auto-share editor context with OpenCode          |
-| `opensidebarterm.contextDebounceMs` | number  | `500`   | Debounce delay for context updates (100-5000 ms) |
+| `opencodeTui.enableHttpApi`     | boolean | `true`  | Enable HTTP API for OpenCode communication       |
+| `opencodeTui.httpTimeout`       | number  | `5000`  | HTTP API request timeout in ms (1000-30000)      |
+| `opencodeTui.autoShareContext`  | boolean | `true`  | Auto-share editor context with OpenCode          |
+| `opencodeTui.contextDebounceMs` | number  | `500`   | Debounce delay for context updates (100-5000 ms) |
 
 ### AI Tool Settings
 
 | Setting                       | Type    | Default                       | Description                                               |
 | ----------------------------- | ------- | ----------------------------- | --------------------------------------------------------- |
-| `opensidebarterm.aiTools`         | array   | `[{opencode, claude, codex}]` | Configure AI coding tools with custom paths and arguments |
-| `opensidebarterm.defaultAiTool`   | string  | `"opencode"`                  | Default AI tool for new tmux sessions                     |
-| `opensidebarterm.enableAutoSpawn` | boolean | `true`                        | Auto-spawn OpenCode if not running                        |
+| `opencodeTui.aiTools`         | array   | `[{opencode, claude, codex}]` | Configure AI coding tools with custom paths and arguments |
+| `opencodeTui.defaultAiTool`   | string  | `"opencode"`                  | Default AI tool for new tmux sessions                     |
+| `opencodeTui.enableAutoSpawn` | boolean | `true`                        | Auto-spawn OpenCode if not running                        |
 
 ### Tmux Settings
 
 | Setting                          | Type   | Default | Description                                                              |
 | -------------------------------- | ------ | ------- | ------------------------------------------------------------------------ |
-| `opensidebarterm.nativeShellDefault` | string | `""`    | Default behavior for native shell switch (`""`, `"opencode"`, `"shell"`) |
-| `opensidebarterm.tmuxSessionDefault` | string | `""`    | Default behavior for new tmux sessions (`""`, `"opencode"`, `"shell"`)   |
+| `opencodeTui.nativeShellDefault` | string | `""`    | Default behavior for native shell switch (`""`, `"opencode"`, `"shell"`) |
+| `opencodeTui.tmuxSessionDefault` | string | `""`    | Default behavior for new tmux sessions (`""`, `"opencode"`, `"shell"`)   |
 
 ### Advanced Settings
 
 | Setting                            | Type   | Default                | Description                                      |
 | ---------------------------------- | ------ | ---------------------- | ------------------------------------------------ |
-| `opensidebarterm.logLevel`             | string | `"info"`               | Log level: `debug`, `info`, `warn`, `error`      |
-| `opensidebarterm.maxDiagnosticLength`  | number | `500`                  | Maximum length of diagnostic messages (100-2000) |
-| `opensidebarterm.codeActionSeverities` | array  | `["error", "warning"]` | Diagnostic severities that trigger code actions  |
+| `opencodeTui.logLevel`             | string | `"info"`               | Log level: `debug`, `info`, `warn`, `error`      |
+| `opencodeTui.maxDiagnosticLength`  | number | `500`                  | Maximum length of diagnostic messages (100-2000) |
+| `opencodeTui.codeActionSeverities` | array  | `["error", "warning"]` | Diagnostic severities that trigger code actions  |
 
 ### Example Configuration
 
 ```json
 {
-  "opensidebarterm.autoStart": true,
-  "opensidebarterm.command": "opencode",
-  "opensidebarterm.fontSize": 14,
-  "opensidebarterm.fontFamily": "'JetBrainsMono Nerd Font', monospace",
-  "opensidebarterm.cursorBlink": true,
-  "opensidebarterm.cursorStyle": "block",
-  "opensidebarterm.scrollback": 10000,
-  "opensidebarterm.enableHttpApi": true,
-  "opensidebarterm.httpTimeout": 5000,
-  "opensidebarterm.autoShareContext": true,
-  "opensidebarterm.defaultAiTool": "opencode"
+  "opencodeTui.autoStart": true,
+  "opencodeTui.command": "opencode",
+  "opencodeTui.fontSize": 14,
+  "opencodeTui.fontFamily": "'JetBrainsMono Nerd Font', monospace",
+  "opencodeTui.cursorBlink": true,
+  "opencodeTui.cursorStyle": "block",
+  "opencodeTui.scrollback": 10000,
+  "opencodeTui.enableHttpApi": true,
+  "opencodeTui.httpTimeout": 5000,
+  "opencodeTui.autoShareContext": true,
+  "opencodeTui.defaultAiTool": "opencode"
 }
 ```
 

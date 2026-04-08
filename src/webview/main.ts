@@ -1,6 +1,7 @@
 import "@xterm/xterm/css/xterm.css";
 import * as AiSelector from "./ai-tool-selector";
 import * as TmuxPrompt from "./tmux-prompt";
+import * as TmuxCmd from "./tmux-command-dropdown";
 import { HostMessage } from "../types";
 import { postMessage } from "./shared/vscode-api";
 import { initTerminal } from "./terminal";
@@ -9,7 +10,10 @@ import {
   setupTmuxToolbar,
   setupPaneControls,
   setupAiToolButton,
+  setupReloadButton,
+  setupTmuxCommandButton,
 } from "./toolbar";
+
 import {
   createDashboardRenderer,
   setupDashboardEventListeners,
@@ -17,13 +21,17 @@ import {
 
 const dashboard = createDashboardRenderer();
 
+let currentSessionId: string | null = null;
+
 const callbacks: MessageHandlerCallbacks = {
   onActiveSession(message) {
     const toolbar = document.getElementById("tmux-toolbar");
     const label = document.getElementById("tmux-session-label");
     const toolbarControls = document.querySelector(".toolbar-controls");
     const aiToolBtn = document.getElementById("btn-ai-tool");
+    const killPaneBtn = document.getElementById("btn-kill-pane");
     if ("sessionName" in message && message.sessionName) {
+      currentSessionId = message.sessionId;
       if (toolbar) toolbar.classList.remove("hidden");
       if (label) {
         const windowSuffix =
@@ -38,12 +46,12 @@ const callbacks: MessageHandlerCallbacks = {
       if (aiToolBtn) {
         aiToolBtn.style.display = message.paneHasAiTool ? "none" : "";
       }
-      const killPaneBtn = document.getElementById("btn-kill-pane");
       if (killPaneBtn) {
         killPaneBtn.toggleAttribute("disabled", !message.canKillPane);
       }
     } else {
-      if (toolbar) toolbar.classList.add("hidden");
+      currentSessionId = null;
+      if (label) label.textContent = "";
       if (toolbarControls) {
         toolbarControls.classList.add("hidden");
       }
@@ -99,6 +107,10 @@ function initApp(): void {
   setupTmuxToolbar();
   setupPaneControls();
   setupAiToolButton();
+  setupReloadButton();
+  setupTmuxCommandButton(() => currentSessionId, {
+    postMessage: (message) => postMessage(message as never),
+  });
   setupDashboardEventListeners(() => dashboard.toggle());
 
   window.addEventListener("message", (event: MessageEvent) => {
@@ -137,6 +149,11 @@ const tmuxPromptCallbacks = {
 
 function setupAiToolSelectorEvents(): void {
   document.addEventListener("keydown", (event) => {
+    if (TmuxCmd.isVisible()) {
+      if (TmuxCmd.handleKeydown(event)) {
+        return;
+      }
+    }
     if (AiSelector.isVisible()) {
       AiSelector.handleKeydown(event, aiCallbacks);
     }
@@ -154,6 +171,20 @@ function setupAiToolSelectorEvents(): void {
 
     if (TmuxPrompt.isVisible()) {
       TmuxPrompt.handleClick(target, tmuxPromptCallbacks);
+    }
+
+    if (TmuxCmd.isVisible()) {
+      if (
+        target.closest(".tmux-cmd-item") &&
+        !target.closest(".tmux-cmd-item.disabled")
+      ) {
+        TmuxCmd.handleClick(target);
+      } else if (
+        !target.closest("#tmux-command-dropdown") &&
+        !target.closest("#btn-tmux-commands")
+      ) {
+        TmuxCmd.hide();
+      }
     }
   });
 }

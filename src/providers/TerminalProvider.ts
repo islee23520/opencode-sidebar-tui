@@ -10,7 +10,12 @@ import { OutputChannelService } from "../services/OutputChannelService";
 import { InstanceId, InstanceStore } from "../services/InstanceStore";
 import { TmuxSessionManager } from "../services/TmuxSessionManager";
 import { AiToolFileReference } from "../services/aiTools/AiToolOperator";
-import { AiToolConfig, resolveAiToolConfigs } from "../types";
+import {
+  AiToolConfig,
+  TMUX_RAW_ALLOWED_SUBCOMMANDS,
+  resolveAiToolConfigs,
+} from "../types";
+import type { TmuxRawSubcommand } from "../types";
 import { AiToolOperatorRegistry } from "../services/aiTools/AiToolOperatorRegistry";
 import { MessageRouter, MessageRouterProviderBridge } from "./MessageRouter";
 import { SessionRuntime } from "./SessionRuntime";
@@ -67,6 +72,7 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
       navigateTmuxWindow: (direction) => this.navigateTmuxWindow(direction),
       navigateTmuxSession: (direction) => this.navigateTmuxSession(direction),
       toggleDashboard: () => this.toggleDashboard(),
+      restart: () => this.restart(),
       switchToNativeShell: () => this.switchToNativeShell(),
       pasteText: (text) => this.pasteText(text),
       getActiveInstanceId: () => this.getActiveInstanceId(),
@@ -94,6 +100,8 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
             targetPaneId,
           ),
         ),
+      executeRawTmuxCommand: (subcommand, args) =>
+        this.executeRawTmuxCommand(subcommand, args),
       splitTmuxPane: (direction) => this.splitTmuxPane(direction),
       zoomTmuxPane: () => this.zoomTmuxPane(),
       killTmuxPane: () => this.killTmuxPane(),
@@ -199,7 +207,7 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      "opensidebarterm.terminalEditor",
+      "opencodeTui.terminalEditor",
       "Open Sidebar Terminal",
       vscode.ViewColumn.Beside,
       {
@@ -323,6 +331,31 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     await this.sessionRuntime.killTmuxSession(sessionId);
   }
 
+  public async executeRawTmuxCommand(
+    subcommand: string,
+    args: string[] = [],
+  ): Promise<string> {
+    if (!this.tmuxSessionManager) {
+      throw new Error("tmux session manager unavailable");
+    }
+
+    if (!this.isTmuxRawSubcommand(subcommand)) {
+      throw new Error(`Unsupported tmux subcommand: ${subcommand}`);
+    }
+
+    const sessionId = this.instanceStore?.getActive()?.runtime.tmuxSessionId;
+    if (!sessionId) {
+      throw new Error("No active tmux session available");
+    }
+
+    const resolvedArgs = await this.resolveRawTmuxCommandArgs(subcommand, args);
+    return await this.tmuxSessionManager.executeRawCommand(
+      sessionId,
+      subcommand,
+      resolvedArgs,
+    );
+  }
+
   public async splitTmuxPane(
     direction: "h" | "v",
   ): Promise<string | undefined> {
@@ -421,6 +454,59 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     this.messageRouter.handleMessage(message);
   }
 
+  private isTmuxRawSubcommand(value: string): value is TmuxRawSubcommand {
+    return TMUX_RAW_ALLOWED_SUBCOMMANDS.some((command) => command === value);
+  }
+
+  private async resolveRawTmuxCommandArgs(
+    subcommand: TmuxRawSubcommand,
+    args: string[],
+  ): Promise<string[]> {
+    switch (subcommand) {
+      case "rename-session":
+        return await this.promptForTmuxValue(
+          "Rename tmux session",
+          "Enter the new tmux session name",
+          args[0],
+        );
+      case "rename-window":
+        return await this.promptForTmuxValue(
+          "Rename tmux window",
+          "Enter the new tmux window name",
+          args[0],
+        );
+      case "select-layout":
+        return await this.promptForTmuxValue(
+          "Select tmux layout",
+          "Enter a tmux layout name (e.g. even-horizontal, tiled, main-vertical)",
+          args[0],
+        );
+      default:
+        return args;
+    }
+  }
+
+  private async promptForTmuxValue(
+    title: string,
+    prompt: string,
+    value?: string,
+  ): Promise<string[]> {
+    const input = await vscode.window.showInputBox({
+      title,
+      prompt,
+      value,
+      ignoreFocusOut: true,
+      validateInput: (currentValue) =>
+        currentValue.trim().length === 0 ? "A value is required" : undefined,
+    });
+
+    if (input === undefined) {
+      throw new Error("tmux command cancelled");
+    }
+
+    return [input.trim()];
+  }
+
   public showAiToolSelector(
     sessionId: string,
     sessionName: string,
@@ -440,7 +526,12 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
       config.get("aiTools", []),
     );
     if (!forceShow && savedTool) {
-      void this.launchAiTool(effectiveSessionId, savedTool, false, targetPaneId);
+      void this.launchAiTool(
+        effectiveSessionId,
+        savedTool,
+        false,
+        targetPaneId,
+      );
       return;
     }
     this.postWebviewMessage({
@@ -546,7 +637,7 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
   }
 
   public toggleDashboard(): void {
-    void vscode.commands.executeCommand("opensidebarterm.openTerminalManager");
+    void vscode.commands.executeCommand("opencodeTui.openTerminalManager");
   }
 
   public dispose(): void {

@@ -9,7 +9,14 @@ import { OpenCodeApiClient } from "../services/OpenCodeApiClient";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
 import { OutputChannelService } from "../services/OutputChannelService";
 import { TerminalManager } from "../terminals/TerminalManager";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_SIZE, WebviewMessage } from "../types";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_SIZE,
+  TMUX_RAW_ALLOWED_SUBCOMMANDS,
+  TMUX_WEBVIEW_COMMAND_IDS,
+  WebviewMessage,
+} from "../types";
+import type { TmuxRawSubcommand, TmuxWebviewCommandId } from "../types";
 
 export interface MessageRouterProviderBridge {
   startOpenCode(): Promise<void>;
@@ -20,6 +27,7 @@ export interface MessageRouterProviderBridge {
   navigateTmuxWindow(direction: "next" | "prev"): Promise<void>;
   navigateTmuxSession(direction: "next" | "prev"): Promise<void>;
   toggleDashboard(): void;
+  restart(): void;
   switchToNativeShell(): Promise<void>;
   pasteText(text: string): void;
   getActiveInstanceId(): InstanceId;
@@ -46,6 +54,7 @@ export interface MessageRouterProviderBridge {
     forceShow?: boolean,
     targetPaneId?: string,
   ): Promise<void>;
+  executeRawTmuxCommand(subcommand: string, args?: string[]): Promise<string>;
   splitTmuxPane(direction: "h" | "v"): Promise<string | undefined>;
   zoomTmuxPane(): Promise<void>;
   killTmuxPane(): Promise<void>;
@@ -222,8 +231,20 @@ export class MessageRouter {
         void this.provider.showAiToolSelector(sessionId, sessionId, true);
         break;
       }
+      case "executeTmuxCommand":
+        await this.handleExecuteTmuxCommand(message.commandId);
+        break;
+      case "executeTmuxRawCommand":
+        await this.handleExecuteTmuxRawCommand(
+          message.subcommand,
+          message.args,
+        );
+        break;
       case "toggleDashboard":
         this.provider.toggleDashboard();
+        break;
+      case "requestRestart":
+        this.provider.restart();
         break;
       default:
         break;
@@ -238,6 +259,63 @@ export class MessageRouter {
     this.terminalManager.writeToTerminal(
       this.provider.getActiveInstanceId(),
       data,
+    );
+  }
+
+  private async handleExecuteTmuxCommand(commandId: unknown): Promise<void> {
+    if (!this.isTmuxWebviewCommandId(commandId)) {
+      return;
+    }
+
+    try {
+      await vscode.commands.executeCommand(commandId);
+    } catch (error) {
+      this.logger.error(
+        `[MessageRouter] executeTmuxCommand failed for ${commandId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async handleExecuteTmuxRawCommand(
+    subcommand: unknown,
+    args: unknown,
+  ): Promise<void> {
+    if (!this.isTmuxRawSubcommand(subcommand)) {
+      return;
+    }
+
+    if (args !== undefined && !this.isStringArray(args)) {
+      return;
+    }
+
+    try {
+      await this.provider.executeRawTmuxCommand(subcommand, args);
+    } catch (error) {
+      this.logger.error(
+        `[MessageRouter] executeTmuxRawCommand failed for ${subcommand}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private isTmuxWebviewCommandId(
+    value: unknown,
+  ): value is TmuxWebviewCommandId {
+    return (
+      typeof value === "string" &&
+      TMUX_WEBVIEW_COMMAND_IDS.some((commandId) => commandId === value)
+    );
+  }
+
+  private isTmuxRawSubcommand(value: unknown): value is TmuxRawSubcommand {
+    return (
+      typeof value === "string" &&
+      TMUX_RAW_ALLOWED_SUBCOMMANDS.some((command) => command === value)
+    );
+  }
+
+  private isStringArray(value: unknown): value is string[] {
+    return (
+      Array.isArray(value) && value.every((item) => typeof item === "string")
     );
   }
 
@@ -553,7 +631,7 @@ export class MessageRouter {
     terminal: vscode.Terminal,
     command: string,
   ): Promise<void> {
-    const configKey = "opensidebarterm.allowTerminalCommands";
+    const configKey = "opencodeTui.allowTerminalCommands";
     const allowed = this.context.globalState.get<boolean>(configKey);
 
     if (allowed) {

@@ -75,6 +75,7 @@ describe("MessageRouter", () => {
       navigateTmuxWindow: vi.fn(async () => undefined),
       navigateTmuxSession: vi.fn(async () => undefined),
       toggleDashboard: vi.fn(),
+      restart: vi.fn(),
       switchToNativeShell: vi.fn(async () => undefined),
       pasteText: vi.fn(),
       getActiveInstanceId: vi.fn(() => "instance-1"),
@@ -91,6 +92,7 @@ describe("MessageRouter", () => {
       formatPastedImage: vi.fn((tempPath: string) => `@img:${tempPath}`),
       launchAiTool: vi.fn(async () => undefined),
       showAiToolSelector: vi.fn(async () => undefined),
+      executeRawTmuxCommand: vi.fn(async () => ""),
       splitTmuxPane: vi.fn(async () => "pane-2"),
       zoomTmuxPane: vi.fn(async () => undefined),
       killTmuxPane: vi.fn(async () => undefined),
@@ -249,6 +251,10 @@ describe("MessageRouter", () => {
       choice: "shell",
     });
     await router.handleMessage({ type: "requestAiToolSelector" });
+    await router.handleMessage({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxCreateWindow",
+    });
     await router.handleMessage({ type: "toggleDashboard" });
     await router.handleMessage({
       type: "openFile",
@@ -279,6 +285,9 @@ describe("MessageRouter", () => {
       "tmux-selected",
       "tmux-selected",
       true,
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "opencodeTui.tmuxCreateWindow",
     );
     expect(provider.toggleDashboard).toHaveBeenCalledTimes(1);
     expect(vscode.window.showTextDocument).toHaveBeenCalledTimes(1);
@@ -517,7 +526,7 @@ describe("MessageRouter", () => {
     expect(terminal.sendText).toHaveBeenNthCalledWith(2, "npm lint");
     expect(terminal.sendText).toHaveBeenNthCalledWith(3, "npm build");
     expect(context.globalState.update).toHaveBeenCalledWith(
-      "opensidebarterm.allowTerminalCommands",
+      "opencodeTui.allowTerminalCommands",
       true,
     );
     expect(terminal.sendText).toHaveBeenCalledTimes(3);
@@ -666,6 +675,73 @@ describe("MessageRouter", () => {
     );
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining("killTmuxPane failed: kill boom"),
+    );
+  });
+
+  it("ignores unsupported tmux command ids and logs execute failures", async () => {
+    const errorSpy = vi.spyOn(logger, "error");
+    vi.mocked(vscode.commands.executeCommand).mockRejectedValueOnce(
+      new Error("command boom"),
+    );
+
+    await router.handleMessage({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.tmuxNextWindow",
+    });
+    await router.handleMessage({
+      type: "executeTmuxCommand",
+      commandId: "opencodeTui.invalidCommand" as never,
+    });
+
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "opencodeTui.tmuxNextWindow",
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "executeTmuxCommand failed for opencodeTui.tmuxNextWindow: command boom",
+      ),
+    );
+  });
+
+  it("routes supported raw tmux commands and ignores invalid payloads", async () => {
+    const rawSpy = vi.spyOn(provider, "executeRawTmuxCommand");
+
+    await router.handleMessage({
+      type: "executeTmuxRawCommand",
+      subcommand: "rename-session",
+      args: ["repo-next"],
+    });
+    await router.handleMessage({
+      type: "executeTmuxRawCommand",
+      subcommand: "not-supported",
+      args: ["ignored"],
+    });
+    await router.handleMessage({
+      type: "executeTmuxRawCommand",
+      subcommand: "choose-tree",
+      args: [123],
+    });
+
+    expect(rawSpy).toHaveBeenCalledTimes(1);
+    expect(rawSpy).toHaveBeenCalledWith("rename-session", ["repo-next"]);
+  });
+
+  it("logs raw tmux bridge failures", async () => {
+    provider.executeRawTmuxCommand = vi.fn(async () => {
+      throw new Error("raw boom");
+    });
+    const errorSpy = vi.spyOn(logger, "error");
+
+    await router.handleMessage({
+      type: "executeTmuxRawCommand",
+      subcommand: "choose-tree",
+    });
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "executeTmuxRawCommand failed for choose-tree: raw boom",
+      ),
     );
   });
 

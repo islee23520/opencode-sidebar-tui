@@ -23,7 +23,7 @@ import {
 export class TerminalDashboardProvider
   implements vscode.WebviewViewProvider, vscode.Disposable
 {
-  public static readonly viewType = "opensidebarterm.terminalDashboard";
+  public static readonly viewType = "opencodeTui.terminalDashboard";
 
   private view?: vscode.WebviewView;
   private panel?: vscode.WebviewPanel;
@@ -257,17 +257,17 @@ export class TerminalDashboardProvider
         return;
       case "activate":
         await vscode.commands.executeCommand(
-          "opensidebarterm.switchTmuxSession",
+          "opencodeTui.switchTmuxSession",
           message.sessionId,
         );
         await this.postSessionsToWebview();
         return;
       case "create":
-        await vscode.commands.executeCommand("opensidebarterm.createTmuxSession");
+        await vscode.commands.executeCommand("opencodeTui.createTmuxSession");
         await this.postSessionsToWebview();
         return;
       case "switchNativeShell":
-        await vscode.commands.executeCommand("opensidebarterm.switchNativeShell");
+        await vscode.commands.executeCommand("opencodeTui.switchNativeShell");
         await this.postSessionsToWebview();
         return;
       case "createNativeShell":
@@ -295,7 +295,7 @@ export class TerminalDashboardProvider
             this.instanceStore.setActive(newId);
           }
 
-          await vscode.commands.executeCommand("opensidebarterm.switchNativeShell");
+          await vscode.commands.executeCommand("opencodeTui.switchNativeShell");
           await this.postSessionsToWebview();
         }
         return;
@@ -304,7 +304,7 @@ export class TerminalDashboardProvider
           try {
             this.instanceStore.setActive(message.instanceId);
             await vscode.commands.executeCommand(
-              "opensidebarterm.switchNativeShell",
+              "opencodeTui.switchNativeShell",
             );
           } catch {
             // instance may not exist, refresh silently
@@ -318,7 +318,7 @@ export class TerminalDashboardProvider
         try {
           const panes = await this.tmuxSessionManager.listPanes(
             message.sessionId,
-            { activeWindowOnly: true }
+            { activeWindowOnly: true },
           );
           const activePane = panes.find((pane) => pane.isActive);
           if (activePane) {
@@ -327,12 +327,12 @@ export class TerminalDashboardProvider
         } catch {
           // If we can't get panes, continue without a specific target
         }
-await this.showAiToolSelector(
-message.sessionId,
-message.sessionName,
+        await this.showAiToolSelector(
+          message.sessionId,
+          message.sessionName,
           true,
           targetPaneId,
-);
+        );
         return;
       }
       case "expandPanes":
@@ -452,7 +452,7 @@ message.sessionName,
         return;
       case "killNativeShell": {
         await vscode.commands.executeCommand(
-          "opensidebarterm.killNativeShell",
+          "opencodeTui.killNativeShell",
           message.instanceId,
         );
         await this.postSessionsToWebview();
@@ -467,7 +467,7 @@ message.sessionName,
         const killedWorkspace = killedSession?.workspace;
 
         await vscode.commands.executeCommand(
-          "opensidebarterm.killTmuxSession",
+          "opencodeTui.killTmuxSession",
           message.sessionId,
         );
 
@@ -479,7 +479,7 @@ message.sessionName,
           );
           if (nextSession) {
             await vscode.commands.executeCommand(
-              "opensidebarterm.switchTmuxSession",
+              "opencodeTui.switchTmuxSession",
               nextSession.id,
             );
           }

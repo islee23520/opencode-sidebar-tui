@@ -266,14 +266,14 @@ describe("TerminalDashboardProvider", () => {
     await flushPromises();
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opensidebarterm.switchTmuxSession",
+      "opencodeTui.switchTmuxSession",
       "repo-a",
     );
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opensidebarterm.createTmuxSession",
+      "opencodeTui.createTmuxSession",
     );
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opensidebarterm.switchNativeShell",
+      "opencodeTui.switchNativeShell",
     );
     expect(discoverSessions).toHaveBeenCalledTimes(4);
     expect(view.webview.postMessage).toHaveBeenCalledWith(
@@ -455,7 +455,7 @@ describe("TerminalDashboardProvider", () => {
     await flushPromises();
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opensidebarterm.createTmuxSession",
+      "opencodeTui.createTmuxSession",
     );
     expect(vi.mocked(tmuxSessionManager.createWindow)).toHaveBeenCalledWith(
       "repo-a",
@@ -481,7 +481,7 @@ describe("TerminalDashboardProvider", () => {
 
     expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
     expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
-      "opensidebarterm.terminalDashboard",
+      "opencodeTui.terminalDashboard",
       "Terminal Manager",
       {
         preserveFocus: true,
@@ -744,7 +744,7 @@ describe("TerminalDashboardProvider", () => {
     );
     expect(instanceStore.setActive).toHaveBeenCalledWith("shell-1");
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opensidebarterm.killNativeShell",
+      "opencodeTui.killNativeShell",
       "shell-1",
     );
   });
@@ -774,7 +774,7 @@ describe("TerminalDashboardProvider", () => {
     });
 
     expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
-      "opensidebarterm.switchNativeShell",
+      "opencodeTui.switchNativeShell",
     );
   });
 
@@ -1102,12 +1102,12 @@ describe("TerminalDashboardProvider", () => {
     ).handleWebviewMessage({ action: "killSession", sessionId: "repo-a-1" });
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opensidebarterm.killTmuxSession",
+      "opencodeTui.killTmuxSession",
       "repo-a-1",
     );
     expect(vscode.commands.executeCommand).toHaveBeenNthCalledWith(
       2,
-      "opensidebarterm.switchTmuxSession",
+      "opencodeTui.switchTmuxSession",
       expect.any(String),
     );
   });

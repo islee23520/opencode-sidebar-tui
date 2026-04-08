@@ -100,6 +100,71 @@ describe("TmuxSessionManager", () => {
     await expect(manager.isAvailable()).resolves.toBe(false);
   });
 
+  it("executes supported raw tmux commands with the expected target args", async () => {
+    mockExecSequence([
+      { stdout: "" },
+      { stdout: "" },
+      { stdout: "" },
+      { stdout: "" },
+    ]);
+
+    await expect(
+      manager.executeRawCommand("workspace-a", "rename-session", ["repo-next"]),
+    ).resolves.toBe("");
+    await expect(
+      manager.executeRawCommand("workspace-a", "select-layout", ["tiled"]),
+    ).resolves.toBe("");
+    await expect(
+      manager.executeRawCommand("workspace-a", "respawn-pane"),
+    ).resolves.toBe("");
+    await expect(
+      manager.executeRawCommand("workspace-a", "move-pane", ["-s", "%1"]),
+    ).resolves.toBe("");
+
+    expect(vi.mocked(execFile).mock.calls[0]?.[1]).toEqual([
+      "rename-session",
+      "-t",
+      "workspace-a",
+      "repo-next",
+    ]);
+    expect(vi.mocked(execFile).mock.calls[1]?.[1]).toEqual([
+      "select-layout",
+      "-t",
+      "workspace-a",
+      "tiled",
+    ]);
+    expect(vi.mocked(execFile).mock.calls[2]?.[1]).toEqual([
+      "respawn-pane",
+      "-t",
+      "workspace-a",
+      "-k",
+    ]);
+    expect(vi.mocked(execFile).mock.calls[3]?.[1]).toEqual([
+      "move-pane",
+      "-t",
+      "workspace-a",
+      "-s",
+      "%1",
+    ]);
+  });
+
+  it("rejects unsupported raw tmux commands", async () => {
+    await expect(
+      manager.executeRawCommand("workspace-a", "kill-server"),
+    ).rejects.toThrow("Unsupported tmux subcommand: kill-server");
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
+  it("requires prompt-backed args for rename and layout raw tmux commands", async () => {
+    await expect(
+      manager.executeRawCommand("workspace-a", "rename-window"),
+    ).rejects.toThrow("rename-window requires an argument");
+    await expect(
+      manager.executeRawCommand("workspace-a", "select-layout", [""]),
+    ).rejects.toThrow("select-layout requires an argument");
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
   it("reuses an existing tmux session without non-interactive attach", async () => {
     mockExecSequence([
       {

@@ -1,11 +1,11 @@
 import * as vscode from "vscode";
 import { InstanceConfig, InstanceRecord, InstanceStore } from "./InstanceStore";
 
-const GLOBAL_INSTANCES_KEY = "opensidebarterm.instances.global";
-const WORKSPACE_INSTANCES_KEY = "opensidebarterm.instances.workspace";
+const GLOBAL_INSTANCES_KEY = "opencodeTui.instances.global";
+const WORKSPACE_INSTANCES_KEY = "opencodeTui.instances.workspace";
 const LEGACY_INSTANCE_KEYS = [
-  "opensidebarterm.instance",
-  "opensidebarterm.instanceConfig",
+  "opencodeTui.instance",
+  "opencodeTui.instanceConfig",
 ];
 const DEFAULT_INSTANCE_ID = "default";
 const DEFAULT_DEBOUNCE_MS = 500;

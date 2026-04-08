@@ -57,3 +57,4 @@ package-lock.json
 memories/
 *.log
 *.png
+!icon.png

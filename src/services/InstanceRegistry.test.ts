@@ -12,9 +12,9 @@ vi.mock("vscode", async () => {
   return actual;
 });
 
-const GLOBAL_INSTANCES_KEY = "opensidebarterm.instances.global";
-const WORKSPACE_INSTANCES_KEY = "opensidebarterm.instances.workspace";
-const LEGACY_INSTANCE_KEY = "opensidebarterm.instanceConfig";
+const GLOBAL_INSTANCES_KEY = "opencodeTui.instances.global";
+const WORKSPACE_INSTANCES_KEY = "opencodeTui.instances.workspace";
+const LEGACY_INSTANCE_KEY = "opencodeTui.instanceConfig";
 
 function createContext(options?: {
   globalValues?: Record<string, unknown>;

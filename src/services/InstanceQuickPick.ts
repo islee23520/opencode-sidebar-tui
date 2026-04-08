@@ -259,7 +259,7 @@ export class InstanceQuickPick {
       }
 
       case "spawn": {
-        vscode.commands.executeCommand("opensidebarterm.start");
+        vscode.commands.executeCommand("opencodeTui.start");
         break;
       }
 

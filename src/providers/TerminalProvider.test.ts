@@ -268,6 +268,23 @@ describe("TerminalProvider", () => {
     expect(zoomSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("routes executeTmuxRawCommand messages through the provider raw tmux path", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    const { messageHandler } = resolveProvider(provider);
+    const rawSpy = vi
+      .spyOn(provider, "executeRawTmuxCommand")
+      .mockResolvedValue("");
+
+    messageHandler({
+      type: "executeTmuxRawCommand",
+      subcommand: "choose-tree",
+    });
+    await Promise.resolve();
+
+    expect(rawSpy).toHaveBeenCalledWith("choose-tree", undefined);
+  });
+
   it("opens the terminal renderer in an editor tab", () => {
     mockConfiguration();
     provider = createProvider();
@@ -276,7 +293,7 @@ describe("TerminalProvider", () => {
     provider.openInEditorTab();
 
     expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
-      "opensidebarterm.terminalEditor",
+      "opencodeTui.terminalEditor",
       "Open Sidebar Terminal",
       vscode.ViewColumn.Beside,
       expect.objectContaining({
@@ -294,7 +311,7 @@ describe("TerminalProvider", () => {
     });
   });
 
-  it("starts the default terminal path without sidebar tree interaction", async () => {
+  it("starts default shell for non-tmux session without sidebar tree interaction", async () => {
     mockConfiguration({ autoStartOnOpen: false, enableHttpApi: false });
     provider = createProvider();
     const createTerminalSpy = vi.spyOn(terminalManager, "createTerminal");
@@ -305,7 +322,7 @@ describe("TerminalProvider", () => {
 
     expect(createTerminalSpy).toHaveBeenCalledWith(
       "opencode-main",
-      "opencode -c",
+      undefined,
       {},
       undefined,
       120,
@@ -315,7 +332,7 @@ describe("TerminalProvider", () => {
     );
   });
 
-  it("starts codex when configured as the default AI tool", async () => {
+  it("ignores defaultAiTool config for non-tmux sessions and starts default shell", async () => {
     mockConfiguration({
       autoStartOnOpen: false,
       enableHttpApi: false,
@@ -330,7 +347,7 @@ describe("TerminalProvider", () => {
 
     expect(createTerminalSpy).toHaveBeenCalledWith(
       "opencode-main",
-      "codex",
+      undefined,
       {},
       undefined,
       120,
@@ -1341,7 +1358,7 @@ describe("TerminalProvider", () => {
     provider.toggleDashboard();
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
-      "opensidebarterm.openTerminalManager",
+      "opencodeTui.openTerminalManager",
     );
   });
 
@@ -1441,6 +1458,36 @@ describe("TerminalProvider", () => {
 
     expect(provider.formatFileReference({ path: "src/example.ts" })).toBe(
       fileReference,
+    );
+
+    const rawTmuxManager = {
+      executeRawCommand: vi.fn(async () => "raw-result"),
+    } as unknown as TmuxSessionManager;
+    const activeStore = new InstanceStore();
+    activeStore.upsert({
+      config: {
+        id: "workspace-raw",
+        workspaceUri: "file:///workspaces/raw",
+      },
+      runtime: { terminalKey: "workspace-raw", tmuxSessionId: "tmux-active" },
+      state: "connected",
+    });
+    activeStore.setActive("workspace-raw");
+    provider = createProvider({
+      instanceStore: activeStore,
+      tmuxSessionManager: rawTmuxManager,
+    });
+    vi.mocked(vscode.window.showInputBox).mockResolvedValueOnce(
+      "renamed-session",
+    );
+
+    await expect(
+      provider.executeRawTmuxCommand("rename-session"),
+    ).resolves.toBe("raw-result");
+    expect(rawTmuxManager.executeRawCommand).toHaveBeenCalledWith(
+      "tmux-active",
+      "rename-session",
+      ["renamed-session"],
     );
   });
 

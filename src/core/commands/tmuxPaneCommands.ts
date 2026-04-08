@@ -122,6 +122,19 @@ export function registerTmuxPaneCommands(
     },
   );
 
+  async function resolveActivePaneId(
+    tmuxManager: TmuxSessionManager,
+    sessionId: string,
+  ): Promise<string | undefined> {
+    try {
+      const panes = await tmuxManager.listPanes(sessionId);
+      const active = panes.find((p) => p.isActive);
+      return active?.paneId ?? panes[0]?.paneId;
+    } catch {
+      return undefined;
+    }
+  }
+
   const tmuxSplitPaneHCommand = vscode.commands.registerCommand(
     "opencodeTui.tmuxSplitPaneH",
     async (item?: { paneId?: string; sessionId: string }) => {
@@ -132,8 +145,13 @@ export function registerTmuxPaneCommands(
       if (!sessionId) {
         return;
       }
+      const targetPaneId =
+        item?.paneId ?? (await resolveActivePaneId(deps.tmuxManager, sessionId));
+      if (!targetPaneId) {
+        return;
+      }
       try {
-        await deps.tmuxManager.splitPane(item?.paneId ?? sessionId, "h");
+        await deps.tmuxManager.splitPane(targetPaneId, "h");
       } catch {
         vscode.window.showErrorMessage("Failed to split pane");
       }
@@ -150,8 +168,13 @@ export function registerTmuxPaneCommands(
       if (!sessionId) {
         return;
       }
+      const targetPaneId =
+        item?.paneId ?? (await resolveActivePaneId(deps.tmuxManager, sessionId));
+      if (!targetPaneId) {
+        return;
+      }
       try {
-        await deps.tmuxManager.splitPane(item?.paneId ?? sessionId, "v");
+        await deps.tmuxManager.splitPane(targetPaneId, "v");
       } catch {
         vscode.window.showErrorMessage("Failed to split pane");
       }
@@ -175,8 +198,13 @@ export function registerTmuxPaneCommands(
       if (!command) {
         return;
       }
+      const targetPaneId =
+        item?.paneId ?? (await resolveActivePaneId(deps.tmuxManager, sessionId));
+      if (!targetPaneId) {
+        return;
+      }
       try {
-        await deps.tmuxManager.splitPane(item?.paneId ?? sessionId, "v", {
+        await deps.tmuxManager.splitPane(targetPaneId, "v", {
           command,
         });
       } catch {

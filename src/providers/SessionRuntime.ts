@@ -218,31 +218,18 @@ export class SessionRuntime {
       const enableHttpApi = config.get<boolean>("enableHttpApi", true);
       const httpTimeout = config.get<number>("httpTimeout", 5000);
 
-      let resolvedTool: AiToolConfig | undefined;
-      let command: string | undefined;
+      // Resolve workspace path first (needed for tmux session resolution)
+      const { workspacePath, isWorkspaceScoped } =
+        this.resolveStartupWorkspacePath();
 
-      if (!(this.forceNativeShellNextStart && !this.pendingLaunchToolName)) {
-        resolvedTool = await this.resolveToolForStartup(config);
-        if (!resolvedTool) {
-          this.isStarting = false;
-          return;
-        }
-
-        const operator = this.aiToolRegistry.getForConfig(resolvedTool);
-        command = operator.getLaunchCommand(resolvedTool);
-      }
-
-      this.activeTool = resolvedTool;
+      // Determine tmux session before resolving tool.
+      // Non-tmux sessions start with the default shell.
       const forceNativeShell = this.forceNativeShellNextStart;
       const selectedTmuxSessionId = this.selectedTmuxSessionId;
       let tmuxSessionId = forceNativeShell
         ? undefined
         : (selectedTmuxSessionId ??
           this.resolveTmuxSessionIdForInstance(this.activeInstanceId));
-
-      let port: number | undefined;
-      const { workspacePath, isWorkspaceScoped } =
-        this.resolveStartupWorkspacePath();
 
       if (!forceNativeShell && !selectedTmuxSessionId && isWorkspaceScoped) {
         const ensuredSessionId =
@@ -274,10 +261,32 @@ export class SessionRuntime {
         } catch {}
       }
 
+      // Only resolve AI tool when a tmux session is available.
+      // Non-tmux sessions start with the default shell (no command).
+      let resolvedTool: AiToolConfig | undefined;
+      let command: string | undefined;
+
+      if (
+        !forceNativeShell &&
+        (tmuxSessionId || this.pendingLaunchToolName)
+      ) {
+        resolvedTool = await this.resolveToolForStartup(config);
+        if (!resolvedTool) {
+          this.isStarting = false;
+          return;
+        }
+
+        const operator = this.aiToolRegistry.getForConfig(resolvedTool);
+        command = operator.getLaunchCommand(resolvedTool);
+      }
+
+      this.activeTool = resolvedTool;
       const terminalCommand = this.resolveTerminalStartupCommand(
         command,
         tmuxSessionId,
       );
+
+      let port: number | undefined;
       this.selectedTmuxSessionId = undefined;
       this.forceNativeShellNextStart = false;
       this.pendingLaunchToolName = undefined;
@@ -544,7 +553,7 @@ export class SessionRuntime {
     tmuxSessionId?: string,
   ): string | undefined {
     if (!tmuxSessionId) {
-      return defaultCommand;
+      return undefined;
     }
 
     return `tmux attach-session -t ${tmuxSessionId} \\; set-option -u status off`;

@@ -1,3 +1,44 @@
+export const TMUX_WEBVIEW_COMMAND_IDS = [
+  "opencodeTui.browseTmuxSessions",
+  "opencodeTui.createTmuxSession",
+  "opencodeTui.tmuxSwitchPane",
+  "opencodeTui.tmuxCreateWindow",
+  "opencodeTui.tmuxNextWindow",
+  "opencodeTui.tmuxPrevWindow",
+  "opencodeTui.tmuxSelectWindow",
+  "opencodeTui.tmuxKillWindow",
+  "opencodeTui.tmuxSplitPaneH",
+  "opencodeTui.tmuxSplitPaneV",
+  "opencodeTui.tmuxSplitPaneWithCommand",
+  "opencodeTui.tmuxSendTextToPane",
+  "opencodeTui.tmuxResizePane",
+  "opencodeTui.tmuxSwapPane",
+  "opencodeTui.tmuxKillPane",
+  "opencodeTui.tmuxKillSession",
+  "opencodeTui.tmuxRefresh",
+] as const;
+
+export type TmuxWebviewCommandId = (typeof TMUX_WEBVIEW_COMMAND_IDS)[number];
+
+export const TMUX_RAW_ALLOWED_SUBCOMMANDS = [
+  "rename-session",
+  "rename-window",
+  "last-window",
+  "last-pane",
+  "rotate-window",
+  "select-layout",
+  "display-panes",
+  "copy-mode",
+  "clear-history",
+  "detach-client",
+  "move-window",
+  "move-pane",
+  "respawn-pane",
+  "choose-tree",
+] as const;
+
+export type TmuxRawSubcommand = (typeof TMUX_RAW_ALLOWED_SUBCOMMANDS)[number];
+
 export type WebviewMessage =
   | { type: "terminalInput"; data: string }
   | { type: "terminalResize"; cols: number; rows: number }
@@ -56,7 +97,14 @@ export type WebviewMessage =
     }
   | { type: "openDashboardInEditor" }
   | { type: "sendTmuxPromptChoice"; choice: "tmux" | "shell" }
-  | { type: "requestAiToolSelector" };
+  | { type: "requestAiToolSelector" }
+  | { type: "executeTmuxCommand"; commandId: TmuxWebviewCommandId }
+  | {
+      type: "executeTmuxRawCommand";
+      subcommand: TmuxRawSubcommand;
+      args?: string[];
+    }
+  | { type: "requestRestart" };
 
 export type AiTool = string;
 
@@ -195,7 +243,12 @@ export type TmuxDashboardActionMessage =
   | { action: "activateNativeShell"; instanceId: string }
   | { action: "killNativeShell"; instanceId: string }
   | { action: "activate"; sessionId: string }
-  | { action: "showAiToolSelector"; sessionId: string; sessionName: string; targetPaneId?: string }
+  | {
+      action: "showAiToolSelector";
+      sessionId: string;
+      sessionName: string;
+      targetPaneId?: string;
+    }
   | { action: "expandPanes"; sessionId: string }
   | { action: "createWindow"; sessionId: string }
   | { action: "nextWindow"; sessionId: string }

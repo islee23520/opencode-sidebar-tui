@@ -82,7 +82,7 @@ For rapid testing during development:
 **Terminal not starting?**
 
 - Check if `omo` command is in PATH
-- Try configuring custom command: `"opensidebarterm.command": "opencode"`
+- Try configuring custom command: `"opencodeTui.command": "opencode"`
 
 **Rendering issues?**
 

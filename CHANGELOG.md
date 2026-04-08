@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Shares all open files on terminal startup
   - Includes line numbers for active selections
   - Format: `@path/to/file#L10-L20`
-  - Configurable via `opensidebarterm.autoShareContext` setting
+  - Configurable via `opencodeTui.autoShareContext` setting
 
 - **Port Management Service**: Ephemeral port allocation for HTTP communication
   - Port range: 16384-65535 (standard ephemeral range)
@@ -61,9 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports `@file`, `@file#L10`, `@file#L10-L20` formats
 
 - **New Configuration Options**:
-  - `opensidebarterm.enableHttpApi`: Enable/disable HTTP API (default: `true`)
-  - `opensidebarterm.httpTimeout`: HTTP request timeout in milliseconds (default: `5000`, range: 1000-30000)
-  - `opensidebarterm.autoShareContext`: Auto-share editor context on terminal open (default: `true`)
+  - `opencodeTui.enableHttpApi`: Enable/disable HTTP API (default: `true`)
+  - `opencodeTui.httpTimeout`: HTTP request timeout in milliseconds (default: `5000`, range: 1000-30000)
+  - `opencodeTui.autoShareContext`: Auto-share editor context on terminal open (default: `true`)
 
 ### Changed
 
