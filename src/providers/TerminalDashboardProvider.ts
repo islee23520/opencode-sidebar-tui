@@ -12,7 +12,6 @@ import {
   TmuxDashboardSessionDto,
   TmuxDashboardWindowDto,
   NativeShellDto,
-  AiTool,
   AiToolConfig,
   resolveAiToolConfigs,
 } from "../types";
@@ -562,19 +561,6 @@ export class TerminalDashboardProvider
     }
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
-    const instanceId = this.instanceStore
-      ?.getAll()
-      .find((record) => record.runtime.tmuxSessionId === sessionId)?.config.id;
-    const savedTool =
-      (instanceId
-        ? this.instanceStore?.get(instanceId)?.config.selectedAiTool
-        : undefined) ?? config.get<AiTool>("defaultAiTool", "");
-
-    if (savedTool) {
-      await this.handleLaunchAiTool(sessionId, savedTool, false, targetPaneId);
-      return;
-    }
-
     const tools: AiToolConfig[] = resolveAiToolConfigs(
       config.get("aiTools", []),
     );
@@ -615,17 +601,6 @@ export class TerminalDashboardProvider
         `[TerminalDashboardProvider] Failed to launch AI tool: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
-  }
-
-  /**
-   * Lists panes for a specific tmux session.
-   * @param sessionId The session ID to list panes for
-   * @returns Array of pane DTOs
-   */
-  private async listPanesForSession(
-    sessionId: string,
-  ): Promise<TmuxDashboardPaneDto[]> {
-    return this.tmuxSessionManager.listPaneDtos(sessionId);
   }
 
   /**

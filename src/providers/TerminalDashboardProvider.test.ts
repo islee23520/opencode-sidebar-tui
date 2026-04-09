@@ -620,8 +620,8 @@ describe("TerminalDashboardProvider", () => {
       workspace: "No workspace",
       panes: {},
       tmuxAvailable: false,
+    });
   });
-});
 
   it("refreshes when pane changes are emitted by tmux", async () => {
     const { provider, discoverSessions, onPaneChangedEvent } = createProvider({
@@ -967,61 +967,21 @@ describe("TerminalDashboardProvider", () => {
     );
   });
 
-  it("suppresses selector posting for saved tools and posts choices when no default exists", async () => {
-    const configurationGet = vi.fn((key: string, defaultValue?: unknown) => {
-      if (key === "defaultAiTool") return "claude";
-      return defaultValue;
-    });
-    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
-      get: configurationGet,
-      inspect: vi.fn(() => undefined),
-      update: vi.fn(),
-    } as never);
-    const instanceStore = {
-      getAll: vi
-        .fn()
-        .mockReturnValueOnce([
-          {
-            config: { id: "inst-1" },
-            runtime: { tmuxSessionId: "repo-a" },
-            state: "connected",
-          },
-        ])
-        .mockReturnValue([]),
-      getActive: vi.fn().mockReturnValue(undefined),
-      get: vi.fn().mockReturnValue({ config: { selectedAiTool: "codex" } }),
-      upsert: vi.fn(),
-      setActive: vi.fn(),
-    };
-    const { provider } = createProvider({ instanceStore });
+  it("posts selector choices when the dashboard handles AI selection directly", async () => {
+    const { provider } = createProvider();
 
     const { view } = resolveProvider(provider);
     await flushPromises();
     vi.mocked(view.webview.postMessage).mockClear();
 
     await provider.showAiToolSelector("repo-a", "Repo A", false, "%7");
-    await provider.showAiToolSelector("repo-b", "Repo B", false, "%8");
 
-    expect(view.webview.postMessage).not.toHaveBeenCalled();
-
-    vi.mocked(vscode.workspace.getConfiguration).mockReturnValue({
-      get: vi.fn((key: string, defaultValue?: unknown) => {
-        if (key === "defaultAiTool") return "";
-        return defaultValue;
-      }),
-      inspect: vi.fn(() => undefined),
-      update: vi.fn(),
-    } as never);
-    instanceStore.getAll.mockReturnValue([]);
-    instanceStore.get.mockReturnValue(undefined);
-
-    await provider.showAiToolSelector("repo-c", "Repo C", false, "%9");
-
+    expect(view.webview.postMessage).toHaveBeenCalledTimes(1);
     expect(view.webview.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "showAiToolSelector",
-        sessionId: "repo-c",
-        targetPaneId: "%9",
+        sessionId: "repo-a",
+        targetPaneId: "%7",
       }),
     );
   });
