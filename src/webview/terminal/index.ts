@@ -32,6 +32,7 @@ export function initTerminal(
   options: {
     onData: (data: string) => void;
     onResize: (cols: number, rows: number) => void;
+    onToggleTmuxCommands: () => void;
   },
 ): TerminalInstance | null {
   const config = readTerminalConfig(container);
@@ -55,6 +56,7 @@ export function initTerminal(
   const keyboardHandler = createKeyboardHandler(terminal, {
     onCopy: copySelectionToClipboard,
     onPaste: handlePasteWithImageSupport,
+    onToggleTmuxCommands: options.onToggleTmuxCommands,
   });
 
   terminal.attachCustomKeyEventHandler(keyboardHandler.handler);

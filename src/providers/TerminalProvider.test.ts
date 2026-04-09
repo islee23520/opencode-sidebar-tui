@@ -1378,11 +1378,31 @@ describe("TerminalProvider", () => {
     });
   });
 
+  it("posts a webview message when the active instance has a tmux session", () => {
+    mockConfiguration();
+    provider = createProvider();
+    const runtime = (provider as any).sessionRuntime;
+    vi.spyOn(runtime, "getSelectedTmuxSessionId").mockReturnValue(undefined);
+    vi.spyOn(runtime, "resolveTmuxSessionIdForInstance").mockReturnValue(
+      "tmux-active",
+    );
+    const { view } = resolveProvider(provider);
+
+    provider.toggleTmuxCommandToolbar();
+
+    expect(view.webview.postMessage).toHaveBeenCalledWith({
+      type: "toggleTmuxCommandToolbar",
+    });
+  });
+
   it("does not post a webview message when no tmux session is attached", () => {
     mockConfiguration();
     provider = createProvider();
     const runtime = (provider as any).sessionRuntime;
     vi.spyOn(runtime, "getSelectedTmuxSessionId").mockReturnValue(undefined);
+    vi.spyOn(runtime, "resolveTmuxSessionIdForInstance").mockReturnValue(
+      undefined,
+    );
     const { view } = resolveProvider(provider);
 
     provider.toggleTmuxCommandToolbar();

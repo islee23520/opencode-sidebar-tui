@@ -2,7 +2,7 @@
   "name": "open-sidebar-terminal",
   "displayName": "Open Sidebar Terminal",
   "description": "Automatically render Open Sidebar Terminal in VS Code sidebar with full terminal support",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "publisher": "islee23520",
   "icon": "icon.png",
   "engines": {
@@ -309,16 +309,10 @@
         "when": "focusedView == 'opencodeTui'"
       },
       {
-        "command": "opencodeTui.toggleDashboard",
-        "key": "ctrl+alt+d",
-        "mac": "cmd+alt+d",
-        "when": "focusedView == 'opencodeTui'"
-      },
-      {
         "command": "opencodeTui.toggleTmuxCommandToolbar",
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m",
-        "when": "focusedView == 'opencodeTui' && opencodeTui.tmuxAttached"
+        "when": "focusedView == 'opencodeTui'"
       }
     ],
     "configuration": {

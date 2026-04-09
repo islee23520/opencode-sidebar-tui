@@ -642,11 +642,28 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
   }
 
   public toggleTmuxCommandToolbar(): void {
-    if (!this.sessionRuntime.getSelectedTmuxSessionId()) {
+    const selectedSessionId = this.sessionRuntime.getSelectedTmuxSessionId();
+    const resolvedSessionId =
+      this.sessionRuntime.resolveTmuxSessionIdForInstance(
+        this.getActiveInstanceId(),
+      );
+    const tmuxSessionId = selectedSessionId ?? resolvedSessionId;
+
+    this.logger.info(
+      `[DIAG:toggleTmuxCommandToolbar] selected=${selectedSessionId ?? "none"} resolved=${resolvedSessionId ?? "none"} effective=${tmuxSessionId ?? "none"} view=${!!this._view} panel=${!!this._panel}`,
+    );
+
+    if (!tmuxSessionId) {
+      this.logger.warn(
+        `[DIAG:toggleTmuxCommandToolbar] BLOCKED — no tmux session id`,
+      );
       return;
     }
 
     this.postWebviewMessage({ type: "toggleTmuxCommandToolbar" });
+    this.logger.info(
+      `[DIAG:toggleTmuxCommandToolbar] message posted to webview`,
+    );
   }
 
   public dispose(): void {

@@ -23,6 +23,19 @@ const dashboard = createDashboardRenderer();
 
 let currentSessionId: string | null = null;
 let tmuxAvailable = true;
+
+function toggleTmuxCommandMenu(): void {
+  if (!currentSessionId) {
+    return;
+  }
+
+  if (TmuxCmd.isVisible()) {
+    TmuxCmd.hide();
+  } else {
+    TmuxCmd.show(currentSessionId);
+  }
+}
+
 function updateTmuxOnlyElements(available: boolean): void {
   const elements = document.querySelectorAll("[data-tmux-only]");
   Array.from(elements).forEach((el) => {
@@ -69,15 +82,7 @@ const callbacks: MessageHandlerCallbacks = {
   },
 
   onToggleTmuxCommandToolbar() {
-    if (!currentSessionId) {
-      return;
-    }
-
-    if (TmuxCmd.isVisible()) {
-      TmuxCmd.hide();
-    } else {
-      TmuxCmd.show(currentSessionId);
-    }
+    toggleTmuxCommandMenu();
   },
 
   onShowAiToolSelector(message) {
@@ -127,6 +132,9 @@ function initApp(): void {
     },
     onResize: (cols, rows) => {
       postMessage({ type: "terminalResize", cols, rows });
+    },
+    onToggleTmuxCommands: () => {
+      toggleTmuxCommandMenu();
     },
   });
 
@@ -178,6 +186,25 @@ const tmuxPromptCallbacks = {
 
 function setupAiToolSelectorEvents(): void {
   document.addEventListener("keydown", (event) => {
+    // Cmd/Ctrl+Alt+M → toggle tmux command dropdown
+    // VS Code keybindings don't fire when xterm has focus,
+    // so we handle this directly in the webview.
+    const isToggleTmuxCmd =
+      event.altKey &&
+      (event.metaKey || event.ctrlKey) &&
+      event.key.toLowerCase() === "m";
+    if (isToggleTmuxCmd) {
+      if (currentSessionId) {
+        event.preventDefault();
+        if (TmuxCmd.isVisible()) {
+          TmuxCmd.hide();
+        } else {
+          TmuxCmd.show(currentSessionId);
+        }
+      }
+      return;
+    }
+
     if (TmuxCmd.isVisible()) {
       if (TmuxCmd.handleKeydown(event)) {
         return;

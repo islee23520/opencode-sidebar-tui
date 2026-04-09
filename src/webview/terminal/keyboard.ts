@@ -1,15 +1,16 @@
 import type { Terminal } from "@xterm/xterm";
 import * as AiSelector from "../ai-tool-selector";
-import {
+import { postMessage } from "../shared/vscode-api";
+  import {
   copySelectionToClipboard,
   handlePasteWithImageSupport,
 } from "../clipboard";
-
 export function createKeyboardHandler(
   terminal: Terminal,
-  _options: {
+  options: {
     onCopy: (text: string) => void;
     onPaste: () => void;
+    onToggleTmuxCommands: () => void;
   },
 ) {
   let justHandledCtrlC = false;
@@ -20,6 +21,23 @@ export function createKeyboardHandler(
       event.preventDefault();
       event.stopPropagation();
       return false;
+    }
+
+    const isMetaOrCtrl = event.metaKey || event.ctrlKey;
+
+    if (event.altKey && isMetaOrCtrl) {
+      if (event.code === "KeyM") {
+        event.preventDefault();
+        event.stopPropagation();
+        options.onToggleTmuxCommands();
+        return false;
+      }
+      if (event.code === "KeyT") {
+        event.preventDefault();
+        event.stopPropagation();
+        postMessage({ type: "executeTmuxCommand", commandId: "opencodeTui.browseTmuxSessions" });
+        return false;
+      }
     }
 
     const isCtrlC =
