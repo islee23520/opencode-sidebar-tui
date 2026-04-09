@@ -475,12 +475,14 @@ html {
 }
 .tmux-command-menu {
   position: relative;
+  overflow: visible;
 }
 
 .tmux-cmd-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1001;
   background: var(--vscode-editor-background, #1e1e1e);
   border: 1px solid var(--vscode-panel-border, #474747);
