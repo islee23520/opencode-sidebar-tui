@@ -1,8 +1,8 @@
 # Open Sidebar TUI Guide
 
-[English](../en/README.md) · [한국어](../ko/README.md) · [日本語](../ja/README.md)
+[English (default)](../README.md) · [한국어](../ko/README.md) · [日本語](../ja/README.md)
 
-- [Documentation index](../README.md)
+- [Default English guide](../README.md)
 - [Root README](../../README.md)
 
 This guide explains how to install and use **Open Sidebar TUI** as a sidebar-only terminal experience inside VS Code.
