@@ -1,8 +1,8 @@
 {
-  "name": "open-sidebar-terminal",
+  "name": "opencode-sidebar-tui",
   "displayName": "Open Sidebar Terminal",
   "description": "Automatically render Open Sidebar Terminal in VS Code sidebar with full terminal support",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "publisher": "islee23520",
   "icon": "icon.png",
   "engines": {
