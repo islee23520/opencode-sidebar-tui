@@ -75,6 +75,7 @@ describe("MessageRouter", () => {
       navigateTmuxWindow: vi.fn(async () => undefined),
       navigateTmuxSession: vi.fn(async () => undefined),
       toggleDashboard: vi.fn(),
+      toggleEditorAttachment: vi.fn(async () => undefined),
       restart: vi.fn(),
       switchToNativeShell: vi.fn(async () => undefined),
       pasteText: vi.fn(),
@@ -98,6 +99,7 @@ describe("MessageRouter", () => {
       killTmuxPane: vi.fn(async () => undefined),
       getSelectedTmuxSessionId: vi.fn(() => "tmux-selected"),
       isTmuxAvailable: vi.fn(() => true),
+      isAttachedInEditor: vi.fn(() => false),
     };
   }
 
@@ -216,8 +218,8 @@ describe("MessageRouter", () => {
       type: "platformInfo",
       platform: process.platform,
       tmuxAvailable: true,
+    });
   });
-});
 
   it("routes handleMessage cases for provider bridge actions and clipboard operations", async () => {
     vi.mocked(vscode.env.clipboard.readText).mockResolvedValue(
@@ -258,6 +260,7 @@ describe("MessageRouter", () => {
       commandId: "opencodeTui.tmuxCreateWindow",
     });
     await router.handleMessage({ type: "toggleDashboard" });
+    await router.handleMessage({ type: "toggleEditorAttachment" });
     await router.handleMessage({
       type: "openFile",
       path: "src/providers/MessageRouter.ts",
@@ -292,6 +295,7 @@ describe("MessageRouter", () => {
       "opencodeTui.tmuxCreateWindow",
     );
     expect(provider.toggleDashboard).toHaveBeenCalledTimes(1);
+    expect(provider.toggleEditorAttachment).toHaveBeenCalledTimes(1);
     expect(vscode.window.showTextDocument).toHaveBeenCalledTimes(1);
   });
 
@@ -628,8 +632,8 @@ describe("MessageRouter", () => {
       type: "platformInfo",
       platform: process.platform,
       tmuxAvailable: true,
+    });
   });
-});
 
   it("logs bridge errors for tmux actions and ignores invalid directions", async () => {
     provider.createTmuxWindow = vi.fn(async () => {

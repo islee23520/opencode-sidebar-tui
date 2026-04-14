@@ -2,7 +2,7 @@
   "name": "opencode-sidebar-tui",
   "displayName": "Opencode Sidebar Terminal",
   "description": "Automatically render Opencode Sidebar Terminal in VS Code sidebar with full terminal support",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "publisher": "islee23520",
   "icon": "icon.png",
   "engines": {
@@ -158,6 +158,12 @@
         "icon": "$(terminal-bash)"
       },
       {
+        "command": "opencodeTui.restoreTerminalToSidebar",
+        "title": "Restore Terminal to Sidebar",
+        "category": "Open Sidebar Terminal",
+        "icon": "$(layout-sidebar-left)"
+      },
+      {
         "command": "opencodeTui.tmuxSwitchPane",
         "title": "Switch to Pane",
         "category": "Open Sidebar Terminal",
@@ -254,6 +260,16 @@
     ],
     "menus": {
       "view/title": [],
+      "editor/title": [
+        {
+          "command": "opencodeTui.openTerminalManager",
+          "group": "navigation"
+        },
+        {
+          "command": "opencodeTui.openTerminalInEditor",
+          "group": "navigation"
+        }
+      ],
       "explorer/context": [
         {
           "command": "opencodeTui.sendFileToTerminal",

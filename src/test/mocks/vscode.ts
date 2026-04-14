@@ -18,6 +18,7 @@ export const window = {
   tabGroups: { all: [] as any[] },
   visibleTextEditors: [] as any[],
   registerWebviewViewProvider: vi.fn(),
+  registerWebviewPanelSerializer: vi.fn(() => ({ dispose: vi.fn() })),
   registerTreeDataProvider: vi.fn(),
   showInputBox: vi.fn(),
   createQuickPick: vi.fn(() => ({
@@ -31,10 +32,22 @@ export const window = {
     matchOnDescription: false,
     matchOnDetail: false,
     value: "",
-    onDidAccept: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
-    onDidChangeSelection: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
-    onDidHide: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
-    onDidChangeValue: vi.fn((cb: Function) => { void cb; return { dispose: vi.fn() }; }),
+    onDidAccept: vi.fn((cb: Function) => {
+      void cb;
+      return { dispose: vi.fn() };
+    }),
+    onDidChangeSelection: vi.fn((cb: Function) => {
+      void cb;
+      return { dispose: vi.fn() };
+    }),
+    onDidHide: vi.fn((cb: Function) => {
+      void cb;
+      return { dispose: vi.fn() };
+    }),
+    onDidChangeValue: vi.fn((cb: Function) => {
+      void cb;
+      return { dispose: vi.fn() };
+    }),
     show: vi.fn(),
     hide: vi.fn(),
     dispose: vi.fn(),
@@ -172,7 +185,10 @@ export class ThemeColor {
 }
 
 export class Position {
-  constructor(public readonly line: number, public readonly character: number) {}
+  constructor(
+    public readonly line: number,
+    public readonly character: number,
+  ) {}
 }
 
 export class TabInputText {
@@ -189,7 +205,11 @@ export const env = {
 };
 
 export const Uri = {
-  file: vi.fn((path: string) => ({ fsPath: path, path, toString: () => `file://${path}` })),
+  file: vi.fn((path: string) => ({
+    fsPath: path,
+    path,
+    toString: () => `file://${path}`,
+  })),
   joinPath: vi.fn((base: any, ...paths: string[]) => ({
     fsPath: [base.fsPath || base.path, ...paths].join("/"),
     path: [base.path || base.fsPath, ...paths].join("/"),

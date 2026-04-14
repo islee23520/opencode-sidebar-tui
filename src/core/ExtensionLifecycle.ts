@@ -184,8 +184,17 @@ export class ExtensionLifecycle {
         );
         this.tuiProviderRegistration = providerRegistration;
         context.subscriptions.push(providerRegistration);
+        context.subscriptions.push(
+          vscode.window.registerWebviewPanelSerializer(
+            TerminalProvider.panelViewType,
+            this.tuiProvider,
+          ),
+        );
       } catch (err) {
-        if (err instanceof Error && err.message.includes("already registered")) {
+        if (
+          err instanceof Error &&
+          err.message.includes("already registered")
+        ) {
           logger.warn(
             `[ExtensionLifecycle] ${TerminalProvider.viewType} provider already registered — prior activation still active. Terminal will attach on next view reveal.`,
           );

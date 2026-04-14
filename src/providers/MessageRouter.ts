@@ -27,6 +27,7 @@ export interface MessageRouterProviderBridge {
   navigateTmuxWindow(direction: "next" | "prev"): Promise<void>;
   navigateTmuxSession(direction: "next" | "prev"): Promise<void>;
   toggleDashboard(): void;
+  toggleEditorAttachment(): Promise<void>;
   restart(): void;
   switchToNativeShell(): Promise<void>;
   pasteText(text: string): void;
@@ -60,6 +61,7 @@ export interface MessageRouterProviderBridge {
   killTmuxPane(): Promise<void>;
   getSelectedTmuxSessionId(): string | undefined;
   isTmuxAvailable(): boolean;
+  isAttachedInEditor(): boolean;
 }
 
 export class MessageRouter {
@@ -244,6 +246,9 @@ export class MessageRouter {
       case "toggleDashboard":
         this.provider.toggleDashboard();
         break;
+      case "toggleEditorAttachment":
+        await this.provider.toggleEditorAttachment();
+        break;
       case "requestRestart":
         this.provider.restart();
         break;
@@ -354,6 +359,10 @@ export class MessageRouter {
       type: "platformInfo",
       platform: process.platform,
       tmuxAvailable: this.provider.isTmuxAvailable(),
+    });
+    this.provider.postWebviewMessage({
+      type: "editorAttachmentState",
+      attachedInEditor: this.provider.isAttachedInEditor(),
     });
   }
 

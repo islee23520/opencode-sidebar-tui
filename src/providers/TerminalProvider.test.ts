@@ -305,9 +305,74 @@ describe("TerminalProvider", () => {
 
     const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
       ?.value as any;
+    expect(panel.webview.postMessage).toHaveBeenCalledWith({
+      type: "editorAttachmentState",
+      attachedInEditor: true,
+    });
+    expect(panel.webview.options).toEqual(
+      expect.objectContaining({
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: expect.any(Array),
+      }),
+    );
     provider.focus();
     expect(panel.webview.postMessage).toHaveBeenCalledWith({
       type: "focusTerminal",
+    });
+  });
+
+  it("reinitializes a restored editor panel during deserialization", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    resolveProvider(provider);
+
+    const restoredPanel = (vscode.window.createWebviewPanel as any)();
+    restoredPanel.webview.cspSource = "default-src 'none'";
+
+    await provider.deserializeWebviewPanel(restoredPanel, undefined);
+
+    expect(restoredPanel.webview.html).toContain("default-src 'none'");
+    expect(restoredPanel.webview.onDidReceiveMessage).toHaveBeenCalledTimes(1);
+    expect(restoredPanel.webview.postMessage).toHaveBeenCalledWith({
+      type: "editorAttachmentState",
+      attachedInEditor: true,
+    });
+  });
+
+  it("toggles from the sidebar into the editor panel", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    resolveProvider(provider);
+
+    await provider.toggleEditorAttachment();
+
+    expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles from the editor panel back to the sidebar", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    const { view } = resolveProvider(provider);
+
+    provider.openInEditorTab();
+    const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
+      ?.value as any;
+    const disposeListener = vi.mocked(panel.onDidDispose).mock.calls[0]?.[0] as
+      | (() => void)
+      | undefined;
+
+    await provider.toggleEditorAttachment();
+    disposeListener?.();
+
+    expect(panel.dispose).toHaveBeenCalledTimes(1);
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.view.extension.opencodeTuiContainer",
+    );
+    expect(view.show).toHaveBeenCalledWith(true);
+    expect(view.webview.postMessage).toHaveBeenCalledWith({
+      type: "editorAttachmentState",
+      attachedInEditor: false,
     });
   });
 
@@ -1349,6 +1414,29 @@ describe("TerminalProvider", () => {
     expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
     expect(panel.reveal).toHaveBeenCalledWith(vscode.ViewColumn.Active);
     expect(focusSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("replays the active session state to the editor panel so the toolbar stays visible", () => {
+    mockConfiguration();
+    provider = createProvider();
+    const runtime = (provider as any).sessionRuntime;
+    vi.spyOn(runtime, "getSelectedTmuxSessionId").mockReturnValue(
+      "tmux-selected",
+    );
+    vi.spyOn(runtime, "resolveTmuxSessionIdForInstance").mockReturnValue(
+      undefined,
+    );
+    resolveProvider(provider);
+
+    provider.openInEditorTab();
+
+    const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
+      ?.value as any;
+    expect(panel.webview.postMessage).toHaveBeenCalledWith({
+      type: "activeSession",
+      sessionName: "tmux-selected",
+      sessionId: "tmux-selected",
+    });
   });
 
   it("executes the dashboard command when toggling the dashboard", () => {

@@ -1,15 +1,13 @@
 import "@xterm/xterm/css/xterm.css";
-import * as AiSelector from "./ai-tool-selector";
 import * as TmuxPrompt from "./tmux-prompt";
+import * as AiSelector from "./ai-tool-selector";
 import * as TmuxCmd from "./tmux-command-dropdown";
 import { HostMessage } from "../types";
 import { postMessage } from "./shared/vscode-api";
 import { initTerminal } from "./terminal";
 import { createMessageHandler, type MessageHandlerCallbacks } from "./messages";
 import {
-  setupTmuxToolbar,
-  setupPaneControls,
-  setupAiToolButton,
+  setupKillPaneButton,
   setupReloadButton,
   setupTmuxCommandButton,
 } from "./toolbar";
@@ -118,6 +116,7 @@ const callbacks: MessageHandlerCallbacks = {
     tmuxAvailable = message.tmuxAvailable !== false;
     updateTmuxOnlyElements(tmuxAvailable);
   },
+
 };
 
 const messageHandler = createMessageHandler(callbacks);
@@ -143,9 +142,7 @@ function initApp(): void {
     messageHandler.fitAddon = instance.fitAddon;
   }
 
-  setupTmuxToolbar();
-  setupPaneControls();
-  setupAiToolButton();
+  setupKillPaneButton();
   setupReloadButton();
   setupTmuxCommandButton(() => currentSessionId);
   setupDashboardEventListeners(() => dashboard.toggle());
@@ -156,6 +153,8 @@ function initApp(): void {
 
   setupAiToolSelectorEvents();
 }
+
+
 
 const aiCallbacks = {
   postMessage: (msg: unknown) => {
@@ -220,6 +219,7 @@ function setupAiToolSelectorEvents(): void {
       .composedPath()
       .find((el): el is Element => el instanceof Element);
     if (!target) return;
+
 
     if (AiSelector.isVisible()) {
       AiSelector.handleClick(target, aiCallbacks);

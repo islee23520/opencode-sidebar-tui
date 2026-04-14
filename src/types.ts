@@ -96,6 +96,7 @@ export type WebviewMessage =
       direction?: string;
     }
   | { type: "openDashboardInEditor" }
+  | { type: "toggleEditorAttachment" }
   | { type: "sendTmuxPromptChoice"; choice: "tmux" | "shell" }
   | { type: "requestAiToolSelector" }
   | { type: "executeTmuxCommand"; commandId: TmuxWebviewCommandId }
@@ -415,6 +416,7 @@ export type HostMessage =
       showingAll?: boolean;
     }
   | { type: "toggleDashboard"; visible: boolean }
+  | { type: "editorAttachmentState"; attachedInEditor: boolean }
   | { type: "toggleTmuxCommandToolbar" }
   | {
       type: "showTmuxPrompt";

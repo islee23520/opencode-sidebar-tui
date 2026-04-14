@@ -71,6 +71,10 @@ describe("ExtensionLifecycle", () => {
         "opencodeTui.openTerminalManager",
         expect.any(Function),
       );
+      expect(vscode.window.registerWebviewPanelSerializer).toHaveBeenCalledWith(
+        "opencodeTui.terminalEditor",
+        expect.any(Object),
+      );
     });
 
     it("should skip tmux dashboard registration when tmux is unavailable", async () => {
