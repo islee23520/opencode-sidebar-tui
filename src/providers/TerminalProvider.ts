@@ -1,5 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
@@ -19,6 +17,7 @@ import type { TmuxRawSubcommand } from "../types";
 import { AiToolOperatorRegistry } from "../services/aiTools/AiToolOperatorRegistry";
 import { MessageRouter, MessageRouterProviderBridge } from "./MessageRouter";
 import { SessionRuntime } from "./SessionRuntime";
+import { renderTerminalHtml } from "../webview/terminal/html";
 
 export class TerminalProvider
   implements vscode.WebviewViewProvider, vscode.WebviewPanelSerializer
@@ -699,23 +698,17 @@ export class TerminalProvider
     const cursorStyle = config.get<string>("cursorStyle", "block");
     const scrollback = String(config.get<number>("scrollback", 10000));
 
-    const templatePath = path.join(
-      this.context.extensionPath,
-      "dist",
-      "terminal.html",
-    );
-    const template = fs.readFileSync(templatePath, "utf-8");
-
-    return template
-      .replace(/\{\{CSP_SOURCE\}\}/g, webview.cspSource)
-      .replace(/\{\{NONCE\}\}/g, nonce)
-      .replace(/\{\{SCRIPT_URI\}\}/g, scriptUri)
-      .replace(/\{\{CSS_URI\}\}/g, cssUri)
-      .replace(/\{\{FONT_SIZE\}\}/g, fontSize)
-      .replace(/\{\{FONT_FAMILY\}\}/g, fontFamily)
-      .replace(/\{\{CURSOR_BLINK\}\}/g, cursorBlink)
-      .replace(/\{\{CURSOR_STYLE\}\}/g, cursorStyle)
-      .replace(/\{\{SCROLLBACK\}\}/g, scrollback);
+    return renderTerminalHtml({
+      cspSource: webview.cspSource,
+      nonce,
+      cssUri,
+      scriptUri,
+      fontSize,
+      fontFamily,
+      cursorBlink,
+      cursorStyle,
+      scrollback,
+    });
   }
 
   private getNonce(): string {
