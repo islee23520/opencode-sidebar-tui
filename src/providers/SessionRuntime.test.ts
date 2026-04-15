@@ -733,7 +733,6 @@ describe("SessionRuntime - Workspace Session Resolution", () => {
         sessionId: "fallback-session",
         windowIndex: 1,
         windowName: "main",
-        paneHasAiTool: false,
         canKillPane: false,
       });
 
@@ -744,7 +743,7 @@ describe("SessionRuntime - Workspace Session Resolution", () => {
       expect(postMessageMock).not.toHaveBeenCalled();
     });
 
-    it("posts updates when window focus changes and the active pane hosts an AI tool", async () => {
+    it("posts updates when window focus changes", async () => {
       upsertInstance({ tmuxSessionId: "workspace-session" });
       (
         sessionRuntime as unknown as { knownActiveWindowId?: string }
@@ -769,7 +768,6 @@ describe("SessionRuntime - Workspace Session Resolution", () => {
         sessionId: "workspace-session",
         windowIndex: 2,
         windowName: "agent",
-        paneHasAiTool: true,
         canKillPane: true,
       });
     });

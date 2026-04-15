@@ -99,7 +99,6 @@ describe("MessageRouter", () => {
       killTmuxPane: vi.fn(async () => undefined),
       getSelectedTmuxSessionId: vi.fn(() => "tmux-selected"),
       isTmuxAvailable: vi.fn(() => true),
-      isAttachedInEditor: vi.fn(() => false),
     };
   }
 

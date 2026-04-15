@@ -397,7 +397,6 @@ export type HostMessage =
       sessionId: string;
       windowIndex?: number;
       windowName?: string;
-      paneHasAiTool?: boolean;
       canKillPane?: boolean;
     }
   | { type: "activeSession" }
@@ -416,7 +415,6 @@ export type HostMessage =
       showingAll?: boolean;
     }
   | { type: "toggleDashboard"; visible: boolean }
-  | { type: "editorAttachmentState"; attachedInEditor: boolean }
   | { type: "toggleTmuxCommandToolbar" }
   | {
       type: "showTmuxPrompt";

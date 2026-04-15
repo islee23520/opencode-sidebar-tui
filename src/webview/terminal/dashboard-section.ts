@@ -39,22 +39,5 @@ export function renderDashboardSection(): string {
         </div>
       </div>
       <div id="dashboard-session-list" class="dashboard-session-list"></div>
-      <div id="dashboard-ai-selector" class="ai-selector-backdrop">
-        <div class="ai-selector-card">
-          <div class="ai-selector-title">Launch AI Tool</div>
-          <div
-            class="ai-selector-subtitle"
-            id="dashboard-ai-selector-session"
-          ></div>
-          <div class="ai-selector-options" id="dashboard-ai-tool-options"></div>
-          <label class="ai-selector-save">
-            <input type="checkbox" id="dashboard-ai-save-default" />
-            <span>Save as default</span>
-          </label>
-          <div class="ai-selector-hint">
-            ↑↓ Navigate · Enter Select · Esc Dismiss
-          </div>
-        </div>
-      </div>
     </div>`;
 }

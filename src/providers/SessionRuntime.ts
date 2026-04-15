@@ -56,7 +56,6 @@ export class SessionRuntime {
   private knownPaneIds: Map<string, Set<string>> = new Map();
   private knownPaneCommands: Map<string, string> = new Map();
   private knownActiveWindowId?: string;
-  private _lastPaneHasAiTool?: boolean;
   private _lastCanKillPane?: boolean;
   private sigusr2FiredSinceLastCheck = false;
   private externalChangeListener?: vscode.Disposable;
@@ -1308,13 +1307,10 @@ export class SessionRuntime {
         activeWindowOnly: true,
       });
       const currentPaneIds = new Set(panes.map((p) => p.paneId));
-      const previousPaneIds = this.knownPaneIds.get(activeSessionId);
 
       if (this.sigusr2FiredSinceLastCheck) {
         this.sigusr2FiredSinceLastCheck = false;
       }
-
-      void previousPaneIds;
 
       // Always update tracking state
       this.knownPaneIds.set(activeSessionId, currentPaneIds);
@@ -1329,22 +1325,12 @@ export class SessionRuntime {
       const windowChanged =
         activeWindow && activeWindow.windowId !== this.knownActiveWindowId;
 
-      const activePane = panes.find((p) => p.isActive);
-      const paneCommand = activePane?.currentCommand ?? "";
-      const paneHasAiTool =
-        paneCommand !== "" && !this.isPlainShell(paneCommand);
-
       const canKillPane = panes.length > 1 || windows.length > 1;
 
-      if (
-        windowChanged ||
-        paneHasAiTool !== this._lastPaneHasAiTool ||
-        canKillPane !== this._lastCanKillPane
-      ) {
+      if (windowChanged || canKillPane !== this._lastCanKillPane) {
         if (windowChanged) {
           this.knownActiveWindowId = activeWindow.windowId;
         }
-        this._lastPaneHasAiTool = paneHasAiTool;
         this._lastCanKillPane = canKillPane;
         this.callbacks.postMessage({
           type: "activeSession",
@@ -1352,19 +1338,12 @@ export class SessionRuntime {
           sessionId: activeSessionId,
           windowIndex: activeWindow?.index,
           windowName: activeWindow?.name,
-          paneHasAiTool,
           canKillPane,
         });
       }
     } catch {
       // Silently ignore — polling is best-effort
     }
-  }
-
-  private isPlainShell(command: string): boolean {
-    const shellNames = ["zsh", "bash", "sh", "fish", "dash", "ksh", "tcsh"];
-    const basename = command.split("/").pop() ?? "";
-    return shellNames.includes(basename);
   }
 
   private stopClipboardSync(): void {

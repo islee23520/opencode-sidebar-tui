@@ -305,10 +305,6 @@ describe("TerminalProvider", () => {
 
     const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
       ?.value as any;
-    expect(panel.webview.postMessage).toHaveBeenCalledWith({
-      type: "editorAttachmentState",
-      attachedInEditor: true,
-    });
     expect(panel.webview.options).toEqual(
       expect.objectContaining({
         enableScripts: true,
@@ -334,10 +330,6 @@ describe("TerminalProvider", () => {
 
     expect(restoredPanel.webview.html).toContain("default-src 'none'");
     expect(restoredPanel.webview.onDidReceiveMessage).toHaveBeenCalledTimes(1);
-    expect(restoredPanel.webview.postMessage).toHaveBeenCalledWith({
-      type: "editorAttachmentState",
-      attachedInEditor: true,
-    });
   });
 
   it("toggles from the sidebar into the editor panel", async () => {
@@ -370,10 +362,6 @@ describe("TerminalProvider", () => {
       "workbench.view.extension.opencodeTuiContainer",
     );
     expect(view.show).toHaveBeenCalledWith(true);
-    expect(view.webview.postMessage).toHaveBeenCalledWith({
-      type: "editorAttachmentState",
-      attachedInEditor: false,
-    });
   });
 
   it("starts default shell for non-tmux session without sidebar tree interaction", async () => {

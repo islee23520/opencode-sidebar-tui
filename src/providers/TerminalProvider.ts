@@ -110,7 +110,6 @@ export class TerminalProvider
       killTmuxPane: () => this.killTmuxPane(),
       getSelectedTmuxSessionId: () => this.getSelectedTmuxSessionId(),
       isTmuxAvailable: () => !!this.tmuxSessionManager,
-      isAttachedInEditor: () => this.isAttachedInEditor(),
     };
 
     this.messageRouter = new MessageRouter(
@@ -211,7 +210,6 @@ export class TerminalProvider
       this._panel = undefined;
       currentPanel.dispose();
       this.postTerminalConfig();
-      this.postSidebarAttachmentState();
       await this.revealSidebarView();
       return;
     }
@@ -567,13 +565,6 @@ export class TerminalProvider
     webview?.postMessage(message);
   }
 
-  private postPanelAttachmentState(): void {
-    this._panel?.webview.postMessage({
-      type: "editorAttachmentState",
-      attachedInEditor: true,
-    });
-  }
-
   private postCurrentSessionState(webview: vscode.Webview): void {
     const selectedSessionId = this.sessionRuntime.getSelectedTmuxSessionId();
     const resolvedSessionId =
@@ -592,17 +583,6 @@ export class TerminalProvider
     }
 
     webview.postMessage({ type: "activeSession" });
-  }
-
-  private postSidebarAttachmentState(): void {
-    this._view?.webview.postMessage({
-      type: "editorAttachmentState",
-      attachedInEditor: false,
-    });
-  }
-
-  private isAttachedInEditor(): boolean {
-    return !!this._panel;
   }
 
   private getEditorPanelOptions(): vscode.WebviewOptions &
@@ -633,7 +613,6 @@ export class TerminalProvider
     }
 
     this.postTerminalConfig();
-    this.postPanelAttachmentState();
     this.postCurrentSessionState(panel.webview);
 
     panel.onDidDispose(() => {
@@ -641,7 +620,6 @@ export class TerminalProvider
         this._panel = undefined;
         if (this._view) {
           this.postTerminalConfig();
-          this.postSidebarAttachmentState();
           this.postWebviewMessage({ type: "webviewVisible" });
         }
       }

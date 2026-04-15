@@ -61,7 +61,6 @@ export interface MessageRouterProviderBridge {
   killTmuxPane(): Promise<void>;
   getSelectedTmuxSessionId(): string | undefined;
   isTmuxAvailable(): boolean;
-  isAttachedInEditor(): boolean;
 }
 
 export class MessageRouter {
@@ -359,10 +358,6 @@ export class MessageRouter {
       type: "platformInfo",
       platform: process.platform,
       tmuxAvailable: this.provider.isTmuxAvailable(),
-    });
-    this.provider.postWebviewMessage({
-      type: "editorAttachmentState",
-      attachedInEditor: this.provider.isAttachedInEditor(),
     });
   }
 

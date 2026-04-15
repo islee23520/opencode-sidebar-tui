@@ -23,9 +23,6 @@ export interface MessageHandlerCallbacks {
   onShowTmuxPrompt: (
     message: Extract<HostMessage, { type: "showTmuxPrompt" }>,
   ) => void;
-  onEditorAttachmentState?: (
-    message: Extract<HostMessage, { type: "editorAttachmentState" }>,
-  ) => void;
   onPlatformInfo?: (
     message: Extract<HostMessage, { type: "platformInfo" }>,
   ) => void;
@@ -99,10 +96,6 @@ export function createMessageHandler(
           callbacks.onPlatformInfo?.(message);
           break;
 
-        case "editorAttachmentState":
-          callbacks.onEditorAttachmentState?.(message);
-          break;
-
         case "terminalConfig":
           if (terminal) {
             terminal.options.fontSize = message.fontSize;
@@ -129,7 +122,6 @@ export function createMessageHandler(
         case "showAiToolSelector":
           callbacks.onShowAiToolSelector(message);
           break;
-
 
         case "toggleDashboard":
           callbacks.onToggleDashboard(message);

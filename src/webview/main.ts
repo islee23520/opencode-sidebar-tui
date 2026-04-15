@@ -20,7 +20,6 @@ import {
 const dashboard = createDashboardRenderer();
 
 let currentSessionId: string | null = null;
-let tmuxAvailable = true;
 
 function toggleTmuxCommandMenu(): void {
   if (!currentSessionId) {
@@ -48,7 +47,6 @@ const callbacks: MessageHandlerCallbacks = {
     const toolbar = document.getElementById("tmux-toolbar");
     const label = document.getElementById("tmux-session-label");
     const toolbarControls = document.querySelector(".toolbar-controls");
-    const aiToolBtn = document.getElementById("btn-ai-tool");
     const killPaneBtn = document.getElementById("btn-kill-pane");
     if ("sessionName" in message && message.sessionName) {
       currentSessionId = message.sessionId;
@@ -63,9 +61,6 @@ const callbacks: MessageHandlerCallbacks = {
       if (toolbarControls) {
         toolbarControls.classList.remove("hidden");
       }
-      if (aiToolBtn) {
-        aiToolBtn.style.display = message.paneHasAiTool ? "none" : "";
-      }
       if (killPaneBtn) {
         killPaneBtn.toggleAttribute("disabled", !message.canKillPane);
       }
@@ -75,7 +70,6 @@ const callbacks: MessageHandlerCallbacks = {
       if (toolbarControls) {
         toolbarControls.classList.add("hidden");
       }
-      if (aiToolBtn) aiToolBtn.style.display = "none";
     }
   },
 
@@ -113,10 +107,8 @@ const callbacks: MessageHandlerCallbacks = {
   },
 
   onPlatformInfo(message) {
-    tmuxAvailable = message.tmuxAvailable !== false;
-    updateTmuxOnlyElements(tmuxAvailable);
+    updateTmuxOnlyElements(message.tmuxAvailable !== false);
   },
-
 };
 
 const messageHandler = createMessageHandler(callbacks);
@@ -153,9 +145,6 @@ function initApp(): void {
 
   setupAiToolSelectorEvents();
 }
-
-
-
 const aiCallbacks = {
   postMessage: (msg: unknown) => {
     const m = msg as Record<string, unknown>;
@@ -219,8 +208,6 @@ function setupAiToolSelectorEvents(): void {
       .composedPath()
       .find((el): el is Element => el instanceof Element);
     if (!target) return;
-
-
     if (AiSelector.isVisible()) {
       AiSelector.handleClick(target, aiCallbacks);
     }
