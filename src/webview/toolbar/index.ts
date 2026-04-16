@@ -22,3 +22,11 @@ export function setupReloadButton(): void {
     postMessage({ type: "requestRestart" });
   });
 }
+
+export function setupEditorAttachmentButton(): void {
+  document
+    .getElementById("btn-toggle-editor-attachment")
+    ?.addEventListener("click", () => {
+      postMessage({ type: "toggleEditorAttachment" });
+    });
+}

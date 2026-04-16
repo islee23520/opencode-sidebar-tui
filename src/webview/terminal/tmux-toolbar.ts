@@ -47,6 +47,14 @@ export function renderTmuxToolbar(): string {
       <div class="toolbar-right">
         <button
           type="button"
+          id="btn-toggle-editor-attachment"
+          class="tmux-btn"
+          aria-label="Toggle editor mode"
+        >
+          ↗
+        </button>
+        <button
+          type="button"
           id="btn-restart"
           class="tmux-btn"
           aria-label="Restart terminal"

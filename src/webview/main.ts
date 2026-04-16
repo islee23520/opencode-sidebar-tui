@@ -7,6 +7,7 @@ import { postMessage } from "./shared/vscode-api";
 import { initTerminal } from "./terminal";
 import { createMessageHandler, type MessageHandlerCallbacks } from "./messages";
 import {
+  setupEditorAttachmentButton,
   setupKillPaneButton,
   setupReloadButton,
   setupTmuxCommandButton,
@@ -136,6 +137,7 @@ function initApp(): void {
 
   setupKillPaneButton();
   setupReloadButton();
+  setupEditorAttachmentButton();
   setupTmuxCommandButton(() => currentSessionId);
   setupDashboardEventListeners(() => dashboard.toggle());
 
