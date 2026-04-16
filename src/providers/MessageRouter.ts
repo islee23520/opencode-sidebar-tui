@@ -11,6 +11,7 @@ import { OutputChannelService } from "../services/OutputChannelService";
 import { TerminalManager } from "../terminals/TerminalManager";
 import {
   ALLOWED_IMAGE_TYPES,
+  DroppedBlobFile,
   MAX_IMAGE_SIZE,
   TMUX_RAW_ALLOWED_SUBCOMMANDS,
   TMUX_WEBVIEW_COMMAND_IDS,
@@ -92,10 +93,11 @@ export class MessageRouter {
         this.handleReady(message.cols, message.rows);
         break;
       case "filesDropped":
-        this.handleFilesDropped(
+        await this.handleFilesDropped(
           message.files ?? [],
           message.shiftKey ?? false,
           message.dropCell,
+          message.blobFiles,
         );
         break;
       case "openUrl":
@@ -423,39 +425,46 @@ export class MessageRouter {
     }
   }
 
-  public handleFilesDropped(
+  public async handleFilesDropped(
     files: string[],
     shiftKey: boolean,
     dropCell?: { col: number; row: number },
-  ): void {
+    blobFiles?: DroppedBlobFile[],
+  ): Promise<void> {
     this.logger.info(
       `[PROVIDER] handleFilesDropped - files: ${JSON.stringify(files)} shiftKey: ${shiftKey} dropCell: ${JSON.stringify(dropCell)}`,
     );
 
     const normalizedFiles = files.map((file) => {
-      if (file.startsWith("file://")) {
+      // Normalize any URI-scheme string (file://, vscode-file://, etc.) to a
+      // filesystem path using vscode.Uri.parse so that outside-workspace
+      // absolute paths are preserved correctly before asRelativePath is called.
+      if (/^[a-z][a-z0-9+\-.]*:\/\//i.test(file)) {
         try {
-          const url = new URL(file);
-          let decoded = decodeURIComponent(url.pathname);
-          if (
-            decoded.length >= 3 &&
-            decoded[0] === "/" &&
-            /[A-Za-z]/.test(decoded[1]) &&
-            decoded[2] === ":"
-          ) {
-            decoded = decoded.slice(1);
-          }
-          return decoded;
+          return vscode.Uri.parse(file).fsPath;
         } catch {
-          return file;
+          // fall through to raw value
         }
       }
       return file;
     });
 
-    const dedupedFiles = [
+    let dedupedFiles = [
       ...new Set(normalizedFiles.map((p) => path.normalize(p))),
     ];
+
+    if (dedupedFiles.length === 0 && blobFiles && blobFiles.length > 0) {
+      const materializedBlobPaths =
+        await this.materializeDroppedBlobFiles(blobFiles);
+      dedupedFiles = [
+        ...new Set(materializedBlobPaths.map((p) => path.normalize(p))),
+      ];
+    }
+
+    if (dedupedFiles.length === 0) {
+      this.logger.warn("[PROVIDER] No usable dropped file paths were resolved");
+      return;
+    }
 
     if (shiftKey) {
       const fileRefs = this.provider.formatDroppedFiles(
@@ -536,15 +545,13 @@ export class MessageRouter {
 
   public async handleImagePasted(data: string): Promise<void> {
     try {
-      const base64Match = data.match(
-        /^data:(image\/[a-zA-Z0-9+.-]+);base64,([A-Za-z0-9+/=]+)$/,
-      );
-      if (!base64Match) {
+      const parsedDataUrl = this.parseDataUrl(data);
+      if (!parsedDataUrl) {
         this.logger.error("[TerminalProvider] Invalid image data URL format");
         return;
       }
 
-      const mimeType = base64Match[1];
+      const { mimeType, buffer } = parsedDataUrl;
       if (!ALLOWED_IMAGE_TYPES.includes(mimeType)) {
         this.logger.error(
           `[TerminalProvider] Unsupported image type: ${mimeType}`,
@@ -552,48 +559,119 @@ export class MessageRouter {
         return;
       }
 
-      const buffer = Buffer.from(base64Match[2], "base64");
       if (buffer.length > MAX_IMAGE_SIZE) {
         this.logger.error("[TerminalProvider] Image exceeds 10MB size limit");
         return;
       }
 
       const extension = mimeType.split("/")[1];
-      const tmpPath = path.join(
-        os.tmpdir(),
+      const tmpPath = await this.writeSecureTempFile(
         `opencode-clipboard-${randomUUID()}.${extension}`,
+        buffer,
       );
-
-      await fs.promises.writeFile(tmpPath, buffer, {
-        flag: "wx",
-        mode: 0o600,
-      });
 
       const formattedImage = this.provider.formatPastedImage(tmpPath);
       if (formattedImage) {
         this.provider.pasteText(formattedImage);
       }
 
-      setTimeout(
-        async () => {
-          try {
-            await fs.promises.unlink(tmpPath);
-            this.logger.debug(
-              `[TerminalProvider] Cleaned up temp file: ${tmpPath}`,
-            );
-          } catch (err) {
-            this.logger.warn(
-              `[TerminalProvider] Failed to cleanup temp file: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
-        },
-        5 * 60 * 1000,
-      );
+      this.scheduleTempFileCleanup(tmpPath);
     } catch (error) {
       this.logger.error(
         `[TerminalProvider] Failed to handle pasted image: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private parseDataUrl(
+    data: string,
+  ): { mimeType: string; buffer: Buffer } | undefined {
+    const base64Match = data.match(
+      /^data:([a-zA-Z0-9/+.-]+);base64,([A-Za-z0-9+/=]+)$/,
+    );
+    if (!base64Match) {
+      return undefined;
+    }
+
+    return {
+      mimeType: base64Match[1],
+      buffer: Buffer.from(base64Match[2], "base64"),
+    };
+  }
+
+  private sanitizeDroppedBlobFileName(name: string): string {
+    const baseName = name.split(/[\\/]/).pop()?.trim() || "dropped-file";
+    const sanitized = baseName.replace(/[^a-zA-Z0-9._-]/g, "_");
+    return sanitized.length > 0 ? sanitized : "dropped-file";
+  }
+
+  private async writeSecureTempFile(
+    fileName: string,
+    buffer: Buffer,
+  ): Promise<string> {
+    const tmpPath = path.join(os.tmpdir(), fileName);
+    await fs.promises.writeFile(tmpPath, buffer, {
+      flag: "wx",
+      mode: 0o600,
+    });
+    return tmpPath;
+  }
+
+  private scheduleTempFileCleanup(tmpPath: string): void {
+    setTimeout(
+      async () => {
+        try {
+          await fs.promises.unlink(tmpPath);
+          this.logger.debug(
+            `[TerminalProvider] Cleaned up temp file: ${tmpPath}`,
+          );
+        } catch (err) {
+          this.logger.warn(
+            `[TerminalProvider] Failed to cleanup temp file: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+      5 * 60 * 1000,
+    );
+  }
+
+  private async materializeDroppedBlobFiles(
+    blobFiles: DroppedBlobFile[],
+  ): Promise<string[]> {
+    const materializedPaths: string[] = [];
+
+    for (const blobFile of blobFiles) {
+      try {
+        const parsedDataUrl = this.parseDataUrl(blobFile.data);
+        if (!parsedDataUrl) {
+          this.logger.error(
+            `[TerminalProvider] Invalid dropped blob data URL for ${blobFile.name}`,
+          );
+          continue;
+        }
+
+        if (parsedDataUrl.buffer.length > MAX_IMAGE_SIZE) {
+          this.logger.error(
+            `[TerminalProvider] Dropped file exceeds 10MB size limit: ${blobFile.name}`,
+          );
+          continue;
+        }
+
+        const safeName = this.sanitizeDroppedBlobFileName(blobFile.name);
+        const tmpPath = await this.writeSecureTempFile(
+          `opencode-drop-${randomUUID()}-${safeName}`,
+          parsedDataUrl.buffer,
+        );
+        this.scheduleTempFileCleanup(tmpPath);
+        materializedPaths.push(tmpPath);
+      } catch (error) {
+        this.logger.error(
+          `[TerminalProvider] Failed to materialize dropped blob ${blobFile.name}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return materializedPaths;
   }
 
   public async handleListTerminals(): Promise<void> {
