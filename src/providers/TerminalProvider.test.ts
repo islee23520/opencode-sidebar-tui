@@ -59,6 +59,7 @@ describe("TerminalProvider", () => {
     aiTools?: readonly unknown[];
     nativeShellDefault?: string;
     tmuxSessionDefault?: string;
+    collapseSecondaryBarOnEditorOpen?: boolean;
   }) {
     const {
       autoStartOnOpen = false,
@@ -67,6 +68,7 @@ describe("TerminalProvider", () => {
       aiTools = DEFAULT_AI_TOOLS,
       nativeShellDefault = "",
       tmuxSessionDefault = "",
+      collapseSecondaryBarOnEditorOpen = false,
     } = options ?? {};
 
     const configuration = {
@@ -94,6 +96,9 @@ describe("TerminalProvider", () => {
         }
         if (key === "tmuxSessionDefault") {
           return tmuxSessionDefault;
+        }
+        if (key === "collapseSecondaryBarOnEditorOpen") {
+          return collapseSecondaryBarOnEditorOpen;
         }
         return defaultValue;
       }),
@@ -1399,6 +1404,42 @@ describe("TerminalProvider", () => {
       "Open Sidebar Terminal",
       vscode.ViewColumn.Beside,
       expect.any(Object),
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.lockEditorGroup",
+    );
+  });
+
+  it("closes the sidebar when opening the editor tab and collapse-on-open is enabled", () => {
+    mockConfiguration({ collapseSecondaryBarOnEditorOpen: true });
+    provider = createProvider();
+    resolveProvider(provider);
+
+    provider.openInEditorTab();
+
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.closeAuxiliaryBar",
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.closeSidebar",
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.lockEditorGroup",
+    );
+  });
+
+  it("keeps the sidebar open when opening the editor tab and collapse-on-open is disabled", () => {
+    mockConfiguration({ collapseSecondaryBarOnEditorOpen: false });
+    provider = createProvider();
+    resolveProvider(provider);
+
+    provider.openInEditorTab();
+
+    expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+      "workbench.action.closeAuxiliaryBar",
+    );
+    expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+      "workbench.action.closeSidebar",
     );
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
       "workbench.action.lockEditorGroup",
