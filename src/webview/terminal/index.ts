@@ -56,6 +56,7 @@ export function initTerminal(
   const keyboardHandler = createKeyboardHandler(terminal, {
     onCopy: copySelectionToClipboard,
     onPaste: handlePasteWithImageSupport,
+    onTerminalInput: options.onData,
     onToggleTmuxCommands: options.onToggleTmuxCommands,
   });
 

@@ -1,7 +1,7 @@
 import type { Terminal } from "@xterm/xterm";
 import * as AiSelector from "../ai-tool-selector";
 import { postMessage } from "../shared/vscode-api";
-  import {
+import {
   copySelectionToClipboard,
   handlePasteWithImageSupport,
 } from "../clipboard";
@@ -10,11 +10,27 @@ export function createKeyboardHandler(
   options: {
     onCopy: (text: string) => void;
     onPaste: () => void;
+    onTerminalInput: (data: string) => void;
     onToggleTmuxCommands: () => void;
   },
 ) {
   let justHandledCtrlC = false;
   let lastPasteTime = 0;
+
+  const getPhysicalLetter = (code: string): string | null => {
+    if (!code.startsWith("Key") || code.length !== 4) {
+      return null;
+    }
+
+    return code.slice(3).toLowerCase();
+  };
+
+  const isLatinShortcutKey = (key: string): boolean => /^[a-z]$/i.test(key);
+
+  const toControlCharacter = (letter: string): string => {
+    const upperLetter = letter.toUpperCase();
+    return String.fromCharCode(upperLetter.charCodeAt(0) - 64);
+  };
 
   const handler = (event: KeyboardEvent): boolean => {
     if (AiSelector.isVisible()) {
@@ -24,18 +40,26 @@ export function createKeyboardHandler(
     }
 
     const isMetaOrCtrl = event.metaKey || event.ctrlKey;
+    const physicalLetter = getPhysicalLetter(event.code);
+
+    if (event.isComposing) {
+      return true;
+    }
 
     if (event.altKey && isMetaOrCtrl) {
-      if (event.code === "KeyM") {
+      if (physicalLetter === "m") {
         event.preventDefault();
         event.stopPropagation();
         options.onToggleTmuxCommands();
         return false;
       }
-      if (event.code === "KeyT") {
+      if (physicalLetter === "t") {
         event.preventDefault();
         event.stopPropagation();
-        postMessage({ type: "executeTmuxCommand", commandId: "opencodeTui.browseTmuxSessions" });
+        postMessage({
+          type: "executeTmuxCommand",
+          commandId: "opencodeTui.browseTmuxSessions",
+        });
         return false;
       }
     }
@@ -43,8 +67,9 @@ export function createKeyboardHandler(
     const isCtrlC =
       event.ctrlKey &&
       !event.shiftKey &&
+      !event.metaKey &&
       !event.altKey &&
-      (event.key === "c" || event.key === "C");
+      physicalLetter === "c";
 
     if (isCtrlC) {
       const selection = terminal.getSelection();
@@ -58,10 +83,24 @@ export function createKeyboardHandler(
         event.stopPropagation();
         return false;
       }
+
+      if (!isLatinShortcutKey(event.key)) {
+        options.onTerminalInput(toControlCharacter("c"));
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+
       return true;
     }
 
-    if (event.ctrlKey && (event.key === "v" || event.key === "V")) {
+    if (
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      physicalLetter === "v"
+    ) {
       const now = Date.now();
       if (now - lastPasteTime < 500) {
         return false;
@@ -70,6 +109,20 @@ export function createKeyboardHandler(
       event.preventDefault();
       event.stopPropagation();
       handlePasteWithImageSupport();
+      return false;
+    }
+
+    if (
+      event.ctrlKey &&
+      !event.shiftKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      physicalLetter &&
+      !isLatinShortcutKey(event.key)
+    ) {
+      options.onTerminalInput(toControlCharacter(physicalLetter));
+      event.preventDefault();
+      event.stopPropagation();
       return false;
     }
 
