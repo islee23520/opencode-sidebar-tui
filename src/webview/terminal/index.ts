@@ -12,16 +12,11 @@ import {
 import { createLinkProvider } from "../links";
 import { handleDrop } from "../dragdrop";
 import { postMessage } from "../shared/vscode-api";
-import {
-  copySelectionToClipboard,
-  handlePasteWithImageSupport,
-} from "../clipboard";
 
 export interface TerminalInstance {
   terminal: Terminal;
   fitAddon: FitAddon;
   dispose: () => void;
-  keyboardHandler: ReturnType<typeof createKeyboardHandler>;
 }
 
 const MOUSE_ENABLE = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
@@ -53,12 +48,7 @@ export function initTerminal(
     scrollback: config.scrollback,
   });
 
-  const keyboardHandler = createKeyboardHandler(terminal, {
-    onCopy: copySelectionToClipboard,
-    onPaste: handlePasteWithImageSupport,
-    onToggleTmuxCommands: options.onToggleTmuxCommands,
-  });
-
+  const keyboardHandler = createKeyboardHandler();
   terminal.attachCustomKeyEventHandler(keyboardHandler.handler);
 
   const fitAddon = new FitAddon();
@@ -104,15 +94,6 @@ export function initTerminal(
   const cleanupResize = setupResizeHandling(terminal, fitAddon, container);
 
   terminal.onData((data) => {
-    if (keyboardHandler.justHandledCtrlC) {
-      keyboardHandler.setJustHandledCtrlC(false);
-      const filteredData = data.split("\u0003").join("");
-      if (filteredData) {
-        options.onData(filteredData);
-      }
-      return;
-    }
-
     if (data) {
       options.onData(data);
     }
@@ -121,6 +102,26 @@ export function initTerminal(
   terminal.onResize(({ cols, rows }) => {
     options.onResize(cols, rows);
   });
+
+  const dragOverHandler = (e: DragEvent) => {
+    if (!e.dataTransfer) return;
+    const hasFiles = e.dataTransfer.types.some(
+      (t) =>
+        t === "Files" ||
+        t === "text/uri-list" ||
+        t.startsWith("application/vnd.code."),
+    );
+    if (!hasFiles) return;
+    e.preventDefault();
+    e.stopPropagation();
+    container.style.opacity = "0.7";
+  };
+
+  const dragLeaveHandler = (e: DragEvent) => {
+    if (!e.relatedTarget) {
+      container.style.opacity = "1";
+    }
+  };
 
   const dropHandler = async (e: DragEvent) => {
     e.preventDefault();
@@ -135,28 +136,20 @@ export function initTerminal(
     });
   };
 
-  container.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    container.style.opacity = "0.7";
-  });
-
-  container.addEventListener("dragleave", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    container.style.opacity = "1";
-  });
-
-  container.addEventListener("drop", dropHandler);
+  // Attach at window level so Finder/OS drags are caught even when
+  // xterm's WebGL canvas layers are under the cursor.
+  window.addEventListener("dragover", dragOverHandler);
+  window.addEventListener("dragleave", dragLeaveHandler);
+  window.addEventListener("drop", dropHandler);
 
   const dispose = () => {
     cleanupResize();
     cleanupVisibility();
     container.removeEventListener("focusin", refreshTerminal);
     container.removeEventListener("click", refreshTerminal);
-    container.removeEventListener("dragover", () => {});
-    container.removeEventListener("dragleave", () => {});
-    container.removeEventListener("drop", dropHandler);
+    window.removeEventListener("dragover", dragOverHandler);
+    window.removeEventListener("dragleave", dragLeaveHandler);
+    window.removeEventListener("drop", dropHandler);
     terminal.write(MOUSE_DISABLE);
     terminal.dispose();
   };
@@ -165,7 +158,6 @@ export function initTerminal(
     terminal,
     fitAddon,
     dispose,
-    keyboardHandler,
   };
 }
 

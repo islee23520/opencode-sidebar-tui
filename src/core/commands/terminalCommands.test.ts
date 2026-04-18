@@ -24,6 +24,7 @@ type ProviderMock = Pick<
   | "formatUriReference"
   | "pasteText"
   | "openInEditorTab"
+  | "toggleEditorAttachment"
 >;
 
 type OutputChannelMock = Pick<OutputChannelService, "info" | "warn" | "error">;
@@ -36,6 +37,7 @@ function createProviderMock(): ProviderMock {
     formatUriReference: vi.fn((uri) => `@${uri.fsPath}`),
     pasteText: vi.fn(),
     openInEditorTab: vi.fn(),
+    toggleEditorAttachment: vi.fn(),
   };
 }
 
@@ -120,7 +122,7 @@ describe("registerTerminalCommands", () => {
     vi.useRealTimers();
   });
 
-  it("registers all 8 terminal commands", () => {
+  it("registers all 9 terminal commands", () => {
     const commands = registerAndGetCommands(createDependencies());
 
     expect(Array.from(commands.keys())).toEqual(
@@ -133,9 +135,10 @@ describe("registerTerminalCommands", () => {
         "opencodeTui.paste",
         "opencodeTui.focus",
         "opencodeTui.openTerminalInEditor",
+        "opencodeTui.restoreTerminalToSidebar",
       ]),
     );
-    expect(commands.size).toBe(8);
+    expect(commands.size).toBe(9);
   });
 
   it("starts OpenCode from the start command", () => {
@@ -415,17 +418,19 @@ describe("registerTerminalCommands", () => {
     );
   });
 
-  it("focuses the sidebar and opens the terminal in an editor tab", () => {
+  it("focuses the sidebar, opens the terminal in an editor tab, and restores it to the sidebar", () => {
     const deps = createDependencies();
     const commands = registerAndGetCommands(deps);
 
     getCommand(commands, "opencodeTui.focus")();
     getCommand(commands, "opencodeTui.openTerminalInEditor")();
+    getCommand(commands, "opencodeTui.restoreTerminalToSidebar")();
 
     expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
       "workbench.view.focus",
       "opencodeTui",
     );
     expect(deps.provider?.openInEditorTab).toHaveBeenCalledTimes(1);
+    expect(deps.provider?.toggleEditorAttachment).toHaveBeenCalledTimes(1);
   });
 });

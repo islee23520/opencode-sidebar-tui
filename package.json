@@ -2,7 +2,7 @@
   "name": "opencode-sidebar-tui",
   "displayName": "Opencode Sidebar Terminal",
   "description": "Automatically render Opencode Sidebar Terminal in VS Code sidebar with full terminal support",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "publisher": "islee23520",
   "icon": "icon.png",
   "engines": {
@@ -155,7 +155,16 @@
         "command": "opencodeTui.openTerminalInEditor",
         "title": "Open Terminal in Editor",
         "category": "Open Sidebar Terminal",
-        "icon": "$(terminal-bash)"
+        "icon": {
+          "light": "resources/opencode-activity-bar.svg",
+          "dark": "resources/opencode-activity-bar-dark.svg"
+        }
+      },
+      {
+        "command": "opencodeTui.restoreTerminalToSidebar",
+        "title": "Restore Terminal to Sidebar",
+        "category": "Open Sidebar Terminal",
+        "icon": "$(layout-sidebar-left)"
       },
       {
         "command": "opencodeTui.tmuxSwitchPane",
@@ -254,6 +263,16 @@
     ],
     "menus": {
       "view/title": [],
+      "editor/title": [
+        {
+          "command": "opencodeTui.openTerminalManager",
+          "group": "navigation"
+        },
+        {
+          "command": "opencodeTui.openTerminalInEditor",
+          "group": "navigation@1"
+        }
+      ],
       "explorer/context": [
         {
           "command": "opencodeTui.sendFileToTerminal",
@@ -427,6 +446,11 @@
           "default": true,
           "description": "Enable tmux session management. Disable to use the extension with a plain terminal shell (no tmux required)."
         },
+        "opencodeTui.collapseSecondaryBarOnEditorOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Close the secondary and primary sidebars before moving the terminal into an editor group so the new editor tab gets the full workspace width."
+        },
         "opencodeTui.codeActionSeverities": {
           "type": "array",
           "items": {
@@ -543,11 +567,15 @@
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
+    "compile:e2e": "tsc -p tsconfig.e2e.json",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts",
     "format": "prettier --write \"src/**/*.{ts,js,json,css,md}\"",
     "test": "vitest run",
+    "pretest:e2e": "npm run compile && npm run compile:e2e",
+    "test:e2e": "vscode-test",
+    "test:all": "npm run test && npm run test:e2e",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "build-and-install": "npx @vscode/vsce package -o build/extension.vsix && code --install-extension build/extension.vsix --force"
@@ -561,17 +589,21 @@
     "preact": "^10.29.1"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^24.10.13",
     "@types/vscode": "^1.106.1",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
     "@vitest/coverage-v8": "^4.0.18",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^7.1.2",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^5.5.4",
     "jsdom": "^29.0.1",
+    "mocha": "^11.7.5",
     "prettier": "^3.7.2",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.4",

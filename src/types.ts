@@ -39,6 +39,11 @@ export const TMUX_RAW_ALLOWED_SUBCOMMANDS = [
 
 export type TmuxRawSubcommand = (typeof TMUX_RAW_ALLOWED_SUBCOMMANDS)[number];
 
+export interface DroppedBlobFile {
+  name: string;
+  data: string;
+}
+
 export type WebviewMessage =
   | { type: "terminalInput"; data: string }
   | { type: "terminalResize"; cols: number; rows: number }
@@ -63,6 +68,7 @@ export type WebviewMessage =
       files: string[];
       shiftKey: boolean;
       dropCell?: { col: number; row: number };
+      blobFiles?: DroppedBlobFile[];
     }
   | { type: "getClipboard" }
   | { type: "setClipboard"; text: string }
@@ -96,6 +102,7 @@ export type WebviewMessage =
       direction?: string;
     }
   | { type: "openDashboardInEditor" }
+  | { type: "toggleEditorAttachment" }
   | { type: "sendTmuxPromptChoice"; choice: "tmux" | "shell" }
   | { type: "requestAiToolSelector" }
   | { type: "executeTmuxCommand"; commandId: TmuxWebviewCommandId }
@@ -117,7 +124,6 @@ export interface AiToolConfig {
   operator?: string;
 }
 
-/** Built-in default tools — used when no user config exists */
 export const DEFAULT_AI_TOOLS: readonly AiToolConfig[] = [
   {
     name: "opencode",
@@ -148,7 +154,6 @@ export const DEFAULT_AI_TOOLS: readonly AiToolConfig[] = [
 /** @deprecated Use resolveAiToolConfigs() instead */
 export const AI_TOOLS = DEFAULT_AI_TOOLS;
 
-/** Resolves AI tool configs from VS Code settings, merging with defaults */
 export function resolveAiToolConfigs(
   userTools: readonly unknown[],
 ): AiToolConfig[] {
@@ -173,14 +178,12 @@ export function resolveAiToolConfigs(
     }));
 }
 
-/** Get the launch command string for a tool config */
 export function getToolLaunchCommand(tool: AiToolConfig): string {
   const exe = tool.path || tool.name;
   const args = tool.args.length > 0 ? ` ${tool.args.join(" ")}` : "";
   return exe + args;
 }
 
-/** Get detection patterns for matching pane_current_command */
 export function getToolDetectionPatterns(tool: AiToolConfig): string[] {
   const patterns = new Set<string>([tool.name, `${tool.name}.exe`]);
   if (tool.operator) {
@@ -357,7 +360,7 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/webp",
   "image/gif",
 ];
-export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+export const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 export interface TmuxSession {
   id: string;
@@ -396,7 +399,6 @@ export type HostMessage =
       sessionId: string;
       windowIndex?: number;
       windowName?: string;
-      paneHasAiTool?: boolean;
       canKillPane?: boolean;
     }
   | { type: "activeSession" }
@@ -445,4 +447,5 @@ export interface ExtensionConfig {
   maxDiagnosticLength: number;
   enableAutoSpawn: boolean;
   codeActionSeverities: DiagnosticSeverity[];
+  collapseSecondaryBarOnEditorOpen: boolean;
 }

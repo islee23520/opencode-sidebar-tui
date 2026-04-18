@@ -1,0 +1,57 @@
+const fs = require("fs");
+const path = require("path");
+const { defineConfig } = require("@vscode/test-cli");
+
+function resolveLocalVsCodeExecutable() {
+  if (process.env.VSCODE_EXECUTABLE_PATH) {
+    return process.env.VSCODE_EXECUTABLE_PATH;
+  }
+
+  if (process.platform === "darwin") {
+    const candidate =
+      "/Applications/Visual Studio Code.app/Contents/MacOS/Electron";
+    return fs.existsSync(candidate) ? candidate : undefined;
+  }
+
+  if (process.platform === "win32") {
+    const localAppData = process.env.LOCALAPPDATA;
+    if (localAppData) {
+      const candidate = path.join(
+        localAppData,
+        "Programs",
+        "Microsoft VS Code",
+        "Code.exe",
+      );
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+    return undefined;
+  }
+
+  const linuxCandidates = [
+    "/usr/bin/code",
+    "/snap/bin/code",
+    "/var/lib/flatpak/exports/bin/com.visualstudio.code",
+  ];
+  return linuxCandidates.find((candidate) => fs.existsSync(candidate));
+}
+
+const localVsCodeExecutable = resolveLocalVsCodeExecutable();
+
+module.exports = defineConfig({
+  files: "out/test/e2e/**/*.e2e.js",
+  version: "stable",
+  workspaceFolder: "src/test/e2e/fixtures/workspace",
+  ...(localVsCodeExecutable
+    ? {
+        useInstallation: {
+          fromPath: localVsCodeExecutable,
+        },
+      }
+    : {}),
+  mocha: {
+    ui: "tdd",
+    timeout: 20000,
+  },
+});

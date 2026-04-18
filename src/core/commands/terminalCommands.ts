@@ -193,7 +193,14 @@ export function registerTerminalCommands(
   const openInEditorCommand = vscode.commands.registerCommand(
     "opencodeTui.openTerminalInEditor",
     () => {
-      deps.provider?.openInEditorTab();
+      void deps.provider?.openInEditorTab();
+    },
+  );
+
+  const restoreToSidebarCommand = vscode.commands.registerCommand(
+    "opencodeTui.restoreTerminalToSidebar",
+    () => {
+      void deps.provider?.toggleEditorAttachment();
     },
   );
 
@@ -206,5 +213,6 @@ export function registerTerminalCommands(
     pasteCommand,
     focusCommand,
     openInEditorCommand,
+    restoreToSidebarCommand,
   ];
 }

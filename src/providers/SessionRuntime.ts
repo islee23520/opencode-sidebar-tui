@@ -56,7 +56,6 @@ export class SessionRuntime {
   private knownPaneIds: Map<string, Set<string>> = new Map();
   private knownPaneCommands: Map<string, string> = new Map();
   private knownActiveWindowId?: string;
-  private _lastPaneHasAiTool?: boolean;
   private _lastCanKillPane?: boolean;
   private sigusr2FiredSinceLastCheck = false;
   private externalChangeListener?: vscode.Disposable;
@@ -218,12 +217,9 @@ export class SessionRuntime {
       const enableHttpApi = config.get<boolean>("enableHttpApi", true);
       const httpTimeout = config.get<number>("httpTimeout", 5000);
 
-      // Resolve workspace path first (needed for tmux session resolution)
       const { workspacePath, isWorkspaceScoped } =
         this.resolveStartupWorkspacePath();
 
-      // Determine tmux session before resolving tool.
-      // Non-tmux sessions start with the default shell.
       const forceNativeShell = this.forceNativeShellNextStart;
       const selectedTmuxSessionId = this.selectedTmuxSessionId;
       let tmuxSessionId = forceNativeShell
@@ -261,8 +257,6 @@ export class SessionRuntime {
         } catch {}
       }
 
-      // Only resolve AI tool when a tmux session is available.
-      // Non-tmux sessions start with the default shell (no command).
       let resolvedTool: AiToolConfig | undefined;
       let command: string | undefined;
 
@@ -432,12 +426,72 @@ export class SessionRuntime {
 
     this.exitListener = this.terminalManager.onExit((id) => {
       if (id === this.activeInstanceId) {
+        const exitedTmuxSessionId =
+          this.selectedTmuxSessionId ??
+          this.resolveTmuxSessionIdForInstance(this.activeInstanceId);
+
+        if (exitedTmuxSessionId && this.isStarted) {
+          void this.restoreAfterAttachedTmuxSessionExit(exitedTmuxSessionId);
+          return;
+        }
+
         this.resetState();
         this.callbacks.postMessage({
           type: "terminalExited",
         });
       }
     });
+  }
+
+  private async restoreAfterAttachedTmuxSessionExit(
+    exitedSessionId: string,
+  ): Promise<void> {
+    const fallbackWorkspacePath = this.resolveWorkspacePathForTmuxFallback();
+
+    if (this.selectedTmuxSessionId === exitedSessionId) {
+      this.selectedTmuxSessionId = undefined;
+    }
+
+    if (this.instanceStore) {
+      const records = this.instanceStore.getAll();
+      for (const record of records) {
+        if (record.runtime.tmuxSessionId === exitedSessionId) {
+          this.portManager.releaseTerminalPorts(record.config.id);
+          this.instanceStore.upsert({
+            ...record,
+            runtime: {
+              ...record.runtime,
+              tmuxSessionId: undefined,
+              port: undefined,
+            },
+          });
+        }
+      }
+    }
+
+    try {
+      const replacementSessionId = fallbackWorkspacePath
+        ? await this.findReplacementTmuxSession(
+            fallbackWorkspacePath,
+            exitedSessionId,
+          )
+        : undefined;
+
+      if (replacementSessionId) {
+        await this.switchToTmuxSession(replacementSessionId);
+        return;
+      }
+
+      await this.switchToNativeShell();
+    } catch (error) {
+      this.logger.error(
+        `[TerminalProvider] Failed to restore after tmux exit: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.resetState();
+      this.callbacks.postMessage({
+        type: "terminalExited",
+      });
+    }
   }
 
   public async pollForHttpReadiness(): Promise<void> {
@@ -773,8 +827,6 @@ export class SessionRuntime {
     if (!this.tmuxSessionManager) {
       return undefined;
     }
-    // Always use current workspace session for toolbar actions
-    // Do NOT fall back to selectedTmuxSessionId which may be from another workspace
     const workspacePath = this.resolveWorkspacePathForTmuxFallback();
     const sessionId = workspacePath
       ? await this.ensureWorkspaceSession(workspacePath)
@@ -817,7 +869,6 @@ export class SessionRuntime {
     if (!this.tmuxSessionManager) {
       return;
     }
-    // Always use current workspace session for toolbar actions
     const workspacePath = this.resolveWorkspacePathForTmuxFallback();
     const sessionId = workspacePath
       ? await this.ensureWorkspaceSession(workspacePath)
@@ -847,8 +898,6 @@ export class SessionRuntime {
     if (!this.tmuxSessionManager) {
       return undefined;
     }
-    // Always use current workspace session for toolbar actions
-    // Do NOT fall back to selectedTmuxSessionId which may be from another workspace
     const workspacePath = this.resolveWorkspacePathForTmuxFallback();
     const sessionId = workspacePath
       ? await this.ensureWorkspaceSession(workspacePath)
@@ -887,7 +936,6 @@ export class SessionRuntime {
     if (!this.tmuxSessionManager) {
       return;
     }
-    // Always use current workspace session for toolbar actions
     const workspacePath = this.resolveWorkspacePathForTmuxFallback();
     const sessionId = workspacePath
       ? await this.ensureWorkspaceSession(workspacePath)
@@ -915,7 +963,6 @@ export class SessionRuntime {
     if (!this.tmuxSessionManager) {
       return;
     }
-    // Always use current workspace session for toolbar actions
     const workspacePath = this.resolveWorkspacePathForTmuxFallback();
     const sessionId = workspacePath
       ? await this.ensureWorkspaceSession(workspacePath)
@@ -1047,7 +1094,6 @@ export class SessionRuntime {
     if (!this.tmuxSessionManager) {
       return false;
     }
-    // Always use current workspace session for toolbar actions
     const workspacePath = this.resolveWorkspacePathForTmuxFallback();
     const sessionId = workspacePath
       ? await this.ensureWorkspaceSession(workspacePath)
@@ -1217,7 +1263,6 @@ export class SessionRuntime {
       return;
     }
 
-    // Cache initial pane count and active pane commands
     try {
       const panes = await this.tmuxSessionManager.listPanes(sessionId, {
         activeWindowOnly: true,
@@ -1230,11 +1275,8 @@ export class SessionRuntime {
           activePane.currentCommand ?? "",
         );
       }
-    } catch {
-      // Ignore — session might not be ready yet
-    }
+    } catch {}
 
-    // SIGUSR2 for immediate detection (from tmux hooks)
     if (!this.sigusr2Handler) {
       this.sigusr2Handler = () => {
         this.sigusr2FiredSinceLastCheck = true;
@@ -1243,7 +1285,6 @@ export class SessionRuntime {
       process.on("SIGUSR2", this.sigusr2Handler);
     }
 
-    // onExternalPaneChange event listener
     if (
       !this.externalChangeListener &&
       this.tmuxSessionManager.onExternalPaneChange
@@ -1254,8 +1295,6 @@ export class SessionRuntime {
         });
     }
 
-    // Polling fallback for reliable detection (covers hook misses,
-    // tool exits, and externally-created sessions)
     if (!this.paneMonitorInterval) {
       this.paneMonitorInterval = setInterval(() => {
         void this.checkPaneChanges();
@@ -1283,7 +1322,6 @@ export class SessionRuntime {
       return;
     }
 
-    // Discover all current sessions (handles externally-created sessions too)
     let activeSessionId =
       this.selectedTmuxSessionId ??
       this.resolveTmuxSessionIdForInstance(this.activeInstanceId);
@@ -1294,9 +1332,7 @@ export class SessionRuntime {
         if (sessions.length > 0) {
           activeSessionId = sessions[0].id;
         }
-      } catch {
-        // tmux not available
-      }
+      } catch {}
     }
 
     if (!activeSessionId) {
@@ -1308,15 +1344,11 @@ export class SessionRuntime {
         activeWindowOnly: true,
       });
       const currentPaneIds = new Set(panes.map((p) => p.paneId));
-      const previousPaneIds = this.knownPaneIds.get(activeSessionId);
 
       if (this.sigusr2FiredSinceLastCheck) {
         this.sigusr2FiredSinceLastCheck = false;
       }
 
-      void previousPaneIds;
-
-      // Always update tracking state
       this.knownPaneIds.set(activeSessionId, currentPaneIds);
       for (const pane of panes) {
         const key = `${activeSessionId}:${pane.paneId}`;
@@ -1329,22 +1361,12 @@ export class SessionRuntime {
       const windowChanged =
         activeWindow && activeWindow.windowId !== this.knownActiveWindowId;
 
-      const activePane = panes.find((p) => p.isActive);
-      const paneCommand = activePane?.currentCommand ?? "";
-      const paneHasAiTool =
-        paneCommand !== "" && !this.isPlainShell(paneCommand);
-
       const canKillPane = panes.length > 1 || windows.length > 1;
 
-      if (
-        windowChanged ||
-        paneHasAiTool !== this._lastPaneHasAiTool ||
-        canKillPane !== this._lastCanKillPane
-      ) {
+      if (windowChanged || canKillPane !== this._lastCanKillPane) {
         if (windowChanged) {
           this.knownActiveWindowId = activeWindow.windowId;
         }
-        this._lastPaneHasAiTool = paneHasAiTool;
         this._lastCanKillPane = canKillPane;
         this.callbacks.postMessage({
           type: "activeSession",
@@ -1352,19 +1374,10 @@ export class SessionRuntime {
           sessionId: activeSessionId,
           windowIndex: activeWindow?.index,
           windowName: activeWindow?.name,
-          paneHasAiTool,
           canKillPane,
         });
       }
-    } catch {
-      // Silently ignore — polling is best-effort
-    }
-  }
-
-  private isPlainShell(command: string): boolean {
-    const shellNames = ["zsh", "bash", "sh", "fish", "dash", "ksh", "tcsh"];
-    const basename = command.split("/").pop() ?? "";
-    return shellNames.includes(basename);
+    } catch {}
   }
 
   private stopClipboardSync(): void {

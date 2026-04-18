@@ -94,17 +94,14 @@ export class ExtensionLifecycle {
     logger.info("Initializing Open Sidebar TUI...");
 
     try {
-      // Initialize terminal manager
       this.terminalManager = new TerminalManager();
 
-      // Initialize services
       this.captureManager = new OutputCaptureManager();
       this.contextSharingService = new ContextSharingService();
       this.outputChannelService = logger;
       this.contextManager = new ContextManager(this.outputChannelService);
       this.instanceDiscoveryService = new InstanceDiscoveryService();
 
-      // Initialize multi-instance support
       this.instanceStore = new InstanceStore();
       this.portManager = new PortManager(this.instanceStore);
       const enableTmux = vscode.workspace
@@ -129,13 +126,11 @@ export class ExtensionLifecycle {
 
       context.subscriptions.push(this.contextManager);
       context.subscriptions.push(this.instanceDiscoveryService);
-
       this.instanceQuickPick = new InstanceQuickPick(
         this.instanceStore,
         this.instanceDiscoveryService,
       );
 
-      // Initialize instance controller for spawn/connect/kill
       const connectionResolver = new ConnectionResolver(
         this.instanceStore,
         this.instanceDiscoveryService,
@@ -150,14 +145,12 @@ export class ExtensionLifecycle {
         connectionResolver,
       );
 
-      // Handle terminal closure for cleanup
       context.subscriptions.push(
         vscode.window.onDidCloseTerminal((terminal) => {
           this.captureManager?.cleanup(terminal);
         }),
       );
 
-      // Initialize TUI provider
       this.tuiProvider = new TerminalProvider(
         context,
         this.terminalManager,
@@ -184,8 +177,17 @@ export class ExtensionLifecycle {
         );
         this.tuiProviderRegistration = providerRegistration;
         context.subscriptions.push(providerRegistration);
+        context.subscriptions.push(
+          vscode.window.registerWebviewPanelSerializer(
+            TerminalProvider.panelViewType,
+            this.tuiProvider,
+          ),
+        );
       } catch (err) {
-        if (err instanceof Error && err.message.includes("already registered")) {
+        if (
+          err instanceof Error &&
+          err.message.includes("already registered")
+        ) {
           logger.warn(
             `[ExtensionLifecycle] ${TerminalProvider.viewType} provider already registered — prior activation still active. Terminal will attach on next view reveal.`,
           );
@@ -213,7 +215,6 @@ export class ExtensionLifecycle {
         );
       }
 
-      // Register commands
       this.registerCommands(context);
 
       this.codeActionProvider = new OpenCodeCodeActionProvider(

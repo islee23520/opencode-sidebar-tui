@@ -1,5 +1,3 @@
-import * as fs from "fs";
-import * as path from "path";
 import * as vscode from "vscode";
 import { TerminalManager } from "../terminals/TerminalManager";
 import { OutputCaptureManager } from "../services/OutputCaptureManager";
@@ -19,9 +17,13 @@ import type { TmuxRawSubcommand } from "../types";
 import { AiToolOperatorRegistry } from "../services/aiTools/AiToolOperatorRegistry";
 import { MessageRouter, MessageRouterProviderBridge } from "./MessageRouter";
 import { SessionRuntime } from "./SessionRuntime";
+import { renderTerminalHtml } from "../webview/terminal/html";
 
-export class TerminalProvider implements vscode.WebviewViewProvider {
+export class TerminalProvider
+  implements vscode.WebviewViewProvider, vscode.WebviewPanelSerializer
+{
   public static readonly viewType = "opencodeTui";
+  public static readonly panelViewType = "opencodeTui.terminalEditor";
 
   private _view?: vscode.WebviewView;
   private _panel?: vscode.WebviewPanel;
@@ -72,6 +74,7 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
       navigateTmuxWindow: (direction) => this.navigateTmuxWindow(direction),
       navigateTmuxSession: (direction) => this.navigateTmuxSession(direction),
       toggleDashboard: () => this.toggleDashboard(),
+      toggleEditorAttachment: () => this.toggleEditorAttachment(),
       restart: () => this.restart(),
       switchToNativeShell: () => this.switchToNativeShell(),
       pasteText: (text) => this.pasteText(text),
@@ -171,6 +174,7 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     }
 
     this.postTerminalConfig();
+    this.postCurrentSessionState(webviewView.webview);
 
     const config = vscode.workspace.getConfiguration("opencodeTui");
     if (config.get<boolean>("autoStartOnOpen", true)) {
@@ -200,51 +204,52 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     this.postWebviewMessage({ type: "focusTerminal" });
   }
 
-  public openInEditorTab(): void {
+  public async toggleEditorAttachment(): Promise<void> {
+    const currentPanel = this._panel;
+    if (currentPanel) {
+      this._panel = undefined;
+      currentPanel.dispose();
+      this.postTerminalConfig();
+      await this.revealSidebarView();
+      return;
+    }
+
+    this.openInEditorTab();
+  }
+
+  public async openInEditorTab(): Promise<void> {
     if (this._panel) {
       this._panel.reveal(vscode.ViewColumn.Active);
       this.focus();
       return;
     }
 
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+
+    if (config.get<boolean>("collapseSecondaryBarOnEditorOpen", true)) {
+      await vscode.commands.executeCommand(
+        "workbench.action.closeAuxiliaryBar",
+      );
+      await vscode.commands.executeCommand("workbench.action.closeSidebar");
+    }
+
     const panel = vscode.window.createWebviewPanel(
-      "opencodeTui.terminalEditor",
+      TerminalProvider.panelViewType,
       "Open Sidebar Terminal",
       vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [this.context.extensionUri],
-      },
+      this.getEditorPanelOptions(),
     );
 
-    this._panel = panel;
-    panel.webview.html = this.getHtmlForWebview(panel.webview);
+    this.initializeEditorPanel(panel);
 
-    const processAlive = this.sessionRuntime.hasLiveTerminalProcess();
-    if (this.sessionRuntime.isStartedFlag() && !processAlive) {
-      this.sessionRuntime.resetState();
-    }
+    await vscode.commands.executeCommand("workbench.action.lockEditorGroup");
+  }
 
-    panel.webview.onDidReceiveMessage((message) => {
-      this.handleMessage(message);
-    });
-
-    if (processAlive) {
-      this.sessionRuntime.reconnectListeners();
-    }
-
-    this.postTerminalConfig();
-
-    panel.onDidDispose(() => {
-      if (this._panel === panel) {
-        this._panel = undefined;
-        if (this._view) {
-          this.postTerminalConfig();
-          this.postWebviewMessage({ type: "webviewVisible" });
-        }
-      }
-    });
+  public async deserializeWebviewPanel(
+    webviewPanel: vscode.WebviewPanel,
+    _state: unknown,
+  ): Promise<void> {
+    this.initializeEditorPanel(webviewPanel);
   }
 
   public formatFileReference(reference: AiToolFileReference): string {
@@ -570,6 +575,80 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     webview?.postMessage(message);
   }
 
+  private postCurrentSessionState(webview: vscode.Webview): void {
+    const selectedSessionId = this.sessionRuntime.getSelectedTmuxSessionId();
+    const resolvedSessionId =
+      this.sessionRuntime.resolveTmuxSessionIdForInstance(
+        this.getActiveInstanceId(),
+      );
+    const sessionId = selectedSessionId ?? resolvedSessionId;
+
+    if (sessionId) {
+      webview.postMessage({
+        type: "activeSession",
+        sessionName: sessionId,
+        sessionId,
+      });
+      return;
+    }
+
+    webview.postMessage({ type: "activeSession" });
+  }
+
+  private getEditorPanelOptions(): vscode.WebviewOptions &
+    vscode.WebviewPanelOptions {
+    return {
+      enableScripts: true,
+      retainContextWhenHidden: true,
+      localResourceRoots: [this.context.extensionUri],
+    };
+  }
+
+  private initializeEditorPanel(panel: vscode.WebviewPanel): void {
+    this._panel = panel;
+    panel.webview.options = this.getEditorPanelOptions();
+    panel.webview.html = this.getHtmlForWebview(panel.webview);
+
+    const processAlive = this.sessionRuntime.hasLiveTerminalProcess();
+    if (this.sessionRuntime.isStartedFlag() && !processAlive) {
+      this.sessionRuntime.resetState();
+    }
+
+    panel.webview.onDidReceiveMessage((message) => {
+      this.handleMessage(message);
+    });
+
+    if (processAlive) {
+      this.sessionRuntime.reconnectListeners();
+    }
+
+    this.postTerminalConfig();
+    this.postCurrentSessionState(panel.webview);
+
+    panel.onDidDispose(() => {
+      if (this._panel === panel) {
+        this._panel = undefined;
+        if (this._view) {
+          this.postTerminalConfig();
+          this.postWebviewMessage({ type: "webviewVisible" });
+        }
+      }
+    });
+  }
+
+  private async revealSidebarView(): Promise<void> {
+    try {
+      await vscode.commands.executeCommand(
+        "workbench.view.extension.opencodeTuiContainer",
+      );
+    } catch {
+      // Best-effort reveal; fall through to showing the specific view when available.
+    }
+
+    this._view?.show?.(true);
+    this.postWebviewMessage({ type: "focusTerminal" });
+  }
+
   private postTerminalConfig(): void {
     const config = vscode.workspace.getConfiguration("opencodeTui");
     this.postWebviewMessage({
@@ -608,23 +687,17 @@ export class TerminalProvider implements vscode.WebviewViewProvider {
     const cursorStyle = config.get<string>("cursorStyle", "block");
     const scrollback = String(config.get<number>("scrollback", 10000));
 
-    const templatePath = path.join(
-      this.context.extensionPath,
-      "dist",
-      "terminal.html",
-    );
-    const template = fs.readFileSync(templatePath, "utf-8");
-
-    return template
-      .replace(/\{\{CSP_SOURCE\}\}/g, webview.cspSource)
-      .replace(/\{\{NONCE\}\}/g, nonce)
-      .replace(/\{\{SCRIPT_URI\}\}/g, scriptUri)
-      .replace(/\{\{CSS_URI\}\}/g, cssUri)
-      .replace(/\{\{FONT_SIZE\}\}/g, fontSize)
-      .replace(/\{\{FONT_FAMILY\}\}/g, fontFamily)
-      .replace(/\{\{CURSOR_BLINK\}\}/g, cursorBlink)
-      .replace(/\{\{CURSOR_STYLE\}\}/g, cursorStyle)
-      .replace(/\{\{SCROLLBACK\}\}/g, scrollback);
+    return renderTerminalHtml({
+      cspSource: webview.cspSource,
+      nonce,
+      cssUri,
+      scriptUri,
+      fontSize,
+      fontFamily,
+      cursorBlink,
+      cursorStyle,
+      scrollback,
+    });
   }
 
   private getNonce(): string {

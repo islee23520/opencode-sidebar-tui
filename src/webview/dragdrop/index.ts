@@ -27,7 +27,7 @@ function extractFilePathFromValue(value: string): string | null {
   try {
     const url = new URL(candidate);
 
-    if (url.protocol === "file:") {
+    if (url.protocol === "file:" || url.protocol === "vscode-file:") {
       const decodedPath = decodeURIComponent(url.pathname);
       const hasWindowsDrivePrefix =
         decodedPath.length >= 3 &&
@@ -99,6 +99,22 @@ function parseDroppedText(payload: string): string[] {
   return paths;
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error("FileReader produced a non-string result"));
+    };
+    reader.onerror = () => reject(new Error("FileReader failed"));
+    reader.onabort = () => reject(new Error("FileReader aborted"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function handleDrop(
   event: DragEvent,
   options: {
@@ -111,9 +127,6 @@ export async function handleDrop(
 
   const transferTypes = Array.from(event.dataTransfer.types ?? []);
   const transferItems = Array.from(event.dataTransfer.items ?? []);
-
-  console.log("Drop event dataTransfer.types:", transferTypes);
-  console.log("Drop event dataTransfer.items:", transferItems.length);
 
   const files: string[] = [];
   const seen = new Set<string>();
@@ -134,60 +147,50 @@ export async function handleDrop(
       item.getAsString((value) => resolve(value ?? ""));
     });
 
-  const uriList = event.dataTransfer.getData("text/uri-list");
-  if (uriList) {
-    const uriListPaths = parseDroppedText(uriList);
-    for (const uriListPath of uriListPaths) {
-      addFile(uriListPath);
+  const consumePayload = (payload: string) => {
+    if (!payload) {
+      return;
+    }
+
+    const extracted = parseDroppedText(payload);
+    for (const p of extracted) {
+      addFile(p);
+    }
+  };
+
+  for (const type of transferTypes) {
+    try {
+      const payload = event.dataTransfer.getData(type);
+      consumePayload(payload);
+    } catch {
     }
   }
 
-  const hasVsCodeInternalType = transferTypes.some((type) =>
-    type.startsWith("application/vnd.code."),
-  );
-
-  if (hasVsCodeInternalType || files.length === 0) {
-    for (const item of transferItems) {
-      if (item.kind !== "string") continue;
-
-      if (
-        item.type === "text/uri-list" ||
-        item.type === "text/plain" ||
-        item.type.startsWith("application/vnd.code.")
-      ) {
-        const payload = await readItemString(item);
-        const payloadPaths = parseDroppedText(payload);
-
-        for (const payloadPath of payloadPaths) {
-          addFile(payloadPath);
-        }
-      }
+  for (const item of transferItems) {
+    if (item.kind !== "string") {
+      continue;
     }
+
+    const payload = await readItemString(item);
+    consumePayload(payload);
   }
 
+  const droppedFileObjects: File[] = [];
   if (event.dataTransfer.files.length > 0) {
-    for (const file of Array.from(event.dataTransfer.files)) {
-      const filePath = (file as File & { path?: string }).path || file.name;
-      addFile(filePath);
-    }
-  }
-
-  if (files.length === 0) {
+    droppedFileObjects.push(...Array.from(event.dataTransfer.files));
+  } else {
     for (let i = 0; i < event.dataTransfer.items.length; i++) {
       const item = event.dataTransfer.items[i];
       if (item.kind === "file") {
         const file = item.getAsFile();
         if (file) {
-          const filePath = (file as File & { path?: string }).path || file.name;
-          addFile(filePath);
+          droppedFileObjects.push(file);
         }
       }
     }
   }
 
   if (files.length > 0) {
-    console.log(`[WEBVIEW] Sending ${files.length} files:`, files);
-
     let dropCell: DropCell | undefined;
     if (event.shiftKey) {
       const screenEl = options.getScreenElement();
@@ -210,18 +213,60 @@ export async function handleDrop(
             col: Math.floor((relX / rect.width) * cols),
             row: Math.floor((relY / rect.height) * rows),
           };
-          console.log(`[WEBVIEW] dropCell computed:`, dropCell);
         }
       }
     }
 
     postMessage({
       type: "filesDropped",
-      files: files,
+      files,
       shiftKey: event.shiftKey,
       dropCell,
     });
-  } else {
-    console.log("[WEBVIEW] No files collected from drop event");
+  } else if (droppedFileObjects.length > 0) {
+    try {
+      const blobFiles = await Promise.all(
+        droppedFileObjects.map(async (file) => ({
+          name: file.name,
+          data: await readFileAsDataUrl(file),
+        })),
+      );
+
+      let dropCell: DropCell | undefined;
+      if (event.shiftKey) {
+        const screenEl = options.getScreenElement();
+        if (screenEl) {
+          const rect = screenEl.getBoundingClientRect();
+          const relX = event.clientX - rect.left;
+          const relY = event.clientY - rect.top;
+          const cols = options.getTerminalCols();
+          const rows = options.getTerminalRows();
+
+          if (
+            relX >= 0 &&
+            relY >= 0 &&
+            relX < rect.width &&
+            relY < rect.height &&
+            cols > 0 &&
+            rows > 0
+          ) {
+            dropCell = {
+              col: Math.floor((relX / rect.width) * cols),
+              row: Math.floor((relY / rect.height) * rows),
+            };
+          }
+        }
+      }
+
+      postMessage({
+        type: "filesDropped",
+        files: [],
+        blobFiles,
+        shiftKey: event.shiftKey,
+        dropCell,
+      });
+    } catch (error) {
+      console.error("[WEBVIEW] Failed to read dropped file blobs", error);
+    }
   }
 }

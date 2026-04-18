@@ -75,6 +75,7 @@ describe("MessageRouter", () => {
       navigateTmuxWindow: vi.fn(async () => undefined),
       navigateTmuxSession: vi.fn(async () => undefined),
       toggleDashboard: vi.fn(),
+      toggleEditorAttachment: vi.fn(async () => undefined),
       restart: vi.fn(),
       switchToNativeShell: vi.fn(async () => undefined),
       pasteText: vi.fn(),
@@ -216,8 +217,8 @@ describe("MessageRouter", () => {
       type: "platformInfo",
       platform: process.platform,
       tmuxAvailable: true,
+    });
   });
-});
 
   it("routes handleMessage cases for provider bridge actions and clipboard operations", async () => {
     vi.mocked(vscode.env.clipboard.readText).mockResolvedValue(
@@ -258,6 +259,7 @@ describe("MessageRouter", () => {
       commandId: "opencodeTui.tmuxCreateWindow",
     });
     await router.handleMessage({ type: "toggleDashboard" });
+    await router.handleMessage({ type: "toggleEditorAttachment" });
     await router.handleMessage({
       type: "openFile",
       path: "src/providers/MessageRouter.ts",
@@ -292,6 +294,7 @@ describe("MessageRouter", () => {
       "opencodeTui.tmuxCreateWindow",
     );
     expect(provider.toggleDashboard).toHaveBeenCalledTimes(1);
+    expect(provider.toggleEditorAttachment).toHaveBeenCalledTimes(1);
     expect(vscode.window.showTextDocument).toHaveBeenCalledTimes(1);
   });
 
@@ -380,6 +383,111 @@ describe("MessageRouter", () => {
       "instance-1",
       "/workspace/docs/guide.md ",
     );
+  });
+
+  it("normalizes vscode-file:// URIs to absolute fsPath for outside-workspace files", async () => {
+    vi.mocked(vscode.workspace.asRelativePath).mockImplementation(
+      (value: string) => value,
+    );
+    vi.mocked(vscode.Uri.parse).mockImplementation((uri: string) => {
+      if (uri.startsWith("vscode-file://")) {
+        const pathname = decodeURIComponent(new URL(uri).pathname);
+        return {
+          fsPath: pathname,
+          path: pathname,
+          scheme: "vscode-file",
+        } as any;
+      }
+      const match = uri.match(/^([a-z]+):\/\/(.+)$/);
+      const p = match ? `/${match[2]}` : uri;
+      return { fsPath: p, path: p, scheme: match?.[1] ?? "file" } as any;
+    });
+
+    router.handleFilesDropped(
+      ["vscode-file:///outside/workspace/file.ts"],
+      false,
+    );
+
+    expect(provider.formatDroppedFiles).toHaveBeenCalledWith(
+      ["/outside/workspace/file.ts"],
+      false,
+    );
+    expect(terminalManager.writeToTerminal).toHaveBeenCalledWith(
+      "instance-1",
+      "/outside/workspace/file.ts ",
+    );
+  });
+
+  it("materializes blob fallback drops to secure temp files", async () => {
+    vi.useFakeTimers();
+    vi.mocked(vscode.workspace.asRelativePath).mockImplementation(
+      (value: string) => value,
+    );
+
+    await router.handleFilesDropped([], false, undefined, [
+      {
+        name: "notes.txt",
+        data: "data:text/plain;base64,SGVsbG8=",
+      },
+    ]);
+
+    expect(mockWriteFile).toHaveBeenCalledWith(
+      "/tmp/opencode-tests/opencode-drop-uuid-1234-notes.txt",
+      expect.any(Buffer),
+      { flag: "wx", mode: 0o600 },
+    );
+    expect(provider.formatDroppedFiles).toHaveBeenCalledWith(
+      ["/tmp/opencode-tests/opencode-drop-uuid-1234-notes.txt"],
+      false,
+    );
+    expect(terminalManager.writeToTerminal).toHaveBeenCalledWith(
+      "instance-1",
+      "/tmp/opencode-tests/opencode-drop-uuid-1234-notes.txt ",
+    );
+
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+
+    expect(mockUnlink).toHaveBeenCalledWith(
+      "/tmp/opencode-tests/opencode-drop-uuid-1234-notes.txt",
+    );
+  });
+
+  it("routes blob fallback drops through tmux pane formatting when shift is held", async () => {
+    vi.mocked(vscode.workspace.asRelativePath).mockImplementation(
+      (value: string) => value,
+    );
+    provider.routeDroppedTextToTmuxPane = vi
+      .fn<MessageRouterProviderBridge["routeDroppedTextToTmuxPane"]>()
+      .mockResolvedValueOnce(true);
+
+    await router.handleFilesDropped([], true, { col: 2, row: 3 }, [
+      {
+        name: "image.png",
+        data: "data:image/png;base64,aGVsbG8=",
+      },
+    ]);
+
+    expect(provider.formatDroppedFiles).toHaveBeenCalledWith(
+      ["/tmp/opencode-tests/opencode-drop-uuid-1234-image.png"],
+      true,
+    );
+    expect(provider.routeDroppedTextToTmuxPane).toHaveBeenCalledWith(
+      "@/tmp/opencode-tests/opencode-drop-uuid-1234-image.png ",
+      { col: 2, row: 3 },
+    );
+  });
+
+  it("rejects invalid blob fallback payloads", async () => {
+    await router.handleFilesDropped([], false, undefined, [
+      {
+        name: "broken.txt",
+        data: "not-a-data-url",
+      },
+    ]);
+
+    expect(mockWriteFile).not.toHaveBeenCalled();
+    expect(provider.formatDroppedFiles).not.toHaveBeenCalled();
+    expect(terminalManager.writeToTerminal).not.toHaveBeenCalled();
   });
 
   it("handles image paste success and cleanup scheduling", async () => {
@@ -628,8 +736,8 @@ describe("MessageRouter", () => {
       type: "platformInfo",
       platform: process.platform,
       tmuxAvailable: true,
+    });
   });
-});
 
   it("logs bridge errors for tmux actions and ignores invalid directions", async () => {
     provider.createTmuxWindow = vi.fn(async () => {

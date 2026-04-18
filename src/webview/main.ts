@@ -1,15 +1,13 @@
 import "@xterm/xterm/css/xterm.css";
-import * as AiSelector from "./ai-tool-selector";
 import * as TmuxPrompt from "./tmux-prompt";
+import * as AiSelector from "./ai-tool-selector";
 import * as TmuxCmd from "./tmux-command-dropdown";
 import { HostMessage } from "../types";
 import { postMessage } from "./shared/vscode-api";
 import { initTerminal } from "./terminal";
 import { createMessageHandler, type MessageHandlerCallbacks } from "./messages";
 import {
-  setupTmuxToolbar,
-  setupPaneControls,
-  setupAiToolButton,
+  setupEditorAttachmentButton,
   setupReloadButton,
   setupTmuxCommandButton,
 } from "./toolbar";
@@ -22,7 +20,6 @@ import {
 const dashboard = createDashboardRenderer();
 
 let currentSessionId: string | null = null;
-let tmuxAvailable = true;
 
 function toggleTmuxCommandMenu(): void {
   if (!currentSessionId) {
@@ -50,8 +47,6 @@ const callbacks: MessageHandlerCallbacks = {
     const toolbar = document.getElementById("tmux-toolbar");
     const label = document.getElementById("tmux-session-label");
     const toolbarControls = document.querySelector(".toolbar-controls");
-    const aiToolBtn = document.getElementById("btn-ai-tool");
-    const killPaneBtn = document.getElementById("btn-kill-pane");
     if ("sessionName" in message && message.sessionName) {
       currentSessionId = message.sessionId;
       if (toolbar) toolbar.classList.remove("hidden");
@@ -65,19 +60,12 @@ const callbacks: MessageHandlerCallbacks = {
       if (toolbarControls) {
         toolbarControls.classList.remove("hidden");
       }
-      if (aiToolBtn) {
-        aiToolBtn.style.display = message.paneHasAiTool ? "none" : "";
-      }
-      if (killPaneBtn) {
-        killPaneBtn.toggleAttribute("disabled", !message.canKillPane);
-      }
     } else {
       currentSessionId = null;
       if (label) label.textContent = "";
       if (toolbarControls) {
         toolbarControls.classList.add("hidden");
       }
-      if (aiToolBtn) aiToolBtn.style.display = "none";
     }
   },
 
@@ -115,8 +103,7 @@ const callbacks: MessageHandlerCallbacks = {
   },
 
   onPlatformInfo(message) {
-    tmuxAvailable = message.tmuxAvailable !== false;
-    updateTmuxOnlyElements(tmuxAvailable);
+    updateTmuxOnlyElements(message.tmuxAvailable !== false);
   },
 };
 
@@ -143,10 +130,8 @@ function initApp(): void {
     messageHandler.fitAddon = instance.fitAddon;
   }
 
-  setupTmuxToolbar();
-  setupPaneControls();
-  setupAiToolButton();
   setupReloadButton();
+  setupEditorAttachmentButton();
   setupTmuxCommandButton(() => currentSessionId);
   setupDashboardEventListeners(() => dashboard.toggle());
 
@@ -156,7 +141,6 @@ function initApp(): void {
 
   setupAiToolSelectorEvents();
 }
-
 const aiCallbacks = {
   postMessage: (msg: unknown) => {
     const m = msg as Record<string, unknown>;
@@ -190,9 +174,7 @@ function setupAiToolSelectorEvents(): void {
     // VS Code keybindings don't fire when xterm has focus,
     // so we handle this directly in the webview.
     const isToggleTmuxCmd =
-      event.altKey &&
-      (event.metaKey || event.ctrlKey) &&
-      event.key.toLowerCase() === "m";
+      event.altKey && (event.metaKey || event.ctrlKey) && event.code === "KeyM";
     if (isToggleTmuxCmd) {
       if (currentSessionId) {
         event.preventDefault();
@@ -220,7 +202,6 @@ function setupAiToolSelectorEvents(): void {
       .composedPath()
       .find((el): el is Element => el instanceof Element);
     if (!target) return;
-
     if (AiSelector.isVisible()) {
       AiSelector.handleClick(target, aiCallbacks);
     }

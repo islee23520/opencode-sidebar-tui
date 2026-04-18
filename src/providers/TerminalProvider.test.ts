@@ -59,6 +59,7 @@ describe("TerminalProvider", () => {
     aiTools?: readonly unknown[];
     nativeShellDefault?: string;
     tmuxSessionDefault?: string;
+    collapseSecondaryBarOnEditorOpen?: boolean;
   }) {
     const {
       autoStartOnOpen = false,
@@ -67,6 +68,7 @@ describe("TerminalProvider", () => {
       aiTools = DEFAULT_AI_TOOLS,
       nativeShellDefault = "",
       tmuxSessionDefault = "",
+      collapseSecondaryBarOnEditorOpen = false,
     } = options ?? {};
 
     const configuration = {
@@ -94,6 +96,9 @@ describe("TerminalProvider", () => {
         }
         if (key === "tmuxSessionDefault") {
           return tmuxSessionDefault;
+        }
+        if (key === "collapseSecondaryBarOnEditorOpen") {
+          return collapseSecondaryBarOnEditorOpen;
         }
         return defaultValue;
       }),
@@ -285,12 +290,12 @@ describe("TerminalProvider", () => {
     expect(rawSpy).toHaveBeenCalledWith("choose-tree", undefined);
   });
 
-  it("opens the terminal renderer in an editor tab", () => {
+  it("opens the terminal renderer in an editor tab", async () => {
     mockConfiguration();
     provider = createProvider();
     resolveProvider(provider);
 
-    provider.openInEditorTab();
+    await provider.openInEditorTab();
 
     expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
       "opencodeTui.terminalEditor",
@@ -305,10 +310,63 @@ describe("TerminalProvider", () => {
 
     const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
       ?.value as any;
+    expect(panel.webview.options).toEqual(
+      expect.objectContaining({
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: expect.any(Array),
+      }),
+    );
     provider.focus();
     expect(panel.webview.postMessage).toHaveBeenCalledWith({
       type: "focusTerminal",
     });
+  });
+
+  it("reinitializes a restored editor panel during deserialization", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    resolveProvider(provider);
+
+    const restoredPanel = (vscode.window.createWebviewPanel as any)();
+    restoredPanel.webview.cspSource = "default-src 'none'";
+
+    await provider.deserializeWebviewPanel(restoredPanel, undefined);
+
+    expect(restoredPanel.webview.html).toContain("default-src 'none'");
+    expect(restoredPanel.webview.onDidReceiveMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles from the sidebar into the editor panel", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    resolveProvider(provider);
+
+    await provider.toggleEditorAttachment();
+
+    expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it("toggles from the editor panel back to the sidebar", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    const { view } = resolveProvider(provider);
+
+    await provider.openInEditorTab();
+    const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
+      ?.value as any;
+    const disposeListener = vi.mocked(panel.onDidDispose).mock.calls[0]?.[0] as
+      | (() => void)
+      | undefined;
+
+    await provider.toggleEditorAttachment();
+    disposeListener?.();
+
+    expect(panel.dispose).toHaveBeenCalledTimes(1);
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.view.extension.opencodeTuiContainer",
+    );
+    expect(view.show).toHaveBeenCalledWith(true);
   });
 
   it("starts default shell for non-tmux session without sidebar tree interaction", async () => {
@@ -1334,21 +1392,126 @@ describe("TerminalProvider", () => {
     expect(startSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses an existing editor panel instead of creating another one", () => {
+  it("opens the terminal renderer in an editor tab and locks its editor group", async () => {
     mockConfiguration();
     provider = createProvider();
     resolveProvider(provider);
 
-    provider.openInEditorTab();
+    await provider.openInEditorTab();
+
+    expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
+      "opencodeTui.terminalEditor",
+      "Open Sidebar Terminal",
+      vscode.ViewColumn.Beside,
+      expect.any(Object),
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.lockEditorGroup",
+    );
+  });
+
+  it("closes the sidebar when opening the editor tab and collapse-on-open is enabled", async () => {
+    mockConfiguration({ collapseSecondaryBarOnEditorOpen: true });
+    provider = createProvider();
+    resolveProvider(provider);
+
+    await provider.openInEditorTab();
+
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.closeAuxiliaryBar",
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.closeSidebar",
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.lockEditorGroup",
+    );
+  });
+
+  it("closes the sidebars before creating the editor panel to avoid layout race", async () => {
+    mockConfiguration({ collapseSecondaryBarOnEditorOpen: true });
+    provider = createProvider();
+    resolveProvider(provider);
+
+    await provider.openInEditorTab();
+
+    const executeCalls = vi.mocked(vscode.commands.executeCommand).mock.calls;
+    const executeOrders = vi.mocked(vscode.commands.executeCommand).mock
+      .invocationCallOrder;
+
+    const closeAuxIdx = executeCalls.findIndex(
+      (args) => args[0] === "workbench.action.closeAuxiliaryBar",
+    );
+    const closeSidebarIdx = executeCalls.findIndex(
+      (args) => args[0] === "workbench.action.closeSidebar",
+    );
+    const createOrder = vi.mocked(vscode.window.createWebviewPanel).mock
+      .invocationCallOrder[0];
+
+    expect(executeOrders[closeAuxIdx]).toBeLessThan(createOrder);
+    expect(executeOrders[closeSidebarIdx]).toBeLessThan(createOrder);
+  });
+
+  it("keeps the sidebar open when opening the editor tab and collapse-on-open is disabled", async () => {
+    mockConfiguration({ collapseSecondaryBarOnEditorOpen: false });
+    provider = createProvider();
+    resolveProvider(provider);
+
+    await provider.openInEditorTab();
+
+    expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+      "workbench.action.closeAuxiliaryBar",
+    );
+    expect(vscode.commands.executeCommand).not.toHaveBeenCalledWith(
+      "workbench.action.closeSidebar",
+    );
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.lockEditorGroup",
+    );
+  });
+
+  it("reuses an existing editor panel instead of creating another one", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    resolveProvider(provider);
+
+    await provider.openInEditorTab();
     const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
       ?.value as any;
     const focusSpy = vi.spyOn(provider, "focus");
 
-    provider.openInEditorTab();
+    await provider.openInEditorTab();
 
     expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
     expect(panel.reveal).toHaveBeenCalledWith(vscode.ViewColumn.Active);
     expect(focusSpy).toHaveBeenCalledTimes(1);
+    expect(vscode.commands.executeCommand).toHaveBeenCalledTimes(1);
+    expect(vscode.commands.executeCommand).toHaveBeenCalledWith(
+      "workbench.action.lockEditorGroup",
+    );
+  });
+
+  it("replays the active session state to the editor panel so the toolbar stays visible", async () => {
+    mockConfiguration();
+    provider = createProvider();
+    const runtime = (provider as any).sessionRuntime;
+    vi.spyOn(runtime, "getSelectedTmuxSessionId").mockReturnValue(
+      "tmux-selected",
+    );
+    vi.spyOn(runtime, "resolveTmuxSessionIdForInstance").mockReturnValue(
+      undefined,
+    );
+    resolveProvider(provider);
+
+    await provider.openInEditorTab();
+
+    const panel = vi.mocked(vscode.window.createWebviewPanel).mock.results[0]
+      ?.value as any;
+    expect(panel.webview.postMessage).toHaveBeenCalledWith({
+      type: "activeSession",
+      sessionName: "tmux-selected",
+      sessionId: "tmux-selected",
+    });
   });
 
   it("executes the dashboard command when toggling the dashboard", () => {

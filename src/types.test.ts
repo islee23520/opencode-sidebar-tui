@@ -91,6 +91,29 @@ describe("Types", () => {
       expect(message.shiftKey).toBe(true);
     });
 
+    it("should accept filesDropped blob fallback message", () => {
+      const message: WebviewMessage = {
+        type: "filesDropped",
+        files: [],
+        shiftKey: false,
+        blobFiles: [
+          {
+            name: "note.txt",
+            data: "data:text/plain;base64,SGVsbG8=",
+          },
+        ],
+      };
+
+      expect(message.type).toBe("filesDropped");
+      expect(message.files).toEqual([]);
+      expect(message.blobFiles).toEqual([
+        {
+          name: "note.txt",
+          data: "data:text/plain;base64,SGVsbG8=",
+        },
+      ]);
+    });
+
     it("should accept tmux session control messages", () => {
       const switchMessage: WebviewMessage = {
         type: "switchSession",
