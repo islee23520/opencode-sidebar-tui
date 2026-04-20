@@ -28,7 +28,6 @@ export function createDashboardRenderer() {
     const container = document.getElementById("dashboard-container");
     const workspaceEl = document.getElementById("dashboard-workspace");
     const listEl = document.getElementById("dashboard-session-list");
-    const toggleBtn = document.getElementById("dashboard-toggle-scope");
 
     if (!container || !listEl) return;
 
@@ -41,10 +40,6 @@ export function createDashboardRenderer() {
 
     if (workspaceEl) {
       workspaceEl.textContent = `Workspace: ${state.workspace || "-"}${state.showingAll ? " (all)" : ""}`;
-    }
-
-    if (toggleBtn) {
-      toggleBtn.textContent = state.showingAll ? "Workspace" : "Global";
     }
 
     if (state.sessions.length === 0) {
@@ -134,23 +129,8 @@ export function setupDashboardEventListeners(
   document.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
 
-    if (target.id === "dashboard-close") {
-      toggleDashboard();
-      return;
-    }
-
     if (target.id === "dashboard-new-tmux") {
       postMessage({ type: "createTmuxSession" });
-      return;
-    }
-
-    if (target.id === "dashboard-new-shell") {
-      postMessage({ type: "createNativeShell" });
-      return;
-    }
-
-    if (target.id === "dashboard-toggle-scope") {
-      postMessage({ type: "dashboardAction", action: "toggleScope" });
       return;
     }
 
