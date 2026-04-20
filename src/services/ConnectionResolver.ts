@@ -7,6 +7,7 @@ import {
 import { InstanceController } from "./InstanceController";
 import { InstanceId, InstanceRecord, InstanceStore } from "./InstanceStore";
 import { OpenCodeApiClient } from "./OpenCodeApiClient";
+import { normalizeComparablePath } from "../utils/pathUtils";
 
 export class ConnectionResolver {
   private readonly clientPool: Map<InstanceId, OpenCodeApiClient> = new Map();
@@ -240,17 +241,7 @@ export class ConnectionResolver {
   }
 
   private normalizePath(pathValue: string): string {
-    let normalized = pathValue.trim().replace(/\\/g, "/");
-
-    while (normalized.length > 1 && normalized.endsWith("/")) {
-      normalized = normalized.slice(0, -1);
-    }
-
-    if (process.platform === "win32" || process.platform === "darwin") {
-      normalized = normalized.toLowerCase();
-    }
-
-    return normalized;
+    return normalizeComparablePath(pathValue, {}, process.platform) ?? "";
   }
 
   private log(message: string): void {

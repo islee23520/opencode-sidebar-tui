@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { basename, resolve } from "node:path";
+import { basename } from "node:path";
 import * as vscode from "vscode";
 import {
   AiToolConfig,
@@ -9,6 +9,7 @@ import {
   TreeSnapshot,
 } from "../types";
 import { ILogger } from "./ILogger";
+import { normalizeComparablePath } from "../utils/pathUtils";
 
 const TMUX_LIST_FORMAT =
   "#{session_name}\t#{session_attached}\t#{session_path}";
@@ -865,36 +866,37 @@ export class TmuxSessionManager {
         });
       const toolsArr = Array.isArray(tools) ? tools : [];
 
-      // Get process tree to resolve tools from descendant processes
       const processMap = new Map<number, { ppid: number; command: string }>();
-      try {
-        const psOutput = await new Promise<string>((resolve, reject) => {
-          this.runExecFile(
-            "ps",
-            ["-ax", "-o", "pid=,ppid=,command="],
-            (error, stdout) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(stdout?.toString() ?? "");
-              }
-            },
-          );
-        });
+      if (process.platform !== "win32") {
+        try {
+          const psOutput = await new Promise<string>((resolve, reject) => {
+            this.runExecFile(
+              "ps",
+              ["-ax", "-o", "pid=,ppid=,command="],
+              (error, stdout) => {
+                if (error) {
+                  reject(error);
+                } else {
+                  resolve(stdout?.toString() ?? "");
+                }
+              },
+            );
+          });
 
-        psOutput.split(/\r?\n/).forEach((line) => {
-          const trimmed = line.trim();
-          if (trimmed.length === 0) return;
-          const parts = trimmed.match(/^\s*(\d+)\s+(\d+)\s+(.+)$/);
-          if (parts) {
-            const pid = parseInt(parts[1], 10);
-            const ppid = parseInt(parts[2], 10);
-            const command = parts[3];
-            processMap.set(pid, { ppid, command });
-          }
-        });
-      } catch {
-        // Ignore ps errors, just use currentCommand
+          psOutput.split(/\r?\n/).forEach((line) => {
+            const trimmed = line.trim();
+            if (trimmed.length === 0) return;
+            const parts = trimmed.match(/^\s*(\d+)\s+(\d+)\s+(.+)$/);
+            if (parts) {
+              const pid = parseInt(parts[1], 10);
+              const ppid = parseInt(parts[2], 10);
+              const command = parts[3];
+              processMap.set(pid, { ppid, command });
+            }
+          });
+        } catch {
+          // Ignore ps errors, just use currentCommand
+        }
       }
 
       // Build child map: parentPid -> childPids[]
@@ -1138,28 +1140,7 @@ export class TmuxSessionManager {
   private normalizeWorkspacePath(
     workspacePath: string | undefined,
   ): string | undefined {
-    const trimmedPath = workspacePath?.trim() ?? "";
-    if (!trimmedPath) {
-      return undefined;
-    }
-
-    const hasDrivePrefix = /^[a-zA-Z]:[/\\]/.test(trimmedPath);
-    const withoutTrailingSlash = trimmedPath.replace(/[\\/]+$/, "");
-    const absolutePath =
-      hasDrivePrefix || withoutTrailingSlash.startsWith("/")
-        ? withoutTrailingSlash
-        : resolve(withoutTrailingSlash);
-    const normalizedSeparators = absolutePath.replace(/\\/g, "/");
-    const normalizedPath =
-      normalizedSeparators.length > 1
-        ? normalizedSeparators.replace(/\/+$/, "")
-        : normalizedSeparators;
-
-    if (process.platform === "win32" || process.platform === "darwin") {
-      return normalizedPath.toLowerCase();
-    }
-
-    return normalizedPath;
+    return normalizeComparablePath(workspacePath, { resolveRelative: true });
   }
 
   private resolveWorkspaceName(
@@ -1175,6 +1156,9 @@ export class TmuxSessionManager {
   }
 
   private buildHookCommand(signalPid: number): string {
+    if (process.platform === "win32") {
+      return `run-shell "echo noop"`;
+    }
     return `run-shell "kill -USR2 ${signalPid} 2>/dev/null || true"`;
   }
 

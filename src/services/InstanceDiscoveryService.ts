@@ -4,6 +4,7 @@ import { OpenCodeApiClient } from "./OpenCodeApiClient";
 import { InstanceConfig, InstanceRecord, InstanceStore } from "./InstanceStore";
 import { OutputChannelService } from "./OutputChannelService";
 import { getToolLaunchCommand, resolveAiToolConfigs } from "../types";
+import { normalizeComparablePath } from "../utils/pathUtils";
 
 const MIN_PORT = 16384;
 const MAX_PORT = 65535;
@@ -546,16 +547,13 @@ export class InstanceDiscoveryService {
   }
 
   private normalizePath(pathValue: string): string {
-    let normalized = pathValue.replace(/\\/g, "/");
-    if (normalized.endsWith("/")) {
-      normalized = normalized.slice(0, -1);
-    }
-
-    if (this.getPlatform() === "win32") {
-      return normalized.toLowerCase();
-    }
-
-    return normalized;
+    return (
+      normalizeComparablePath(
+        pathValue,
+        { caseFolding: "win32-only" },
+        this.getPlatform(),
+      ) ?? ""
+    );
   }
 
   private generateEphemeralPort(): number {

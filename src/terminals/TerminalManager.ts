@@ -57,8 +57,13 @@ export class TerminalManager {
     }>();
     const onExitEmitter = new vscode.EventEmitter<string>();
 
-    // Merge environment variables: custom env > process.env > defaults
+    const windowsDefaults: Record<string, string> =
+      os.platform() === "win32"
+        ? { SystemRoot: process.env.SystemRoot ?? "C:\\Windows" }
+        : {};
+
     const mergedEnv: Record<string, string> = {
+      ...windowsDefaults,
       ...process.env,
       TERM: "xterm-256color",
       ...env,
