@@ -17,6 +17,9 @@ export function createKeyboardHandler(options: KeyboardHandlerOptions = {}) {
       ? event.metaKey && !event.ctrlKey
       : event.ctrlKey && !event.metaKey;
 
+  const isPasteShortcut = (event: KeyboardEvent): boolean =>
+    event.code === "KeyV" && !event.altKey && isWorkbenchPrimaryModifier(event);
+
   const handler = (event: KeyboardEvent): boolean => {
     const isLetterOrDigitChord =
       !event.altKey &&
@@ -24,6 +27,10 @@ export function createKeyboardHandler(options: KeyboardHandlerOptions = {}) {
       isLetterOrDigitCode(event.code);
 
     if (!isLetterOrDigitChord) {
+      return true;
+    }
+
+    if (isPasteShortcut(event)) {
       return true;
     }
 

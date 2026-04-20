@@ -60,6 +60,23 @@ describe("createKeyboardHandler", () => {
       }, false, false);
     });
 
+    it("keeps Cmd+V with the terminal for native paste", () => {
+      expectKeyboardHandling(makeKeyboard(), {
+        metaKey: true,
+        key: "v",
+        code: "KeyV",
+      }, true, false);
+    });
+
+    it("keeps Cmd+Shift+V with the terminal for native paste", () => {
+      expectKeyboardHandling(makeKeyboard(), {
+        metaKey: true,
+        shiftKey: true,
+        key: "V",
+        code: "KeyV",
+      }, true, false);
+    });
+
     it("keeps Ctrl+letter chords with xterm for terminal control characters", () => {
       expectKeyboardHandling(makeKeyboard(), {
         ctrlKey: true,
@@ -95,6 +112,23 @@ describe("createKeyboardHandler", () => {
         key: "1",
         code: "Digit1",
       }, false, false);
+    });
+
+    it("keeps Ctrl+V with the terminal for native paste", () => {
+      expectKeyboardHandling(makeKeyboard(), {
+        ctrlKey: true,
+        key: "v",
+        code: "KeyV",
+      }, true, false);
+    });
+
+    it("keeps Ctrl+Shift+V with the terminal for native paste", () => {
+      expectKeyboardHandling(makeKeyboard(), {
+        ctrlKey: true,
+        shiftKey: true,
+        key: "V",
+        code: "KeyV",
+      }, true, false);
     });
 
     it("keeps stray Cmd+letter chords with xterm", () => {
