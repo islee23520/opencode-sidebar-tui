@@ -11,15 +11,7 @@ import {
   setupEditorAttachmentButton,
   setupReloadButton,
   setupTmuxCommandButton,
-  setupDashboardToggleButton,
 } from "./toolbar";
-
-import {
-  createDashboardRenderer,
-  setupDashboardEventListeners,
-} from "./dashboard-renderer";
-
-const dashboard = createDashboardRenderer();
 
 let currentSessionId: string | null = null;
 
@@ -85,16 +77,6 @@ const callbacks: MessageHandlerCallbacks = {
     );
   },
 
-  onToggleDashboard(message) {
-    dashboard.setVisible(message.visible);
-  },
-
-  onUpdateDashboard(message) {
-    dashboard.updateSessions(message.sessions as any);
-    dashboard.updateWorkspace(message.workspace ?? "");
-    dashboard.updateShowingAll(message.showingAll ?? false);
-  },
-
   onShowTmuxPrompt(message) {
     if (message.tmuxAvailable === false) {
       // tmux not installed — auto-select shell
@@ -145,8 +127,6 @@ function initApp(): void {
   setupReloadButton();
   setupEditorAttachmentButton();
   setupTmuxCommandButton(() => currentSessionId);
-  setupDashboardToggleButton(() => dashboard.toggle());
-  setupDashboardEventListeners(() => dashboard.toggle());
 
   window.addEventListener("message", (event: MessageEvent) => {
     messageHandler.handleEvent(event as MessageEvent<HostMessage>);

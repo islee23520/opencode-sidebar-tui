@@ -12,14 +12,8 @@ export interface MessageHandlerCallbacks {
   onShowAiToolSelector: (
     message: Extract<HostMessage, { type: "showAiToolSelector" }>,
   ) => void;
-  onToggleDashboard: (
-    message: Extract<HostMessage, { type: "toggleDashboard" }>,
-  ) => void;
   onToggleTmuxCommandToolbar: (
     message: Extract<HostMessage, { type: "toggleTmuxCommandToolbar" }>,
-  ) => void;
-  onUpdateDashboard: (
-    message: Extract<HostMessage, { type: "updateDashboard" }>,
   ) => void;
   onShowTmuxPrompt: (
     message: Extract<HostMessage, { type: "showTmuxPrompt" }>,
@@ -128,16 +122,8 @@ export function createMessageHandler(
           callbacks.onShowAiToolSelector(message);
           break;
 
-        case "toggleDashboard":
-          callbacks.onToggleDashboard(message);
-          break;
-
         case "toggleTmuxCommandToolbar":
           callbacks.onToggleTmuxCommandToolbar(message);
-          break;
-
-        case "updateDashboard":
-          callbacks.onUpdateDashboard(message);
           break;
 
         case "showTmuxPrompt":

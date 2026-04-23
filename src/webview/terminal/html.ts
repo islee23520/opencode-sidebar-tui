@@ -1,5 +1,4 @@
 import { renderAiSelector } from "./ai-selector";
-import { renderDashboardSection } from "./dashboard-section";
 import {
   renderTerminalContainer,
   type TerminalContainerParams,
@@ -46,7 +45,6 @@ export function renderTerminalHtml({
       cursorStyle,
       scrollback,
     })}
-    ${renderDashboardSection()}
     ${renderAiSelector()}
     ${renderTmuxPrompt()}
     <script nonce="${nonce}" src="${scriptUri}"></script>

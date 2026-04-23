@@ -18,9 +18,7 @@ describe("createMessageHandler", () => {
     const handler = createMessageHandler({
       onActiveSession: vi.fn(),
       onShowAiToolSelector: vi.fn(),
-      onToggleDashboard: vi.fn(),
       onToggleTmuxCommandToolbar: vi.fn(),
-      onUpdateDashboard: vi.fn(),
       onShowTmuxPrompt: vi.fn(),
       onPlatformInfo: vi.fn(),
     });
