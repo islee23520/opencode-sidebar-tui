@@ -81,8 +81,8 @@ For rapid testing during development:
 
 **Terminal not starting?**
 
-- Check if `omo` command is in PATH
-- Try configuring custom command: `"opencodeTui.command": "opencode"`
+- Check if your configured AI tool command is in PATH
+- Try configuring the tool path under `opencodeTui.aiTools`
 
 **Rendering issues?**
 

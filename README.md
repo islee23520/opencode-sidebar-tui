@@ -13,10 +13,10 @@ If this project helps your workflow, you can [support it on GitHub Sponsors](htt
 - **Auto-launch OpenCode**: Opens OpenCode automatically when the sidebar is activated
 - **Full TUI Support**: Complete terminal emulation with xterm.js and WebGL rendering
 - **Multi-AI Tool Support**: Configure and switch between OpenCode, Claude, Codex, or custom AI tools
-- **Terminal Managers**: Dedicated sidebar view for tmux session management with inline pane and window controls
+- **Terminal Managers**: Dedicated tmux session management surface with inline pane and window controls
 - **Tmux Integration**: Automatic tmux session discovery, workspace-scoped session filtering, and tmux status bar hidden in sidebar
 - **Native Shell Switching**: Toggle between OpenCode and a native shell in the same terminal
-- **Return to Workspace Banner**: Quick navigation back to the active workspace from the Terminal Managers view
+- **Return to Workspace Banner**: Quick navigation back to the active workspace from Terminal Managers
 - **HTTP API Integration**: Bidirectional communication with OpenCode CLI via HTTP API
 - **Auto-Context Sharing**: Automatically shares editor context when terminal opens
 - **File References with Line Numbers**: Send file references with `@filename#L10-L20` syntax
@@ -34,7 +34,7 @@ This extension provides a **sidebar-only** terminal experience. OpenCode runs em
 The extension consists of two primary sidebar views:
 
 1. **OpenCode Terminal** (secondary sidebar): The main interactive TUI session.
-2. **Terminal Managers** (activity bar): A dedicated dashboard for managing tmux sessions, panes, and windows.
+2. **Terminal Managers**: A dedicated surface for managing tmux sessions, panes, and windows.
 
 ### Communication Architecture
 
@@ -134,7 +134,7 @@ npx @vscode/vsce package
 - **Switch Tmux Session** - Switch to a different tmux session
 - **Browse Tmux Sessions** (`Cmd+Alt+T` / `Ctrl+Alt+T`) - Browse and switch between tmux sessions
 - **Switch to Native Shell** - Toggle between OpenCode and a native shell
-- **Open Terminal Managers** - Open the Terminal Managers dashboard view
+- **Open Terminal Managers** - Open the Terminal Managers view
 
 ### Tmux Pane Commands
 
@@ -155,7 +155,7 @@ npx @vscode/vsce package
 - **Select Window** - Choose from available tmux windows
 - **Kill Window** - Close the current tmux window
 - **Kill Session** - Kill the current tmux session
-- **Refresh Terminal Manager** - Refresh the Terminal Managers dashboard
+- **Refresh Terminal Manager** - Refresh Terminal Managers
 
 ### Keyboard Shortcuts
 
@@ -184,7 +184,7 @@ The Terminal Managers view provides advanced tmux session and pane management di
 - **Workspace Filtering**: Filters sessions to show those relevant to your current workspace.
 - **Pane Controls**: Inline buttons to split panes (horizontal/vertical), switch focus, resize, swap, and kill panes.
 - **Window Controls**: Navigate, create, select, and kill tmux windows.
-- **Return to Workspace**: A quick-access banner to navigate back to the active workspace session from the dashboard.
+- **Return to Workspace**: A quick-access banner to navigate back to the active workspace session.
 - **Clean UI**: The tmux status bar is automatically hidden within the sidebar terminal to maximize vertical space.
 
 ## HTTP API Integration
@@ -235,7 +235,6 @@ Available settings in VS Code settings (`Cmd+,` / `Ctrl+,`):
 | ----------------------------- | ------- | ----------------- | ------------------------------------------------------- |
 | `opencodeTui.autoStart`       | boolean | `true`            | Automatically start OpenCode when the view is activated |
 | `opencodeTui.autoStartOnOpen` | boolean | `true`            | Automatically start OpenCode when sidebar is opened     |
-| `opencodeTui.command`         | string  | `"opencode"`      | Command to launch OpenCode with arguments               |
 | `opencodeTui.fontSize`        | number  | `14`              | Terminal font size in pixels (6-25)                     |
 | `opencodeTui.fontFamily`      | string  | Nerd Font stack\* | Terminal font family                                    |
 | `opencodeTui.cursorBlink`     | boolean | `true`            | Enable cursor blinking                                  |
@@ -284,7 +283,6 @@ Available settings in VS Code settings (`Cmd+,` / `Ctrl+,`):
 ```json
 {
   "opencodeTui.autoStart": true,
-  "opencodeTui.command": "opencode",
   "opencodeTui.fontSize": 14,
   "opencodeTui.fontFamily": "'JetBrainsMono Nerd Font', monospace",
   "opencodeTui.cursorBlink": true,
@@ -336,7 +334,7 @@ src/
 ├── providers/
 │   ├── TerminalProvider.ts              # Main sidebar terminal webview provider
 │   ├── TerminalProvider.test.ts         # Provider tests
-│   ├── TerminalDashboardProvider.ts     # Terminal Managers webview provider
+│   ├── TerminalDashboardProvider.ts     # Terminal Managers provider
 │   ├── TerminalDashboardProvider.test.ts # Dashboard tests
 │   ├── CodeActionProvider.ts            # Diagnostic code action provider
 │   ├── CodeActionProvider.test.ts       # Code action tests
