@@ -10,6 +10,7 @@ import { TmuxSessionManager } from "../services/TmuxSessionManager";
 import { AiToolFileReference } from "../services/aiTools/AiToolOperator";
 import {
   AiToolConfig,
+  HostMessage,
   TMUX_RAW_ALLOWED_SUBCOMMANDS,
   resolveAiToolConfigs,
 } from "../types";
@@ -629,9 +630,19 @@ export class TerminalProvider
   }
 
   private postTerminalConfig(): void {
-    const config = vscode.workspace.getConfiguration("opencodeTui");
+    const terminalConfig = this.getTerminalConfig();
     this.postWebviewMessage({
       type: "terminalConfig",
+      ...terminalConfig,
+    });
+  }
+
+  private getTerminalConfig(): Omit<
+    Extract<HostMessage, { type: "terminalConfig" }>,
+    "type"
+  > {
+    const config = vscode.workspace.getConfiguration("opencodeTui");
+    return {
       fontSize: config.get<number>("fontSize", 14),
       fontFamily: config.get<string>(
         "fontFamily",
@@ -643,7 +654,7 @@ export class TerminalProvider
         "block",
       ),
       scrollback: config.get<number>("scrollback", 10000),
-    });
+    };
   }
 
   private getHtmlForWebview(webview: vscode.Webview): string {
@@ -659,23 +670,18 @@ export class TerminalProvider
       .toString();
     const nonce = this.getNonce();
 
-    const config = vscode.workspace.getConfiguration("opencodeTui");
-    const fontSize = String(config.get<number>("fontSize", 14));
-    const fontFamily = config.get<string>("fontFamily", "monospace");
-    const cursorBlink = String(config.get<boolean>("cursorBlink", true));
-    const cursorStyle = config.get<string>("cursorStyle", "block");
-    const scrollback = String(config.get<number>("scrollback", 10000));
+    const terminalConfig = this.getTerminalConfig();
 
     return renderTerminalHtml({
       cspSource: webview.cspSource,
       nonce,
       cssUri,
       scriptUri,
-      fontSize,
-      fontFamily,
-      cursorBlink,
-      cursorStyle,
-      scrollback,
+      fontSize: String(terminalConfig.fontSize),
+      fontFamily: terminalConfig.fontFamily,
+      cursorBlink: String(terminalConfig.cursorBlink),
+      cursorStyle: terminalConfig.cursorStyle,
+      scrollback: String(terminalConfig.scrollback),
     });
   }
 
