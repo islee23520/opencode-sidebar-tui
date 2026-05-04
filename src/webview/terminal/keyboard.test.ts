@@ -196,7 +196,7 @@ describe("createKeyboardHandler", () => {
       expect(sendInput).toHaveBeenCalledWith("\r\n");
     });
 
-    it("does not intercept Shift+Enter when modifiers are held", () => {
+    it("does not intercept Shift+Enter when Ctrl is held", () => {
       const sendInput = vi.fn();
       const keyboard = createKeyboardHandler({ isMac: true, sendInput });
 
@@ -205,6 +205,36 @@ describe("createKeyboardHandler", () => {
         code: "Enter",
         shiftKey: true,
         ctrlKey: true,
+      });
+
+      expect(keyboard.handler(event)).toBe(true);
+      expect(sendInput).not.toHaveBeenCalled();
+    });
+
+    it("does not intercept Shift+Enter when Alt is held", () => {
+      const sendInput = vi.fn();
+      const keyboard = createKeyboardHandler({ isMac: true, sendInput });
+
+      const event = createKeyboardEvent({
+        key: "Enter",
+        code: "Enter",
+        shiftKey: true,
+        altKey: true,
+      });
+
+      expect(keyboard.handler(event)).toBe(true);
+      expect(sendInput).not.toHaveBeenCalled();
+    });
+
+    it("does not intercept Shift+Enter when Meta is held", () => {
+      const sendInput = vi.fn();
+      const keyboard = createKeyboardHandler({ isMac: true, sendInput });
+
+      const event = createKeyboardEvent({
+        key: "Enter",
+        code: "Enter",
+        shiftKey: true,
+        metaKey: true,
       });
 
       expect(keyboard.handler(event)).toBe(true);
@@ -236,6 +266,21 @@ describe("createKeyboardHandler", () => {
       });
 
       expect(keyboard.handler(event)).toBe(true);
+    });
+
+    it("sends \\r\\n on Windows/Linux Shift+Enter", () => {
+      const sendInput = vi.fn();
+      const keyboard = createKeyboardHandler({ isMac: false, sendInput });
+
+      const event = createKeyboardEvent({
+        key: "Enter",
+        code: "Enter",
+        shiftKey: true,
+      });
+
+      expect(keyboard.handler(event)).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
+      expect(sendInput).toHaveBeenCalledWith("\r\n");
     });
   });
 });

@@ -6,7 +6,14 @@ const isLetterOrDigitCode = (code: string): boolean =>
   /^Key[A-Z]$/.test(code) || /^Digit[0-9]$/.test(code);
 
 export interface KeyboardHandlerOptions {
+  /** Whether the platform is macOS (auto-detected if omitted). */
   isMac?: boolean;
+  /**
+   * Callback to send input data through the PTY/host path.
+   * When provided, Shift+Enter sends `\r\n` (multiline newline) via this
+   * callback instead of through xterm's default key processing.
+   * When omitted, Shift+Enter is not intercepted.
+   */
   sendInput?: (data: string) => void;
 }
 
@@ -26,8 +33,13 @@ export function createKeyboardHandler(options: KeyboardHandlerOptions = {}) {
     (event.ctrlKey || event.metaKey) &&
     isLetterOrDigitCode(event.code);
 
+  /** Detect bare Shift+Enter without Ctrl/Meta/Alt modifiers. */
   const isShiftEnter = (event: KeyboardEvent): boolean =>
-    event.key === "Enter" && event.shiftKey && !event.ctrlKey && !event.metaKey;
+    event.key === "Enter" &&
+    event.shiftKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey;
 
   const handler = (event: KeyboardEvent): boolean => {
     if (isShiftEnter(event) && event.type === "keydown" && options.sendInput) {
