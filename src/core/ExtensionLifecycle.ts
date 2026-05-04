@@ -110,35 +110,22 @@ export class ExtensionLifecycle {
 
       this.instanceStore = new InstanceStore();
       this.portManager = new PortManager(this.instanceStore);
-      const enableTmux = vscode.workspace
-        .getConfiguration("opencodeTui")
-        .get<boolean>("enableTmux", true);
-      if (enableTmux) {
-        const tmuxSessionManager = new TmuxSessionManager(logger);
-        if (await tmuxSessionManager.isAvailable()) {
-          this.tmuxSessionManager = tmuxSessionManager;
-        } else {
-          logger.info(
-            "[ExtensionLifecycle] tmux not detected; using native terminal shell behavior",
-          );
-        }
+      const tmuxSessionManager = new TmuxSessionManager(logger);
+      if (await tmuxSessionManager.isAvailable()) {
+        this.tmuxSessionManager = tmuxSessionManager;
       } else {
         logger.info(
-          "[ExtensionLifecycle] tmux disabled by opencodeTui.enableTmux setting; using native terminal shell behavior",
+          "[ExtensionLifecycle] tmux not detected; tmux backend unavailable",
         );
       }
-      const enableZellij = vscode.workspace
-        .getConfiguration("opencodeTui")
-        .get<boolean>("enableZellij", true);
-      if (enableZellij) {
-        const zellijSessionManager = new ZellijSessionManager(logger);
-        if (await zellijSessionManager.isAvailable()) {
-          this.zellijSessionManager = zellijSessionManager;
-        } else {
-          logger.info(
-            "[ExtensionLifecycle] zellij not detected; zellij backend unavailable",
-          );
-        }
+
+      const zellijSessionManager = new ZellijSessionManager(logger);
+      if (await zellijSessionManager.isAvailable()) {
+        this.zellijSessionManager = zellijSessionManager;
+      } else {
+        logger.info(
+          "[ExtensionLifecycle] zellij not detected; zellij backend unavailable",
+        );
       }
       this.backendRegistry = new TerminalBackendRegistry([
         new StaticTerminalBackend("native", "Native", true),

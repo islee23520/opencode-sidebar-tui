@@ -441,11 +441,6 @@
           "default": true,
           "description": "Auto-spawn OpenCode if not running"
         },
-        "opencodeTui.enableTmux": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable tmux session management. Disable to use the extension with a plain terminal shell (no tmux required)."
-        },
         "opencodeTui.terminalBackend": {
           "type": "string",
           "default": "tmux",
@@ -454,12 +449,13 @@
             "tmux",
             "zellij"
           ],
-          "description": "Preferred terminal backend. Unavailable backends safely fall back to native."
-        },
-        "opencodeTui.enableZellij": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable zellij session backend detection and session attach/create support."
+          "enumDescriptions": [
+            "Native terminal — basic shell only, no multiplexer features (panes, tabs, sessions)",
+            "Tmux — full session, pane, and window management via tmux",
+            "Zellij — full session, pane, and tab management via zellij"
+          ],
+          "description": "Select the terminal backend. Unavailable backends safely fall back to native.",
+          "order": 1
         },
         "opencodeTui.collapseSecondaryBarOnEditorOpen": {
           "type": "boolean",
@@ -564,17 +560,7 @@
         "opencodeTui.defaultAiTool": {
           "type": "string",
           "default": "",
-          "description": "Name of the default AI tool to launch when creating a new tmux session"
-        },
-        "opencodeTui.nativeShellDefault": {
-          "type": "string",
-          "default": "",
-          "description": "Default behavior when switching to native shell. Empty = ask every time, 'shell' = default shell, or set any configured AI tool name such as 'opencode', 'claude', or 'codex'"
-        },
-        "opencodeTui.tmuxSessionDefault": {
-          "type": "string",
-          "default": "",
-          "description": "Default behavior when creating a new tmux session. Empty = ask every time, 'shell' = create without launching a tool, or set any configured AI tool name"
+          "description": "Name of the default AI tool to launch when creating a new terminal session"
         }
       }
     }

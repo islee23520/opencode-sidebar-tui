@@ -57,8 +57,6 @@ describe("TerminalProvider", () => {
     enableHttpApi?: boolean;
     defaultAiTool?: string;
     aiTools?: readonly unknown[];
-    nativeShellDefault?: string;
-    tmuxSessionDefault?: string;
     collapseSecondaryBarOnEditorOpen?: boolean;
   }) {
     const {
@@ -66,8 +64,6 @@ describe("TerminalProvider", () => {
       enableHttpApi = false,
       defaultAiTool = "opencode",
       aiTools = DEFAULT_AI_TOOLS,
-      nativeShellDefault = "",
-      tmuxSessionDefault = "",
       collapseSecondaryBarOnEditorOpen = false,
     } = options ?? {};
 
@@ -90,12 +86,6 @@ describe("TerminalProvider", () => {
         }
         if (key === "logLevel") {
           return "error";
-        }
-        if (key === "nativeShellDefault") {
-          return nativeShellDefault;
-        }
-        if (key === "tmuxSessionDefault") {
-          return tmuxSessionDefault;
         }
         if (key === "collapseSecondaryBarOnEditorOpen") {
           return collapseSecondaryBarOnEditorOpen;
@@ -538,7 +528,6 @@ describe("TerminalProvider", () => {
     mockConfiguration({
       autoStartOnOpen: false,
       enableHttpApi: false,
-      nativeShellDefault: "shell",
     });
     const instanceStore = new InstanceStore();
     instanceStore.upsert({
