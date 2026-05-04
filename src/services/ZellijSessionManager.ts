@@ -138,7 +138,6 @@ export class ZellijSessionManager {
     return `zellij attach ${this.shellQuote(sessionName)}`;
   }
 
-  /** Kill a zellij session by name */
   public async killSession(sessionName: string): Promise<void> {
     try {
       await this.runZellij(["kill-session", sessionName]);
@@ -147,7 +146,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Switch to a different zellij session */
   public async switchSession(sessionName: string): Promise<void> {
     try {
       await this.runZellij(["action", "switch-session", sessionName]);
@@ -156,7 +154,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Split the current pane in given direction. Returns new pane ID. */
   public async splitPane(
     direction: "h" | "v",
     options?: { command?: string; workingDirectory?: string },
@@ -183,7 +180,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Close the focused pane */
   public async killPane(): Promise<void> {
     try {
       await this.runZellij(["action", "close-pane"]);
@@ -192,7 +188,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Focus a specific pane by ID */
   public async selectPane(paneId: string): Promise<void> {
     try {
       await this.runZellij(["action", "focus-pane-id", paneId]);
@@ -201,7 +196,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Resize the focused pane */
   public async resizePane(
     direction: "left" | "right" | "up" | "down",
     adjustment: number,
@@ -218,7 +212,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Toggle fullscreen on focused pane */
   public async zoomPane(): Promise<void> {
     try {
       await this.runZellij(["action", "toggle-fullscreen"]);
@@ -227,7 +220,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Send text to the focused pane */
   public async sendTextToPane(
     text: string,
     options?: { submit?: boolean },
@@ -242,7 +234,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** List all panes in current session */
   public async listPanes(): Promise<ZellijPane[]> {
     try {
       const stdout = await this.runZellij(["action", "list-panes"]);
@@ -255,7 +246,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Create a new tab */
   public async createTab(options?: {
     name?: string;
     workingDirectory?: string;
@@ -275,7 +265,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Go to next tab */
   public async nextTab(): Promise<void> {
     try {
       await this.runZellij(["action", "go-to-next-tab"]);
@@ -284,7 +273,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Go to previous tab */
   public async prevTab(): Promise<void> {
     try {
       await this.runZellij(["action", "go-to-previous-tab"]);
@@ -293,7 +281,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Close current tab */
   public async killTab(): Promise<void> {
     try {
       await this.runZellij(["action", "close-tab"]);
@@ -302,7 +289,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Switch to tab by 1-based index */
   public async selectTab(index: number): Promise<void> {
     try {
       await this.runZellij(["action", "go-to-tab", String(index)]);
@@ -311,7 +297,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Rename current tab */
   public async renameTab(name: string): Promise<void> {
     try {
       await this.runZellij(["action", "rename-tab", name]);
@@ -320,7 +305,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** List all tabs */
   public async listTabs(): Promise<ZellijTab[]> {
     try {
       const stdout = await this.runZellij(["action", "list-tabs"]);
@@ -333,7 +317,6 @@ export class ZellijSessionManager {
     }
   }
 
-  /** Get active focus info */
   public async getActiveFocus(): Promise<
     { tabName: string; paneId: string } | undefined
   > {
@@ -355,7 +338,6 @@ export class ZellijSessionManager {
       return undefined;
     }
   }
-  /** Dump screen content of focused pane */
   public async dumpScreen(): Promise<string> {
     try {
       return await this.runZellij(["action", "dump-screen"]);
@@ -443,7 +425,12 @@ export class ZellijSessionManager {
       return undefined;
     }
     const tabParts = line.split("\t");
-    const title = tabParts.length >= 2 ? tabParts[1]?.trim() ?? "" : this.extractNamedValue(line, ["title", "name"]) ?? "";
+    let title = "";
+    if (tabParts.length >= 2) {
+      title = tabParts[1]?.trim() ?? "";
+    } else {
+      title = this.extractNamedValue(line, ["title", "name"]) ?? "";
+    }
     return {
       id,
       title,
@@ -466,18 +453,16 @@ export class ZellijSessionManager {
   }
 
   private parseTabFromLine(line: string, fallbackIndex: number): ZellijTab {
-    // zellij action list-tabs output is whitespace-separated:
-    // "TAB_ID  POSITION  NAME" (header) then "0  0  Tab #1"
     const parts = line.split(/\s{2,}|\t+/).map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 3) {
       const numericId = Number(parts[0]);
       const numericPos = Number(parts[1]);
-      const positionIndex =
-        Number.isFinite(numericPos) && numericPos >= 0
-          ? numericPos + 1
-          : Number.isFinite(numericId) && numericId >= 0
-            ? numericId + 1
-            : fallbackIndex;
+      let positionIndex = fallbackIndex;
+      if (Number.isFinite(numericPos) && numericPos >= 0) {
+        positionIndex = numericPos + 1;
+      } else if (Number.isFinite(numericId) && numericId >= 0) {
+        positionIndex = numericId + 1;
+      }
       return {
         index: positionIndex,
         name: parts[2] ?? `Tab ${positionIndex}`,
@@ -584,7 +569,7 @@ export class ZellijSessionManager {
   }
 
   private async runZellij(args: string[], cwd?: string): Promise<string> {
-    return await new Promise<string>((resolve, reject) => {
+    return new Promise<string>((resolve, reject) => {
       this.runExecFile("zellij", args, cwd ? { cwd } : {}, (error, stdout, stderr) => {
         if (error) {
           reject(Object.assign(error, { stderr: stderr || (error as ExecError).stderr || "" }));

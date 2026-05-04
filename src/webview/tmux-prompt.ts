@@ -1,8 +1,3 @@
-/**
- * Tmux Session Prompt logic for webviews.
- * Shows a modal when no tmux sessions exist, asking user to create one or use normal shell.
- */
-
 export interface TmuxPromptCallbacks {
   postMessage: (message: unknown) => void;
 }

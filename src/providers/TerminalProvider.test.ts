@@ -398,7 +398,7 @@ describe("TerminalProvider", () => {
     );
   });
 
-  it("formats editor references through the active tool operator", async () => {
+  it("formats editor references with the active tool", async () => {
     mockConfiguration({
       autoStartOnOpen: false,
       enableHttpApi: false,

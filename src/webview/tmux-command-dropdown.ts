@@ -449,7 +449,6 @@ export function show(
     searchInput.value = "";
     searchInput.focus();
 
-    // Add input listener if not already added
     if (!searchInput.dataset.listenerAdded) {
       searchInput.addEventListener("input", (e) => {
         query = (e.target as HTMLInputElement).value;

@@ -236,7 +236,6 @@ document.addEventListener("click", (event) => {
 
     return;
   }
-  // Tmux command dropdown trigger
   if (target.closest("#tmux-command-trigger")) {
     if (TmuxCmd.isVisible()) {
       TmuxCmd.hide();
@@ -253,7 +252,6 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  // Tmux command dropdown item click
   if (
     target.closest(".tmux-cmd-item") &&
     !target.closest(".tmux-cmd-item.disabled")
@@ -262,7 +260,6 @@ document.addEventListener("click", (event) => {
     return;
   }
 
-  // Tmux command dropdown click-outside close
   if (
     TmuxCmd.isVisible() &&
     !target.closest("#tmux-command-dropdown") &&

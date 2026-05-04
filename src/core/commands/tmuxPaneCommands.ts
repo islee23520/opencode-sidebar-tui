@@ -151,14 +151,20 @@ async function promptResizeDirectionAndAmount(): Promise<
   if (!direction) {
     return undefined;
   }
-  const dirFlag =
-    direction === "Left"
-      ? "L"
-      : direction === "Right"
-        ? "R"
-        : direction === "Up"
-          ? "U"
-          : "D";
+  const dirFlag: "L" | "R" | "U" | "D" = (() => {
+    switch (direction) {
+      case "Left":
+        return "L";
+      case "Right":
+        return "R";
+      case "Up":
+        return "U";
+      case "Down":
+        return "D";
+      default:
+        return "D";
+    }
+  })();
   const adjustment = await vscode.window.showInputBox({
     prompt: `Resize amount (cells) for ${direction.toLowerCase()}`,
     value: "5",

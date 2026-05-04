@@ -90,7 +90,6 @@ describe("SessionRuntime - Workspace Session Resolution", () => {
     OutputChannelService.resetInstance();
     setConfiguration();
 
-    // Setup workspace folders
     vscode.workspace.workspaceFolders = [
       {
         uri: { fsPath: "/workspace/project-a" },
@@ -99,7 +98,6 @@ describe("SessionRuntime - Workspace Session Resolution", () => {
       },
     ];
 
-    // Create mock tmux session manager with all required methods
     mockTmuxSessionManager = {
       listPanes: vi.fn(),
       listWindows: vi.fn(),
@@ -178,16 +176,13 @@ describe("SessionRuntime - Workspace Session Resolution", () => {
       getCurrentContext: vi.fn(),
     } as unknown as ContextSharingService;
 
-    // Create real instance store (following pattern from TerminalProvider.test.ts)
     instanceStore = new InstanceStore();
 
-    // Create mock logger
     mockLogger = OutputChannelService.getInstance();
     vi.spyOn(mockLogger, "warn");
     vi.spyOn(mockLogger, "error");
     vi.spyOn(mockLogger, "info");
 
-    // Create mock callbacks
     postMessageMock = vi.fn();
     onActiveInstanceChangedMock = vi.fn();
     requestStartOpenCodeMock = vi.fn().mockResolvedValue(undefined);
@@ -205,7 +200,6 @@ describe("SessionRuntime - Workspace Session Resolution", () => {
       },
     };
 
-    // Create SessionRuntime instance with proper typing
     sessionRuntime = new SessionRuntime(
       mockTerminalManager,
       {} as OutputCaptureManager,

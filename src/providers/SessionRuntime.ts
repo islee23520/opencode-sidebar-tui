@@ -834,12 +834,12 @@ export class SessionRuntime {
 
   private async ensureTmuxBackendSession(): Promise<string | undefined> {
     const { workspacePath } = this.resolveStartupWorkspacePath();
-    return await this.ensureWorkspaceSession(workspacePath);
+    return this.ensureWorkspaceSession(workspacePath);
   }
 
   private async ensureZellijBackendSession(): Promise<string | undefined> {
     const { workspacePath } = this.resolveStartupWorkspacePath();
-    return await this.ensureZellijWorkspaceSession(workspacePath);
+    return this.ensureZellijWorkspaceSession(workspacePath);
   }
 
   public resolveInstanceIdFromSessionId(sessionId: string): InstanceId {
@@ -1013,8 +1013,7 @@ export class SessionRuntime {
   }
 
   public async zoomTmuxPane(): Promise<void> {
-    const manager = this.activePaneManager;
-    if (!manager) {
+    if (!this.activePaneManager) {
       return;
     }
     if (this.activeBackend === "zellij") {
@@ -1128,8 +1127,7 @@ export class SessionRuntime {
     text: string,
     dropCell: { col: number; row: number },
   ): Promise<boolean> {
-    const manager = this.activePaneManager;
-    if (!manager) {
+    if (!this.activePaneManager) {
       return false;
     }
     if (this.activeBackend === "zellij") {
@@ -1391,8 +1389,7 @@ export class SessionRuntime {
   private async startExternalChangeMonitoring(
     sessionId: string,
   ): Promise<void> {
-    const manager = this.activePaneManager;
-    if (!manager) {
+    if (!this.activePaneManager) {
       return;
     }
 
@@ -1485,8 +1482,7 @@ export class SessionRuntime {
   }
 
   private async checkPaneChanges(): Promise<void> {
-    const manager = this.activePaneManager;
-    if (!manager) {
+    if (!this.activePaneManager) {
       return;
     }
 

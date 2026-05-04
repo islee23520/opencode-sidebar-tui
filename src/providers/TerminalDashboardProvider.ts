@@ -848,19 +848,21 @@ export class TerminalDashboardProvider
       return this.instanceStore
         .getAll()
         .filter((record) => {
-          // Only include native shell instances (no tmux session)
           if (record.runtime.tmuxSessionId) {
             return false;
           }
-          // Filter by workspace if available
-          if (workspacePath) {
-            const recordWorkspace = record.config.workspaceUri
-              ? vscode.Uri.parse(record.config.workspaceUri).fsPath
-              : undefined;
-            if (recordWorkspace !== workspacePath) {
-              return false;
-            }
+          if (!workspacePath) {
+            return true;
           }
+
+          const recordWorkspace = record.config.workspaceUri
+            ? vscode.Uri.parse(record.config.workspaceUri).fsPath
+            : undefined;
+
+          if (recordWorkspace !== workspacePath) {
+            return false;
+          }
+
           return true;
         })
         .map((record) => ({

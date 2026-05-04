@@ -20,9 +20,6 @@ vi.mock("vscode", async () => {
   return actual;
 });
 
-/**
- * Tests for the TerminalDashboardProvider class.
- */
 describe("TerminalDashboardProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -35,18 +32,12 @@ describe("TerminalDashboardProvider", () => {
     ];
   });
 
-  /**
-   * Flushes the promise queue to ensure all async operations are completed.
-   */
   async function flushPromises(): Promise<void> {
     for (let i = 0; i < 6; i += 1) {
       await Promise.resolve();
     }
   }
 
-  /**
-   * Creates an instance of TerminalDashboardProvider with mocked dependencies.
-   */
   function createProvider(options?: {
     discoverSessions?: ReturnType<typeof vi.fn>;
     listPanes?: ReturnType<typeof vi.fn>;
@@ -154,9 +145,6 @@ describe("TerminalDashboardProvider", () => {
     };
   }
 
-  /**
-   * Resolves the webview view for the provider and returns the view and message handler.
-   */
   function resolveProvider(provider: TerminalDashboardProvider) {
     const view = vscode.WebviewView();
     provider.resolveWebviewView(view as never, {} as never, {} as never);
@@ -203,9 +191,6 @@ describe("TerminalDashboardProvider", () => {
     return { panel, messageHandler };
   }
 
-  /**
-   * Verifies that only sessions matching the current workspace are posted to the webview.
-   */
   it("posts workspace-filtered tmux sessions to the dashboard webview", async () => {
     const { provider } = createProvider({
       discoverSessions: vi.fn().mockResolvedValue([
@@ -343,9 +328,6 @@ describe("TerminalDashboardProvider", () => {
     );
   });
 
-  /**
-   * Verifies that webview actions trigger the correct VS Code commands and refresh the session list.
-   */
   it("routes activate/create/native actions through commands and refreshes", async () => {
     const { provider, discoverSessions } = createProvider({
       discoverSessions: vi.fn().mockResolvedValue([
@@ -402,9 +384,6 @@ describe("TerminalDashboardProvider", () => {
     );
   });
 
-  /**
-   * Verifies that the refresh action triggers a session discovery.
-   */
   it("refreshes sessions when the refresh action is received", async () => {
     const { provider, discoverSessions } = createProvider();
     const { view, messageHandler } = resolveProvider(provider);

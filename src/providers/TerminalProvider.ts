@@ -386,7 +386,7 @@ export class TerminalProvider
     }
 
     const resolvedArgs = await this.resolveRawTmuxCommandArgs(subcommand, args);
-    return await this.tmuxSessionManager.executeRawCommand(
+    return this.tmuxSessionManager.executeRawCommand(
       sessionId,
       subcommand,
       resolvedArgs,
@@ -512,19 +512,19 @@ export class TerminalProvider
   ): Promise<string[]> {
     switch (subcommand) {
       case "rename-session":
-        return await this.promptForTmuxValue(
+        return this.promptForTmuxValue(
           "Rename tmux session",
           "Enter the new tmux session name",
           args[0],
         );
       case "rename-window":
-        return await this.promptForTmuxValue(
+        return this.promptForTmuxValue(
           "Rename tmux window",
           "Enter the new tmux window name",
           args[0],
         );
       case "select-layout":
-        return await this.promptForTmuxValue(
+        return this.promptForTmuxValue(
           "Select tmux layout",
           "Enter a tmux layout name (e.g. even-horizontal, tiled, main-vertical)",
           args[0],
